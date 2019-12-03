@@ -1,0 +1,16 @@
+{
+	"config_dir":"/afs/cern.ch/user/v/vplesano/public/freiburg_setup/config_files/",
+	"configuration_json":"integration_config_ala_bb5.json",
+	"data_path":"/afs/cern.ch/user/v/vplesano/public/NSWConfig_build/work/NSWConfiguration/data/",
+	"run_config_path":"/afs/cern.ch/user/v/vplesano/public/NSWConfig_build/work/NSWConfiguration/",
+	"cal_data_output":"/afs/cern.ch/user/v/vplesano/public/freiburg_setup/calib_data/",
+	"thr_data_output":"/afs/cern.ch/user/v/vplesano/public/freiburg_setup/thresholds/",
+	"json_data_output":"/afs/cern.ch/user/v/vplesano/public/freiburg_setup/calib_json/",
+	"opc_server_name":"hefr40.physik.uni-freiburg.de",
+	"opc_server_port":":48020",
+	"rms":8,
+	"bl_data_output":"/afs/cern.ch/user/v/vplesano/public/freiburg_setup/baselines/",
+	"tp_data_output":"/afs/cern.ch/user/v/vplesano/public/freiburg_setup/test_pulse_dac/",
+	"tp_data_output2":"/afs/cern.ch/user/v/vplesano/public/freiburg_setup/test_pulse_dac2/",
+	"report_log":"/afs/cern.ch/user/v/vplesano/public/freiburg_setup/CalibReport.txt"
+}
