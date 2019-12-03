@@ -57,8 +57,16 @@ In general the sequence for the full cycle would be: --init_conf -> --threshold(
 with appropriate additional options;
 
 **Few warnings:**
-	- **Always** put search string in the -L option that will match the name in working .json file - otherwise >> exception;
-	- -b option sorts FEB names from .json file and starts count from 0 to entered number;
-	- --baseline and --threshold can not be called simultaneously;
-	- if only one FEB was calibrated - one needs to manually call --merge_config and -j options;
+	* **Always** put search string in the -L option that will match the name in working .json file - otherwise >> exception;
+	* -b option sorts FEB names from .json file and starts count from 0 to entered number;
+	* --baseline and --threshold can not be called simultaneously;
+	* if only one FEB was calibrated - one needs to manually call --merge_config and -j options;
+	* in case Nr. of FEBs to be calibrated is >64 -> call --threshold and --cal_thresholds as a separate, consequen processes - otherwise memory gets overloaded and programm flips out.(to be fixed)
+
+
+Usefull links:
+
+Plotting script can be found here:[Plotter](https://gitlab.cern.ch/vplesano/nswcalibrationdataplotter/tree/master)
+NSWConfiguration branch where script comes from:[Freiburg_conf](https://gitlab.cern.ch/atlas-muon-nsw-daq/NSWConfiguration/tree/Freiburg_config)
+
 
