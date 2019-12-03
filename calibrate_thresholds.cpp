@@ -638,15 +638,9 @@ void sca_calib( std::string config_filename,
 //--------------------------------------------------------------------------
 	pt::ptree input_data;
 	pt::read_json(io_config_path, input_data);
-	std::string server=input_data.get<std::string>("opc_server_name");	
-	std::string port=input_data.get<std::string>("opc_server_port");
-	std::string address = server + port;
 //-------------------------------------------------------------------------
 	pt::ptree out_json_l1;
 	pt::ptree out_json_l2;
-
-	out_json_l1.put("OpcServerIp",address); //	
-	out_json_l1.put("OpcNodeId",fe_name);	
 
   std::string out_chan_folder = input_data.get<std::string>("cal_data_output");
 //------------- next 5 lines for the report log file ---------------------------------------------------------------------
@@ -665,6 +659,12 @@ void sca_calib( std::string config_filename,
 //------------- Board level calibration starts ---------------------------------------------------	
 
 	auto feb = frontend_configs.at(fe_name_sorted);
+
+	std::string server=feb.getOpcServerIp();	
+
+	out_json_l1.put("OpcServerIp",server); //	
+	out_json_l1.put("OpcNodeId",fe_name);	
+//------------------------------------------------------------------------------------
 	ch_calib_data.is_open();// add header
 		
 	pt::ptree trimmer_node;

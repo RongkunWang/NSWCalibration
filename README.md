@@ -8,7 +8,8 @@ need libraries from multiple NSW DAQ repos.
 Calibration/configuration module is tied to the input file of .json format to manage data writing and further processing(plotting).
 Input file contains all data output paths, default names of the OPC server and communication port, self location path,
 channel mask and trimmer register json files, and desired default configuration .json file, etc.
-Pathsd have to be setup once and forgotten about. Thing like OPC server/port or json file can be altered without recompilation of the software.
+
+In the file [lxplus_input_data.json] aforementioned data have to be setup once and forgotten about(mainly for output file paths). Things like OPC server/port or working json file name can be altered without recompilation of the software.
 
 Script itself allows to:
 
@@ -57,6 +58,7 @@ In general the sequence for the full cycle would be: --init_conf -> --threshold(
 with appropriate additional options;
 
 **Few warnings:**
+
 	* **Always** put search string in the -L option that will match the name in working .json file - otherwise >> exception;
 	* -b option sorts FEB names from .json file and starts count from 0 to entered number;
 	* --baseline and --threshold can not be called simultaneously;
@@ -66,7 +68,7 @@ with appropriate additional options;
 
 Usefull links:
 
-Plotting script can be found here:[Plotter](https://gitlab.cern.ch/vplesano/nswcalibrationdataplotter/tree/master)
-NSWConfiguration branch where script comes from:[Freiburg_conf](https://gitlab.cern.ch/atlas-muon-nsw-daq/NSWConfiguration/tree/Freiburg_config)
+	Plotting script can be found here:[Plotter](https://gitlab.cern.ch/vplesano/nswcalibrationdataplotter/tree/master)
+	NSWConfiguration branch where script comes from:[Freiburg_conf](https://gitlab.cern.ch/atlas-muon-nsw-daq/NSWConfiguration/tree/Freiburg_config)
 
 
