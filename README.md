@@ -21,11 +21,11 @@ In more detail, use following options (that can be viewed by using option -h):
 
 ------ general function calls -------------------------------------------------------------------
 
-* --init_conf 	-	-> send configuration to FEBs;
-* --baseline 	-	-> read channel baseline;
-* --threshold	-	-> read channel thresholds;
-* --cal_thresholds	-> calibrate global and trimmer DAC;
-* --merge_config	-> merge append channel masking/trimmer values to the initial .json file;
+	* --init_conf 	-	-> send configuration to FEBs;
+	* --baseline 	-	-> read channel baseline;
+	* --threshold	-	-> read channel thresholds;
+	* --cal_thresholds	-> calibrate global and trimmer DAC;
+	* --merge_config	-> merge append channel masking/trimmer values to the initial .json file;
 			(if Nr. of FEBs in operation is >1, function is called automatically)
 
 Every aforementioned option writes notifications in the CalibReport.txt in user defined directory.
@@ -34,15 +34,15 @@ message with date-time stamp and overall procedure time.
  
 ------ other options ----------------------------------------------------------------------------
 
-* -L -> desired FEB or FEB group to be used (default - "") - input string is compared with the FEB names in the .json file and in the case of a match thread will be started;
-* -s -> Nr. of samples per channel (default - 10 (for baselines and threshold calibration multipliers should be considered: BL- x10, THDAC - x2));
-* -R -> desired RMS factor (default - x8);
-* -c -> initial configuration file (default - defined in the input json file);
-* -j -> name of the merged .json file(default - generated_conf.json);
-* -b -> total Nr. of FEBs to be used (default - 2)(in case of absent overriding -L option);
+	* -L -> desired FEB or FEB group to be used (default - "") - input string is compared with the FEB names in the .json file and in the case of a match thread will be started;
+	* -s -> Nr. of samples per channel (default - 10 (for baselines and threshold calibration multipliers should be considered: BL- x10, THDAC - x2));
+	* -R -> desired RMS factor (default - x8);
+	* -c -> initial configuration file (default - defined in the input json file);
+	* -j -> name of the merged .json file(default - generated_conf.json);
+	* -b -> total Nr. of FEBs to be used (default - 2)(in case of absent overriding -L option);
 
-* --debug -> verbose the detailed output for --threshold and --cal_thresholds options;
-* --conn_check -> same, but for --baseline option
+	* --debug -> verbose the detailed output for --threshold and --cal_thresholds options;
+	* --conn_check -> same, but for --baseline option
 -------------------------------------------------------------------------------------------------
 
 So a typical way to use the script would be:
@@ -59,7 +59,7 @@ with appropriate additional options;
 
 **Few warnings:**
 
-	* **Always** put search string in the -L option that will match the name in working .json file - otherwise >> exception;
+	* !Always! put search string in the -L option that will match the name in working .json file - otherwise >> exception;
 	* -b option sorts FEB names from .json file and starts count from 0 to entered number;
 	* --baseline and --threshold can not be called simultaneously;
 	* if only one FEB was calibrated - one needs to manually call --merge_config and -j options;
@@ -68,7 +68,7 @@ with appropriate additional options;
 
 Usefull links:
 
-	Plotting script can be found here:[Plotter](https://gitlab.cern.ch/vplesano/nswcalibrationdataplotter/tree/master)
-	NSWConfiguration branch where script comes from:[Freiburg_conf](https://gitlab.cern.ch/atlas-muon-nsw-daq/NSWConfiguration/tree/Freiburg_config)
+	[Data plotter](https://gitlab.cern.ch/vplesano/nswcalibrationdataplotter/tree/master)
+	[Corresponding NSWConfig branch](https://gitlab.cern.ch/atlas-muon-nsw-daq/NSWConfiguration/tree/Freiburg_config)
 
 
