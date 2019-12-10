@@ -20,9 +20,13 @@
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/FEBConfig.h"
 
-#include "include/CalibrationMath.h"
+//#include "UaoOpcClientForOpcUaSca/"
 
-nsw::CalibrationSca::CalibrationSca(){}
+#include "include/CalibrationMath.h"
+#include "include/CalibrationSca.h"
+
+nsw::CalibrationSca::CalibrationSca(){
+}
 
 //------------- function for the particular processes -----------------------------------
 void nsw::CalibrationSca::read_config( std::string  config_filename, 
@@ -101,7 +105,7 @@ std::vector<float> nsw::CalibrationSca::read_baseline(
 				std::map< std::pair< std::string,int>, float> & channel_baseline_med,
 				std::map< std::pair< std::string,int>, float> & channel_baseline_rms,
 				bool debug,
-				int nsw::ref_val::RMS_CUTOFF
+				int RMS_CUTOFF
 				)
 	{
 	for(int i_try=0; i_try<5; i_try++)
@@ -236,12 +240,14 @@ std::pair<float,int> nsw::CalibrationSca::find_linear_region_slope(nsw::ConfigSe
                           	float & first_trim_slope,
 														bool bad_bl,
 														bool debug,
-														int trim_hi = nsw::ref_val::TrimHi,
+														int trim_hi,
+														int trim_mid,
+														int trim_lo
+														/*int trim_hi = nsw::ref_val::TrimHi,
 														int trim_mid = nsw::ref_val::TrimMid,
 														int trim_lo = nsw::ref_val::TrimLo	
-								//				  int trim_hi=TRIM_HI,
-                   //         int trim_mid=TRIM_MID,
-                    //        int trim_lo=TRIM_LO
+                            int trim_mid = TRIM_MID,
+                            int trim_lo = TRIM_LO*/
 														)
 {
 
@@ -307,7 +313,7 @@ std::pair<float,int> nsw::CalibrationSca::find_linear_region_slope(nsw::ConfigSe
       tmp_mid_eff_threshold = mid;
       tmp_max_eff_threshold = max;
 
-      std::pair<float,float> slopes = cm.get_slopes(min,mid,max);
+      std::pair<float,float> slopes = cm.get_slopes(min,mid,max,trim_hi,trim_mid,trim_lo);
       float m1 = slopes.first;
       float m2 = slopes.second;
       float avg_m = (m1+m2)/2.;
@@ -323,7 +329,8 @@ std::pair<float,int> nsw::CalibrationSca::find_linear_region_slope(nsw::ConfigSe
                   << "], [m2 " << m2 
                   << "] }" <<std::endl;
 
-      if (!cm.check_slopes(m1,m2)){
+			float slope_check_val = nsw::ref_val::SlopeCheck;
+      if (!cm.check_slopes(m1,m2,slope_check_val)){
         return find_linear_region_slope(cs,
                             feb,
 														cm,
@@ -506,7 +513,7 @@ std::map< std::pair< std::string,int>, int>  nsw::CalibrationSca::analyse_trimme
 	}
 
 
-void nsw::Calibration::sca_calib( std::string config_filename,
+void nsw::CalibrationSca::sca_calib( std::string config_filename,
 								std::vector<nsw::FEBConfig> frontend_configs, // if here i use type "auto" for frontend_configs -> get overloaded function call error from cmake!
 								std::string fe_name,
 								std::string io_config_path,
@@ -523,6 +530,9 @@ void nsw::Calibration::sca_calib( std::string config_filename,
 	int NCH_PER_VMM = nsw::ref_val::NchPerVmm;
 	int BASELINE_CUTOFF = nsw::ref_val::BaselineCutoff;
 	int RMS_CUTOFF = nsw::ref_val::RmsCutoff;
+	int TRIM_LO = nsw::ref_val::TrimLo;
+	int TRIM_MID = nsw::ref_val::TrimMid;
+	int TRIM_HI = nsw::ref_val::TrimHi;
 
 //------------------ main business starts here !----------------------
   nsw::ConfigSender cs;
@@ -611,7 +621,7 @@ void nsw::Calibration::sca_calib( std::string config_filename,
 	    fe_samples_tmp.clear();
 			for (int channel_id = 0; channel_id < NCH_PER_VMM; channel_id++)
 			{
-						fe_samples_tmp = sca.read_baseline(
+						fe_samples_tmp = read_baseline(
 							cs,
 							feb,
 							cm,
@@ -751,7 +761,7 @@ void nsw::Calibration::sca_calib( std::string config_filename,
 				int thdac;
 				for(int th_try = 0; th_try < 3; th_try++)
 				{	
-			    thdac = sca.calculate_thdac_value(cs,feb,i_vmm,n_samples,thdac_central_guess,thdac_constants,thdac_guess_variations, debug);
+			    thdac = calculate_thdac_value(cs,feb,cm,i_vmm,n_samples,thdac_central_guess,thdac_constants,thdac_guess_variations, debug);
 
 					std::cout<<"\nINFO - "<<fe_name<<" VMM_"<<i_vmm<<": Calcuated THDAC value -> ["<<thdac<<"] DAC counts"<<std::endl;	
 
@@ -806,7 +816,7 @@ void nsw::Calibration::sca_calib( std::string config_filename,
 					}
 	//-------------- vmm level average function test ------------------------------------
 		
-					fe_samples_tmp = sca.vmm_averages(
+					fe_samples_tmp = vmm_averages(
 							cs,
 							feb,
 							i_vmm,
@@ -841,7 +851,7 @@ void nsw::Calibration::sca_calib( std::string config_filename,
 							if(debug){std::cout<<"Channel "<<channel_id<<" masked, so skipping it"<<std::endl;}
 							continue;
 						}
-						fe_samples_tmp = sca.vmm_averages(
+						fe_samples_tmp = vmm_averages(
 								cs,
 								feb,
 								i_vmm,
@@ -911,6 +921,7 @@ void nsw::Calibration::sca_calib( std::string config_filename,
 	
 		      std::pair<float,int> slopeAndMax = find_linear_region_slope(cs,
 		                            feb,
+																cm,
 		                            i_vmm,
 		                            channel_id,
 		                            thdac2,
@@ -925,9 +936,9 @@ void nsw::Calibration::sca_calib( std::string config_filename,
 																first_trim_slope,
 		                    				bad_bl, 
 												  			debug,
-														    nsw::ref_val::TrimHi,
-		                            nsw::ref_val::TrimMid,
-		                            nsw::ref_val::TrimLo															
+														    TRIM_HI,
+		                            TRIM_MID,
+		                            TRIM_LO															
 		                            );
 		
 		      if(slopeAndMax.first==0){
@@ -1040,7 +1051,8 @@ void nsw::Calibration::sca_calib( std::string config_filename,
 	for(int i=0; i<NCH_PER_VMM; i++)
 	{
 		std::pair<std::string,int> feb_ch(fe_name,i);
-		int extraDAC = DAC_to_add[feb_ch];
+		float extraDAC = DAC_to_add[feb_ch];
+		//int extraDAC = DAC_to_add[feb_ch];
 		if(extraDAC > 0 and cm.sample_to_mV(extraDAC) <= 16)/*mV, half of trimmer working range*/
 		{		
 			add_dac.push_back(extraDAC);

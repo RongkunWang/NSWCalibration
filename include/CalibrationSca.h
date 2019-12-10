@@ -24,6 +24,7 @@
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/FEBConfig.h"
 
+#include "include/CalibrationMath.h"
 //#include "boost/foreach.hpp"
 //#include "boost/program_options.hpp"
 
@@ -32,6 +33,8 @@ namespace nsw{
 class CalibrationSca{ 
 
 public:
+CalibrationSca();
+~CalibrationSca() {};
 
 void read_config(std::string config_filename, 
 									std::string fe_name,
@@ -40,7 +43,7 @@ void read_config(std::string config_filename,
 									std::vector<std::string> &fe_names_v,
 									auto &frontend_configs);
 
-void configure feb(std::vector<nsw::FEBConfig> frontend_configs, int fe_name_sorted);
+void configure_feb(std::vector<nsw::FEBConfig> frontend_configs, int fe_name_sorted);
 
 int calculate_thdac_value(nsw::ConfigSender & cs,
                           nsw::FEBConfig & feb,
@@ -52,7 +55,7 @@ int calculate_thdac_value(nsw::ConfigSender & cs,
                           std::vector<int> & thdac_guess_variations,
 													bool debug);
 
-std::pair<float,int> nsw::CalibrationSca::find_linear_region_slope(nsw::ConfigSender & cs,
+std::pair<float,int> find_linear_region_slope(nsw::ConfigSender & cs,
                             nsw::FEBConfig & feb,
 														nsw::CalibrationMath &cm,
                             int vmm_id,
@@ -69,9 +72,9 @@ std::pair<float,int> nsw::CalibrationSca::find_linear_region_slope(nsw::ConfigSe
                           	float & first_trim_slope,
 														bool bad_bl,
 														bool debug,
-													  int trim_hi=nsw::ref_val::TrimHi,
-                            int trim_mid=nsw::ref_val::TrimMid,
-                            int trim_lo=nsw::ref_val::TrimLo
+													  int trim_hi,
+                            int trim_mid,
+                            int trim_lo
 														);
 
 std::vector<float> read_baseline(nsw::ConfigSender &cs,
@@ -84,7 +87,7 @@ std::vector<float> read_baseline(nsw::ConfigSender &cs,
 												         std::map< std::pair< std::string,int>, float> & channel_baseline_med,
 												         std::map< std::pair< std::string,int>, float> & channel_baseline_rms,
 												         bool debug,
-												         int nsw::ref_val::RmsCutoff);
+												         int RMS_CUTOFF);
 
 std::vector<float> vmm_averages(nsw::ConfigSender &cs,
 															  nsw::FEBConfig &feb,
@@ -102,7 +105,7 @@ std::map< std::pair< std::string,int>, int>  analyse_trimmers(nsw::ConfigSender 
 																												       int i_vmm,
 																												       int channel_id,
 																												       int n_samples,
-																												       int nsw::ref_val::TRIM_MID,
+																												       int TRIM_MID,
 																												       std::map<std::pair<std::string, int>, float> & channel_trimmed_thr,
 																												       int thdac_i,
 																												       std::map< std::pair< std::string,int>, float> & channel_baseline_med,
@@ -117,9 +120,9 @@ std::map< std::pair< std::string,int>, int>  analyse_trimmers(nsw::ConfigSender 
 																												       std::map<std::pair<std::string,int>,int> & DAC_to_add,
 																												       std::map< std::pair< std::string,int>, int> & best_channel_trim,
 																												       std::vector<float> & trim_perf,
-																												       int &bad_trim,
 																												       bool recalc,
-																												       bool debug);
+																												       bool debug
+																															);
 
 void sca_calib( std::string config_filename,
            std::vector<nsw::FEBConfig> frontend_configs, // if here i use type "auto" for frontend_configs -> get overloaded function call error from cmake!

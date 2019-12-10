@@ -179,7 +179,8 @@ int main(int ac, const char* av[]){
 					{
 						if(fe_names_v.at(b).find(dw_layer)!= std::string::npos)
 						{
-							conf_threads[ifeb] = std::thread(sca.configure_feb, frontend_configs, b);
+							nsw::CalibrationSca * calib_ptr = new nsw::CalibrationSca;
+							conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::configure_feb, calib_ptr, frontend_configs, b);
 							ifeb++;
 						}
 						else{continue;}
@@ -202,7 +203,8 @@ int main(int ac, const char* av[]){
 				calibrep<<"\t{"<<N_FEB<<"} FEBs will be configured"<<std::endl;
 				for(int i=0; i<N_FEB; i++)
 				{
-					conf_threads[i] = std::thread(sca.configure_feb, frontend_configs, i);
+					nsw::CalibrationSca * calib_ptr = new nsw::CalibrationSca;
+					conf_threads[i] = std::thread(&nsw::CalibrationSca::configure_feb, calib_ptr, frontend_configs, i);
 				}
 				for(int j=0; j<N_FEB; j++)
 				{
@@ -225,6 +227,7 @@ int main(int ac, const char* av[]){
 			try{
 			//---------------- threshold reading here ---------------------------------
 				full_set=false;	
+				//nsw::CalibrationSca::read_config(config_filename, fe_name, full_set, frontend_names, fe_names_v, frontend_configs);
 				sca.read_config(config_filename, fe_name, full_set, frontend_names, fe_names_v, frontend_configs);
 				int ifeb=0;
 				std::cout<<"\nsearching for FEBs with naming pattern "<<dw_layer<<std::endl;
@@ -247,8 +250,9 @@ int main(int ac, const char* av[]){
 				{
 					if(fe_names_v[l].find(dw_layer)!=std::string::npos)
 					{
-						if(baseline){conf_threads[ifeb] = std::thread(sca.read_baseline_full(config_filename, frontend_configs, io_config_path, n_samples, l, pFEB, fe_names_v.at(l),conn_check));}
-						if(threshold){conf_threads[ifeb] = std::thread(sca.read_thresholds(config_filename, frontend_configs, io_config_path, n_samples, l, pFEB, debug, fe_names_v.at(l)));}
+						nsw::CalibrationSca * calib_ptr = new nsw::CalibrationSca;
+						if(baseline){conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::read_baseline_full, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, l, pFEB, fe_names_v.at(l),conn_check);}
+						if(threshold){conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::read_thresholds, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, l, pFEB, debug, fe_names_v.at(l));}
 						ifeb++;
 					}
 					else{continue;}
@@ -272,15 +276,16 @@ int main(int ac, const char* av[]){
 //----------------------------further is executed if no specific board set is specified-----------------------------------------------------------------------------------------
 		else
 		{
-				read_config(config_filename, fe_name, full_set, frontend_names, fe_names_v, frontend_configs);
+				sca.read_config(config_filename, fe_name, full_set, frontend_names, fe_names_v, frontend_configs);
 				try{
 					std::set<std::string>::iterator ct_it=frontend_names.begin();
 					if(debug and threshold){std::cout<<"| FEB | VMM | CHANNEL | MEAN(mV) | MAX_SAMPLE(mV) | MIN_SAMPLE(mV) |"<<std::endl;}
 					if(conn_check and baseline){std::cout<<"| FEB | VMM | CHANNEL | MEDIAN(mV) | RMS(mV) | MAX_SAMPLE_SPREAD(mV) |"<<std::endl;}
 					for(int i=0; i<N_FEB; i++)
 					{
-						if(threshold){conf_threads[i] = std::thread(sca.read_thresholds(config_filename, frontend_configs, io_config_path, n_samples, i, pFEB, debug, *ct_it));}
-						if(baseline){conf_threads[i] = std::thread(sca.read_baseline_full( config_filename, frontend_configs, io_config_path, n_samples, i, pFEB, *ct_it, conn_check));}
+						nsw::CalibrationSca * calib_ptr = new nsw::CalibrationSca;
+						if(threshold){conf_threads[i] = std::thread(&nsw::CalibrationSca::read_thresholds, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, i, pFEB, debug, *ct_it);}
+						if(baseline){conf_threads[i] = std::thread(&nsw::CalibrationSca::read_baseline_full, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, i, pFEB, *ct_it, conn_check);}
 						ct_it++;
 					}
 					
@@ -324,7 +329,8 @@ int main(int ac, const char* av[]){
 				{
 					if(fe_names_v[b].find(dw_layer)!=std::string::npos)
 					{
-						conf_threads[ifeb] = std::thread(sca.sca_calib(config_filename, frontend_configs, fe_names_v[b], io_config_path, b, n_samples, pFEB, debug, rms));
+						nsw::CalibrationSca * calib_ptr = new nsw::CalibrationSca;
+						conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::sca_calib, calib_ptr, config_filename, frontend_configs, fe_names_v[b], io_config_path, b, n_samples, pFEB, debug, rms);
 						ifeb++;
 					}
 					else{continue;}
@@ -356,7 +362,8 @@ int main(int ac, const char* av[]){
 				std::set<std::string>::iterator ct_it=frontend_names.begin();
 				for(int i = 0; i < N_FEB; i++)
 				{
-					conf_threads[i] = std::thread(sca.sca_calib(config_filename, frontend_configs, *ct_it, io_config_path, i, n_samples, pFEB, debug, rms));
+					nsw::CalibrationSca * calib_ptr = new nsw::CalibrationSca;
+					conf_threads[i] = std::thread(&nsw::CalibrationSca::sca_calib, calib_ptr, config_filename, frontend_configs, *ct_it, io_config_path, i, n_samples, pFEB, debug, rms);
 					ct_it++;
 				}
 				for(int j=0;j<N_FEB;j++)

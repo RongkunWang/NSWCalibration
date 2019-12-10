@@ -21,18 +21,19 @@
 #include "NSWConfiguration/FEBConfig.h"
 
 #include "include/CalibrationSca.h"
+#include "include/CalibrationMath.h"
 
-nsw::CalibtarionMath::CalibrationMath(){
+nsw::CalibrationMath::CalibrationMath(){
 }
 
-float CalibrationMath::take_median(std::vector<float> &v){
+float nsw::CalibrationMath::take_median(std::vector<float> &v){
   size_t n = v.size() / 2;
   std::nth_element(v.begin(), v.begin()+n, v.end());
   float median = v[n];
   return median;
 }
 
-float nsw:;CalibrationMath::take_median(std::vector<short unsigned int> &v) {
+float nsw::CalibrationMath::take_median(std::vector<short unsigned int> &v) {
   size_t n = v.size() / 2;
   std::nth_element(v.begin(), v.begin()+n, v.end());
   float median = v[n];
@@ -47,7 +48,7 @@ float nsw::CalibrationMath::sample_to_mV(short unsigned int sample){
   return sample * 1000. * 1.5 / 4095.0; //1.5 is due to a resistor
 }
 
-float nsw::CalibrationiMath::mV_to_sample(float mV_read){
+float nsw::CalibrationMath::mV_to_sample(float mV_read){
   return mV_read / 1000. / 1.5 * 4095.0; //1.5 is due to a resistor
 }
 
@@ -73,16 +74,19 @@ std::pair<float,float> nsw::CalibrationMath::get_slopes(float ch_lo,
                                   float ch_mid,
                                   float ch_hi,
                                 //  int trim_hi  = TRIM_HI,
-                                  int trim_hi  = nsw::ref_val::TrimHi,
+                                 /* int trim_hi  = nsw::ref_val::TrimHi,
                                   int trim_mid = nsw::ref_val::TrimMid,
-                                  int trim_lo  = nsw::ref_val::TrimLo){
+                                  int trim_lo  = nsw::ref_val::TrimLo*/
+																	int trim_hi,
+																	int trim_mid,
+																	int trim_lo){
   float m1 = (ch_hi - ch_mid)/(trim_hi-trim_mid);
   float m2 = (ch_mid - ch_lo)/(trim_mid-trim_lo);
   return std::make_pair(m1,m2);
 }
 
-bool nsw::CalibrationMath::check_slopes(float m1, float m2){
-  if ( fabs(m1 - m2) > nsw::ref_val::SlopeCheck;/*SLOPE_CHECK*/ )
+bool nsw::CalibrationMath::check_slopes(float m1, float m2, float slope_check_val){
+  if ( fabs(m1 - m2) > slope_check_val/*SLOPE_CHECK*/ )
     return false;
   return true;
 }

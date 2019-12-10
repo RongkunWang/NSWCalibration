@@ -23,9 +23,9 @@ namespace nsw{
 
 class CalibrationMath{
 
-private:
-
 public:
+CalibrationMath();
+~CalibrationMath() {};
 
 float take_median(std::vector<short unsigned int> &v);
 
@@ -41,16 +41,16 @@ float sample_to_mV(short unsigned int sample);
 
 float mV_to_sample(float mV_read);
 
-bool check_channel(float ch_baseline_med, float ch_baseline_rms, );
+bool check_channel(float ch_baseline_med, float ch_baseline_rms, float vmm_baseline_med);
 
-bool check_slopes(float m1, float m2);
+bool check_slopes(float m1, float m2, float slope_check_val);
 
 std::pair<float,float> get_slopes(float ch_lo,
 																	float ch_mid,
 																	float ch_hi,
-																	int trim_hi = TRIM_HI,
-																	int trim_mid = TRIM_MID,
-																	int trim_lo = TRIM_LO);
+																	int trim_hi, /*= TrimHiTRIM_HI*/
+																	int trim_mid, /*= TrimMidTRIM_MID*/
+																	int trim_lo/* = TrimLoTRIM_LO*/);
 
 };
 
@@ -59,7 +59,7 @@ namespace ref_val{
 	const int NchPerVmm = 64;
 	const float RmsCutoff = 30;
 	const	float BaselineCutoff = 20;
-	const	float SlopeCheck = 1/1.5/1000.0*4095.0
+	const	float SlopeCheck = 1/1.5/1000.0*4095.0;
 	const	int TrimMid = 14;
 	const	int TrimLo = 0;
 	const	int	TrimHi = 31;
