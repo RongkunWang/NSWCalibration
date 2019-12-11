@@ -3,11 +3,40 @@
 This is a repository of calibration scripts which 
 need libraries from multiple NSW DAQ repos.
 
-**Small intro about calibrate_thresholds.cpp**
+**Small intro about NSWCalibration**
 
 Calibration/configuration module is tied to the input file of .json format to manage data writing and further processing(plotting).
 Input file contains all data output paths, default names of the OPC server and communication port, self location path,
 channel mask and trimmer register json files, and desired default configuration .json file, etc.
+
+SW has dependencies on the NSWConfiguration libraries - thus installation of NSWConfiguration is a pre-requisite.
+
+**Installation**
+
+Move to the directory where NSWConfiguration is installed and:
+
+```bash
+git clone --recursive https://:@gitlab.cern.ch:8443/atlas-muon-nsw-daq/NSWCalibration.git
+```
+Now there sould be this structure in your work directory
+
+ll path/to/work/dir/
+CMakeLists.txt
+NSWConfiguration
+NSWCalibration
+
+and later just do:
+
+```bash
+cmake_config
+#after cmake configured move to build directory under appropriate hw tag
+cd x64...
+make -j
+```
+
+After this NSWCalibration will be installed and will use appropriate libraties from NSWConfiguration
+
+**Decription of programm**
 
 In the file [lxplus_input_data.json] aforementioned data have to be setup once and forgotten about(mainly for output file paths). Things like OPC server/port or working json file name can be altered without recompilation of the software.
 
@@ -48,10 +77,10 @@ message with date-time stamp and overall procedure time.
 So a typical way to use the script would be:
 
 ```bash
-./calibrate_thresholds -L MM --init_conf		#configure all FEBs which name (in.xml/.json files) have MM in their naming;
-./calibrate_thresholds -L HO --baseline			#read baseline of HO side FEBs with 10(x10) samples per channel;
-./calibrate_thresholds -L L1 --threshold		#read channel thresholds of L1(layer one) FEBs on the DW;
-./calibrate_thresholds -b 2 -s 5 -R 9 --cal_thresholds 	#calibrate threshold and trimmer DAC on the first two FEB VMMs in the .json file;
+./calibrate -L MM --init_conf			#configure all FEBs which name (in.xml/.json files) have MM in their naming;
+./calibrate -L HO --baseline			#read baseline of HO side FEBs with 10(x10) samples per channel;
+./calibrate -L L1 --threshold			#read channel thresholds of L1(layer one) FEBs on the DW;
+./calibrate -b 2 -s 5 -R 9 --cal_thresholds 	#calibrate threshold and trimmer DAC on the first two FEB VMMs in the .json file;
 
 ```
 In general the sequence for the full cycle would be: --init_conf -> --threshold(OR --baseline, then got to start) -> --cal_thresholds -> --init_conf

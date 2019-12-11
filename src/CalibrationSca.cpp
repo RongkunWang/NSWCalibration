@@ -29,12 +29,12 @@ nsw::CalibrationSca::CalibrationSca(){
 }
 
 //------------- function for the particular processes -----------------------------------
-void nsw::CalibrationSca::read_config( std::string  config_filename, 
-													 std::string  fe_name,
+void nsw::CalibrationSca::read_config(std::string  config_filename, 
+													 std::string fe_name,
 													 bool full_set,
                            std::set<std::string> &frontend_names, 
                            std::vector<std::string> &fe_names_v, 
-                           auto & frontend_configs)
+                           std::vector<nsw::FEBConfig> & frontend_configs)
   { 
  //-------------- reads the configuratin json file ----------------------------------   
 		 nsw::ConfigReader reader1("json://" + config_filename); 	//<----INJECT FILE FROM lxplus_input_data.json 

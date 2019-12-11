@@ -157,7 +157,7 @@ int main(int ac, const char* av[]){
 		if(dw_layer.length()>0)
 			{
 			try{
-					full_set=false;	
+					full_set=false;
 					sca.read_config(config_filename, fe_name, full_set, frontend_names, fe_names_v, frontend_configs);
 					int ifeb=0;
 					std::cout<<"\nsearching for FEBs with naming pattern "<<dw_layer<<std::endl;
@@ -198,7 +198,7 @@ int main(int ac, const char* av[]){
 //----------------------------further is executed if no specific board set is specified-----------------------------------------------------------------------------------------
 		else
 		{
-			try{	
+			try{
 				sca.read_config(config_filename, fe_name, full_set, frontend_names, fe_names_v, frontend_configs);
 				calibrep<<"\t{"<<N_FEB<<"} FEBs will be configured"<<std::endl;
 				for(int i=0; i<N_FEB; i++)
@@ -227,7 +227,6 @@ int main(int ac, const char* av[]){
 			try{
 			//---------------- threshold reading here ---------------------------------
 				full_set=false;	
-				//nsw::CalibrationSca::read_config(config_filename, fe_name, full_set, frontend_names, fe_names_v, frontend_configs);
 				sca.read_config(config_filename, fe_name, full_set, frontend_names, fe_names_v, frontend_configs);
 				int ifeb=0;
 				std::cout<<"\nsearching for FEBs with naming pattern "<<dw_layer<<std::endl;
