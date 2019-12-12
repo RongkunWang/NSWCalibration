@@ -1,0 +1,16 @@
+{
+	"config_dir":"/afs/cern.ch/user/v/vplesano/public/bb5_test/config_files/",
+	"configuration_json":"full_small_sector_12.json",
+	"data_path":"/afs/cern.ch/user/v/vplesano/public/NSWConfig_build/work/NSWConfiguration/data/",
+	"run_config_path":"/afs/cern.ch/user/v/vplesano/public/NSWConfig_build/work/NSWConfiguration/",
+	"cal_data_output":"/afs/cern.ch/user/v/vplesano/public/bb5_test/data/",
+	"thr_data_output":"/afs/cern.ch/user/v/vplesano/public/bb5_test/thresholds/",
+	"json_data_output":"/afs/cern.ch/user/v/vplesano/public/bb5_test/calib_json/",
+	"opc_server_name":"pcatlnswfelix04.cern.ch",
+	"opc_server_port":":48020",
+	"rms":8,
+	"bl_data_output":"/afs/cern.ch/user/v/vplesano/public/bb5_test/baselines/",
+	"tp_data_output":"/afs/cern.ch/user/v/vplesano/public/bb5_test/test_pulse_dac/",
+	"tp_data_output2":"/afs/cern.ch/user/v/vplesano/public/bb5_test/test_pulse_dac2/",
+	"report_log":"/afs/cern.ch/user/v/vplesano/public/bb5_test/CalibReport.txt"
+}

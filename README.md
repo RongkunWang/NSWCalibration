@@ -1,35 +1,29 @@
-# NSW Calibration
+# NSWCalibration 
 
-This is a repository of calibration scripts which 
-need libraries from multiple NSW DAQ repos.
-
-# General info and dependencies
-
-## About NSWCalibration
+## Intro 
 
 Calibration/configuration module is tied to the input file of .json format to manage data writing and further processing(plotting).
 Input file contains all data output paths, default names of the OPC server and communication port, self location path,
 channel mask and trimmer register json files, and desired default configuration .json file, etc.
 
-**Mandatory**
+**Mandatory!**
 
-NSWCalibration has dependencies on the NSWConfiguration libraries of _UaoClientForOpcUa_ and _NSWConfiguration_ - thus installation of NSWConfiguration is a pre-requisite.
+NSWCalibration has dependencies on the NSWConfiguration libraries of _UaoClientForOpcUa_ and _NSWConfiguration_ - thus installation of NSWConfiguration is a pre-requisite. In long-term perspective a standalone build should be available.
 
-# Installation
+## Installation
 
 Move to the directory where NSWConfiguration is installed and:
 
 ```bash
 git clone --recursive https://:@gitlab.cern.ch:8443/atlas-muon-nsw-daq/NSWCalibration.git
 ```
-Now there sould be this structure in your work directory
+Now there sould be this structure in your work directory, before compilation:
 
-ll path/to/work/dir/
-CMakeLists.txt
-NSWConfiguration
-NSWCalibration
+* CMakeLists.txt
+* NSWConfiguration
+* NSWCalibration
 
-and later just do:
+Next step is to compile both sw with following commands:
 
 ```bash
 cmake_config
@@ -42,7 +36,7 @@ After this NSWCalibration will be installed and will use appropriate libraties f
 
 # Operation description
 
-In the file [lxplus_input_data.json] aforementioned data have to be setup once and forgotten about(mainly for output file paths). Things like OPC server/port or working json file name can be altered without recompilation of the software.
+In the file [**lxplus_input_data.json**] aforementioned data have to be setup once and forgotten about(mainly for output file paths). Things like OPC server/port or working json file name can be altered without recompilation of the software.
 
 Script itself allows to:
 
@@ -78,7 +72,7 @@ Every aforementioned option writes notifications in the CalibReport.txt in user 
 	* --conn_check -> same, but for --baseline option
 -------------------------------------------------------------------------------------------------
 
-Typical use cases are:
+# Typical use cases are:
 
 ```bash
 ./calibrate -L MM --init_conf			#configure all FEBs which name (in.xml/.json files) have MM in their naming;
@@ -103,7 +97,7 @@ with appropriate additional options;
 	* in case Nr. of FEBs to be calibrated is >64 -> call --threshold and --cal_thresholds as a separate, consequen processes - otherwise memory gets overloaded and programm flips out.(to be fixed)
 
 
-Usefull links:
+# Usefull links:
 
 	[Data plotter](https://gitlab.cern.ch/vplesano/nswcalibrationdataplotter/tree/master)
 	[Corresponding NSWConfig branch](https://gitlab.cern.ch/atlas-muon-nsw-daq/NSWConfiguration/tree/vlad_calib_devmerged)

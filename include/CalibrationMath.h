@@ -65,7 +65,7 @@ namespace ref_val{
 	const	int	TrimHi = 31;
 	const	int ChanThreshCutoff = 1;
 
-};
+}
 
 }
 #endif
