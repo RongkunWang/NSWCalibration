@@ -3,15 +3,19 @@
 This is a repository of calibration scripts which 
 need libraries from multiple NSW DAQ repos.
 
-**Small intro about NSWCalibration**
+# General info and dependencies
+
+## About NSWCalibration
 
 Calibration/configuration module is tied to the input file of .json format to manage data writing and further processing(plotting).
 Input file contains all data output paths, default names of the OPC server and communication port, self location path,
 channel mask and trimmer register json files, and desired default configuration .json file, etc.
 
-SW has dependencies on the NSWConfiguration libraries - thus installation of NSWConfiguration is a pre-requisite.
+**Mandatory**
 
-**Installation**
+NSWCalibration has dependencies on the NSWConfiguration libraries of _UaoClientForOpcUa_ and _NSWConfiguration_ - thus installation of NSWConfiguration is a pre-requisite.
+
+# Installation
 
 Move to the directory where NSWConfiguration is installed and:
 
@@ -36,7 +40,7 @@ make -j
 
 After this NSWCalibration will be installed and will use appropriate libraties from NSWConfiguration
 
-**Decription of programm**
+# Operation description
 
 In the file [lxplus_input_data.json] aforementioned data have to be setup once and forgotten about(mainly for output file paths). Things like OPC server/port or working json file name can be altered without recompilation of the software.
 
@@ -48,7 +52,8 @@ Script itself allows to:
 
 In more detail, use following options (that can be viewed by using option -h):
 
------- general function calls -------------------------------------------------------------------
+## General function calls
+-------------------------------------------------------------------------
 
 	* --init_conf 	-	-> send configuration to FEBs;
 	* --baseline 	-	-> read channel baseline;
@@ -57,11 +62,10 @@ In more detail, use following options (that can be viewed by using option -h):
 	* --merge_config	-> merge append channel masking/trimmer values to the initial .json file;
 			(if Nr. of FEBs in operation is >1, function is called automatically)
 
-Every aforementioned option writes notifications in the CalibReport.txt in user defined directory.
-In case there were no calculations with strong deviations or any misbehaving channels the log woill just have the start 
-message with date-time stamp and overall procedure time.
- 
------- other options ----------------------------------------------------------------------------
+Every aforementioned option writes notifications in the CalibReport.txt in user defined directory. In case there were no calculations with strong deviations or any misbehaving channels the log woill just have the start message with date-time stamp and overall procedure time.
+
+## Other options
+----------------------------------------------------------------------------------
 
 	* -L -> desired FEB or FEB group to be used (default - "") - input string is compared with the FEB names in the .json file and in the case of a match thread will be started;
 	* -s -> Nr. of samples per channel (default - 10 (for baselines and threshold calibration multipliers should be considered: BL- x10, THDAC - x2));
@@ -74,7 +78,7 @@ message with date-time stamp and overall procedure time.
 	* --conn_check -> same, but for --baseline option
 -------------------------------------------------------------------------------------------------
 
-So a typical way to use the script would be:
+Typical use cases are:
 
 ```bash
 ./calibrate -L MM --init_conf			#configure all FEBs which name (in.xml/.json files) have MM in their naming;
@@ -83,7 +87,11 @@ So a typical way to use the script would be:
 ./calibrate -b 2 -s 5 -R 9 --cal_thresholds 	#calibrate threshold and trimmer DAC on the first two FEB VMMs in the .json file;
 
 ```
-In general the sequence for the full cycle would be: --init_conf -> --threshold(OR --baseline, then got to start) -> --cal_thresholds -> --init_conf
+
+In general the sequence for the full cycle would be:
+
+ --init_conf -> --threshold(OR --baseline, then got to start) -> --cal_thresholds -> --init_conf
+
 with appropriate additional options;
 
 **Few warnings:**
@@ -98,6 +106,6 @@ with appropriate additional options;
 Usefull links:
 
 	[Data plotter](https://gitlab.cern.ch/vplesano/nswcalibrationdataplotter/tree/master)
-	[Corresponding NSWConfig branch](https://gitlab.cern.ch/atlas-muon-nsw-daq/NSWConfiguration/tree/Freiburg_config)
+	[Corresponding NSWConfig branch](https://gitlab.cern.ch/atlas-muon-nsw-daq/NSWConfiguration/tree/vlad_calib_devmerged)
 
 

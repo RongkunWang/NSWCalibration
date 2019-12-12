@@ -39,9 +39,9 @@ int main(int ac, const char* av[]){
 //--------------------------------------------------------------
 	namespace pt = boost::property_tree;
 	pt::ptree input_data;
-	std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/NSWConfig_build/work/NSWConfiguration/lxplus_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
-//	std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/NSWConfig_build/work/NSWConfiguration/vs_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
-//	std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/NSWConfig_build/work/NSWConfiguration/bb5_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
+	std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/lxplus_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
+	//std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/bb5_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
+//	std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/vs_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
 	pt::read_json(io_config_path, input_data);
 //-------------------------------------------------------------------
 	
