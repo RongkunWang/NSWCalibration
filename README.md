@@ -31,12 +31,20 @@ cmake_config
 cd x64...
 make -j
 ```
+**In case build exits with pkill error or One of the libraries is not linking properly** - try repeating last step with lesser nr of cores: {make -j5}. For sure it helps when NSWConfigRc.cpp linking is not working properly.
 
 After this NSWCalibration will be installed and will use appropriate libraties from NSWConfiguration
+-----
+As the last step, one should run shell script to setup the calibration data readout directory:
+
+```bash
+./set_dir.sh absolute/path/to/desired/directory/ opc.server-name.cern.ch
+``
+this command will create **[lxplus_input_data.json]** file with all directory references and opc server to access. What remains is to insert desired configuration file name in the node "configuration_json". The file paths can be changed at any time. In general changes in the input .json file do not require recompilation of the SW itself.
+-----
+_Now the installation is complete.(whop, whop!)_
 
 # Operation description
-
-In the file [**lxplus_input_data.json**] aforementioned data have to be setup once and forgotten about(mainly for output file paths). Things like OPC server/port or working json file name can be altered without recompilation of the software.
 
 Script itself allows to:
 
@@ -97,7 +105,7 @@ with appropriate additional options;
 	* in case Nr. of FEBs to be calibrated is >64 -> call --threshold and --cal_thresholds as a separate, consequen processes - otherwise memory gets overloaded and programm flips out.(to be fixed)
 
 
-# Usefull links:
+**Usefull links:**
 
 	[Data plotter](https://gitlab.cern.ch/vplesano/nswcalibrationdataplotter/tree/master)
 	[Corresponding NSWConfig branch](https://gitlab.cern.ch/atlas-muon-nsw-daq/NSWConfiguration/tree/vlad_calib_devmerged)
