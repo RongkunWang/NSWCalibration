@@ -31,17 +31,17 @@ cmake_config
 cd x64...
 make -j
 ```
-**In case build exits with pkill error or One of the libraries is not linking properly** - try repeating last step with lesser nr of cores: {make -j5}. For sure it helps when NSWConfigRc.cpp linking is not working properly.
+In case build exits with pkill error or One of the libraries is not linking properly - try repeating last step with lesser nr of cores: {make -j5}. For sure it helps when NSWConfigRc.cpp linking is not working properly.
 
 After this NSWCalibration will be installed and will use appropriate libraties from NSWConfiguration
------
+
 As the last step, one should run shell script to setup the calibration data readout directory:
 
 ```bash
 ./set_dir.sh absolute/path/to/desired/directory/ opc.server-name.cern.ch
 ``
 this command will create **[lxplus_input_data.json]** file with all directory references and opc server to access. What remains is to insert desired configuration file name in the node "configuration_json". The file paths can be changed at any time. In general changes in the input .json file do not require recompilation of the SW itself.
------
+
 _Now the installation is complete.(whop, whop!)_
 
 # Operation description
