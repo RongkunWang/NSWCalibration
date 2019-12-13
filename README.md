@@ -39,7 +39,7 @@ As the last step, one should run shell script to setup the calibration data read
 
 ```bash
 ./set_dir.sh absolute/path/to/desired/directory/ opc.server-name.cern.ch
-``
+```
 this command will create **[lxplus_input_data.json]** file with all directory references and opc server to access. What remains is to insert desired configuration file name in the node "configuration_json". The file paths can be changed at any time. In general changes in the input .json file do not require recompilation of the SW itself.
 
 _Now the installation is complete.(whop, whop!)_
