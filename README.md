@@ -40,7 +40,28 @@ As the last step, one should run shell script to setup the calibration data read
 ```bash
 ./set_dir.sh absolute/path/to/desired/directory/ opc.server-name.cern.ch
 ```
-this command will create **[lxplus_input_data.json]** file with all directory references and opc server to access. What remains is to insert desired configuration file name in the node "configuration_json". The file paths can be changed at any time. In general changes in the input .json file do not require recompilation of the SW itself.
+this command will create **[lxplus_input_data.json]** file with all directory references and opc server to access. The file looks like this:
+
+```
+# Absolute paths have to be specified
+# mainly keys point to the absolute path of some specific output/input files
+{
+"config_dir":"/afs/cern.ch/user/v/vplesano/public/NSWCalibrationData/config_files/",		#location of the configuration files
+"configuration_json":"integration_config_ala_bb5.json",						#configuration file of choice in the config_files
+"cal_data_output":"/afs/cern.ch/user/v/vplesano/public/NSWCalibrationData/calib_data/",		#calibration data output file
+"thr_data_output":"/afs/cern.ch/user/v/vplesano/public/NSWCalibrationData/thresholds/",		#untrimmed threshold data file 
+"json_data_output":"/afs/cern.ch/user/v/vplesano/public/NSWCalibrationData/calib_json/",	#json files that hold mask and trimmer values
+"opc_server_name":"hefr40.physik.unifreiburg.de",						#reserved but not used yet, opc server hostname
+"opc_server_port":":48020",									#reserved but not used yet, communication port
+"bl_data_output":"/afs/cern.ch/user/v/vplesano/public/NSWCalibrationData/baselines/",		#sampled baseline out. file
+"tp_data_output":"/afs/cern.ch/user/v/vplesano/public/NSWCalibrationData/test_pulse_dac/",	#pulser dac calibration out. file
+"tp_data_output2":"/afs/cern.ch/user/v/vplesano/public/NSWCalibrationData/test_pulse_dac2/",	#reserved for future dev.
+"report_log":"/afs/cern.ch/user/v/vplesano/public/NSWCalibrationData/CalibReport.txt",		#Report log file
+"archive":"/afs/cern.ch/user/v/vplesano/public/NSWCalibrationData/archive/"			#archive
+}
+```
+
+What remains is to insert desired configuration file name in the node "configuration_json". The file paths can be changed at any time. In general changes in the input .json file do not require recompilation of the SW itself.
 
 _Now the installation is complete.(whop, whop!)_
 

@@ -20,8 +20,6 @@
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/FEBConfig.h"
 
-//#include "UaoOpcClientForOpcUaSca/"
-
 #include "include/CalibrationMath.h"
 #include "include/CalibrationSca.h"
 
@@ -918,7 +916,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 		      float tmp_mid_eff_threshold = 0.;
 		      float tmp_max_eff_threshold = 0.;
 					float	first_trim_slope = 0;
-	
+				
 		      std::pair<float,int> slopeAndMax = find_linear_region_slope(cs,
 		                            feb,
 																cm,
@@ -1039,7 +1037,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 	auto e1 = std::chrono::high_resolution_clock::now();
 	float trim_mean = (std::accumulate(trim_perf.begin(), trim_perf.end(), 0.0)/(trim_perf.size()));	//
 	float trim_rms = cm.take_rms(trim_perf, trim_mean);																									// check for eff. thr. scattering around mean
-	if(trim_rms >= 15 or bad_trim >= 8)
+	if(trim_rms >= 15 or bad_trim >= 16)
 	{
 		mtx.lock();
 		calibrep<<fe_name<<" VMM_"<<i_vmm<<": Large effective threshold RMS - ["<<trim_rms<<"], OR many badly trimmed CH - ["<<bad_trim<<"/64](try 1)"<<std::endl;
@@ -1112,7 +1110,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 		thdacs[feb.getAddress()] = thdac_new; //rewriting thdac after its raised for this VMM
 		float trim_mean = (std::accumulate(trim_perf.begin(), trim_perf.end(), 0.0)/(trim_perf.size()));
 		float trim_rms2 = cm.take_rms(trim_perf, trim_mean);
-		if(trim_rms2 >= 10 or bad_trim >= 8)
+		if(trim_rms2 >= 10 or bad_trim >= 16)
 		{
 			mtx.lock();
 			calibrep<<fe_name<<" VMM_"<<i_vmm<<": Large effective threshold RMS - ["<<trim_rms2<<"] ,OR many badly trimmed CH - ["<<bad_trim<<"/64](try 2)"<<std::endl;
@@ -1124,7 +1122,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 		int thdac_to_json = thdacs[feb.getAddress()];
 		if(debug){std::cout<<"CHECK - thdac for "<<fe_name<<" at this point is ["<<thdac_to_json<<"]"<<std::endl;}
 		out_json_l2.put("sdt_dac", thdac_to_json); //later move this to the place where thdac is altered lats time (it might change later during calibration...)
-//--------------- channel calib parameters to file ----------------------------------- 			
+//--------------- channel calib parameters to file ----------------------------------- 			 
 
 		auto f0 = std::chrono::high_resolution_clock::now();
 			for(int channel_id=0;channel_id<NCH_PER_VMM; channel_id++)
@@ -1353,7 +1351,7 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 		std::vector<short unsigned int> results;
 
 		auto t0 = std::chrono::high_resolution_clock::now();
-		int fault_chan = 0;
+		int fault_chan = 0, noisy_channels = 0;
 
     	for (int channel_id = 0; channel_id < 64; channel_id++) {
 							
@@ -1369,7 +1367,9 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
      	  float mean   = sum / results.size();	
 				float median = cm.take_median(results); 
 				float rms = cm.take_rms(results,mean); 
-	
+				
+				if(cm.sample_to_mV(rms)>30){noisy_channels++;}
+				
 				if(conn_check)
 				{
 					if(cm.sample_to_mV(mean)>180)
@@ -1407,10 +1407,17 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 		std::chrono::duration<double>	t_bl = t1 - t0;
 		if(conn_check){std::cout<<"VMM_"<<vmm_id<<" done in "<<t_bl.count()<<"[s]"<<std::endl;}
 
+		if(noisy_channels>16){
+			std::cout<<"\n[ [WARNING!] - "<<fe_name<<" -> VMM "<<vmm_id<<" has >16 channels w noise above 30mV - "<<noisy_channels<<" ]]\n"<<std::endl;
+			mtx.lock();
+			calibrep<<fe_name<<" VMM_"<<vmm_id<<" >>"<<fault_chan<<"<< faulty channels\n"<<std::endl;
+			mtx.unlock();
+		}
+
 		std::cout<<fe_name<<" VMM_"<<vmm_id<<" done"<<std::endl;
   	results.clear(); 
 		if(fault_chan>10 and fault_chan<32){
-			std::cout<<"\n[[ [WARNING!] - "<<fe_name<<" -> VMM "<<vmm_id<<" has >10 faulty channels - "<<fault_chan<<" ]]\n"<<std::endl;
+			std::cout<<"\n[ [WARNING!] - "<<fe_name<<" -> VMM "<<vmm_id<<" has >10 faulty channels - "<<fault_chan<<" ]]\n"<<std::endl;
 			mtx.lock();
 			calibrep<<fe_name<<" VMM_"<<vmm_id<<" >>"<<fault_chan<<"<< faulty channels\n"<<std::endl;
 			mtx.unlock();

@@ -58,7 +58,7 @@ namespace ref_val{
 
 	const int NchPerVmm = 64;
 	const float RmsCutoff = 30;
-	const	float BaselineCutoff = 20;
+	const	float BaselineCutoff = 10;//20//original;
 	const	float SlopeCheck = 1/1.5/1000.0*4095.0;
 	const	int TrimMid = 14;
 	const	int TrimLo = 0;
