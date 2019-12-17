@@ -40,7 +40,7 @@ As the last step, one should run shell script to setup the calibration data read
 ```bash
 ./set_dir.sh absolute/path/to/desired/directory/ opc.server-name.cern.ch
 ```
-this command will create **[lxplus_input_data.json]** file with all directory references and opc server to access. The file looks like this:
+This shell script has twofold purpose. First is creation of the **[lxplus_input_data.json]** file with all directory references and opc server to access. The file looks like this:
 
 ```
 # Absolute paths have to be specified
@@ -60,6 +60,55 @@ this command will create **[lxplus_input_data.json]** file with all directory re
 "archive":"/afs/cern.ch/user/v/vplesano/public/NSWCalibrationData/archive/"			#archive
 }
 ```
+The second action of the shell script is to create output file directories defined by user in the .json fiel above with following structure(examplary):
+
+```
+NSWCalibrationData/
+├── archive
+│   ├── RootFiles
+│   │   ├── baseline_tree_17-12-2019_10-02-20.root
+│   │   ├── baseline_tree_17-12-2019_10-02-47.root
+│   │   ├── baseline_tree_17-12-2019_10-03-18.root
+│   │   ├── data_tree_17-12-2019_10-02-20.root
+│   │   ├── data_tree_17-12-2019_10-02-47.root
+│   │   ├── data_tree_17-12-2019_10-03-18.root
+│   │   ├── data_tree_17-12-2019_11-26-44.root
+│   │   ├── threshold_tree_17-12-2019_10-02-20.root
+│   │   ├── threshold_tree_17-12-2019_10-02-47.root
+│   │   ├── threshold_tree_17-12-2019_10-03-18.root
+│   │   └── threshold_tree_17-12-2019_11-26-44.root
+│   └── TextFiles
+│       ├── Baselines_17-12-2019_10-02-19.txt
+│       ├── Baselines_17-12-2019_10-02-47.txt
+│       ├── Baselines_17-12-2019_10-03-18.txt
+│       ├── Calib_data_17-12-2019_10-02-20.txt
+│       ├── Calib_data_17-12-2019_10-02-47.txt
+│       ├── Calib_data_17-12-2019_10-03-18.txt
+│       ├── Calib_data_17-12-2019_11-26-44.txt
+│       ├── Untrimmed_thresholds_17-12-2019_10-02-20.txt
+│       ├── Untrimmed_thresholds_17-12-2019_10-02-47.txt
+│       ├── Untrimmed_thresholds_17-12-2019_10-03-18.txt
+│       └── Untrimmed_thresholds_17-12-2019_11-26-44.txt
+├── baselines							
+│   ├── MMFE8-0000_full_bl.txt
+│   └── MMFE8-0001_full_bl.txt
+├── calib_data
+│   ├── MMFE8-0000_data.txt
+│   └── MMFE8-0001_data.txt
+├── calib_json
+│   ├── MMFE8-0000_config_test2.json
+│   └── MMFE8-0001_config_test2.json
+├── CalibReport.txt
+├── config_files
+│   ├── generated_config_sdsm_appended.json
+│   └── integration_config_ala_bb5.json
+├── test_pulse_dac
+└── thresholds
+    ├── MMFE8-0000_thresholds.txt
+    └── MMFE8-0001_thresholds.txt
+
+```
+Files for separate FEBs in the baselines/, calib_data/, calib_json/, thresholds/ and test_pulse_dac/ are overwritten each time one starts a new calibration run and their merged copy is held in the archive (created by the NSWCalibrationDataPlotter)
 
 What remains is to insert desired configuration file name in the node "configuration_json". The file paths can be changed at any time. In general changes in the input .json file do not require recompilation of the SW itself.
 
@@ -124,7 +173,6 @@ with appropriate additional options;
 	* --baseline and --threshold can not be called simultaneously;
 	* if only one FEB was calibrated - one needs to manually call --merge_config and -j options;
 	* in case Nr. of FEBs to be calibrated is >64 -> call --threshold and --cal_thresholds as a separate, consequen processes - otherwise memory gets overloaded and programm flips out.(to be fixed)
-
 
 **Usefull links:**
 
