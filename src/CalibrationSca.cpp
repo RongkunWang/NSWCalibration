@@ -417,7 +417,7 @@ std::map< std::pair< std::string,int>, int>  nsw::CalibrationSca::analyse_trimme
 			std::vector<int> & channel_mask,
 			std::map<std::pair<std::string,int>,int> & DAC_to_add,
 			std::map< std::pair< std::string,int>, int> & best_channel_trim,
-			std::vector<float> & trim_perf,
+//			std::vector<float> & trim_perf,
 			bool recalc,
 			bool debug
 			)
@@ -477,7 +477,7 @@ std::map< std::pair< std::string,int>, int>  nsw::CalibrationSca::analyse_trimme
 	
 	        float median = cm.take_median(results);
 	        float eff_thresh = median - channel_baseline_med[feb_ch];
-					trim_perf.push_back(eff_thresh);					
+//					trim_perf.push_back(eff_thresh);					
 
 					if(debug){std::cout<<"INFO - "<<feb.getAddress()<<" VMM_"<<i_vmm<<" channel "<<channel_id<<" - THR(eff) = "<<eff_thresh<<" ADC"<<std::endl;}
 
@@ -993,7 +993,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 			std::map<std::pair<std::string, int>, float> channel_trimmed_thr;
 			std::map<std::pair<std::string,int>,int> DAC_to_add;// value to add to THDAC is one of the channels with neg. thr. is unmasked
 		//--------- check for trimmer performance vector of effective thr. --------		
-			std::vector<float> trim_perf;
+//			std::vector<float> trim_perf;
 	
 	auto e0 = std::chrono::high_resolution_clock::now();
 			bool recalc = false;
@@ -1029,18 +1029,19 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 									channel_mask,
 									DAC_to_add,
 									best_channel_trim,
-									trim_perf,
+//								trim_perf,
 									recalc,
 									debug
 									);
 			}
 	auto e1 = std::chrono::high_resolution_clock::now();
-	float trim_mean = (std::accumulate(trim_perf.begin(), trim_perf.end(), 0.0)/(trim_perf.size()));	//
-	float trim_rms = cm.take_rms(trim_perf, trim_mean);																									// check for eff. thr. scattering around mean
-	if(trim_rms >= 15 or bad_trim >= 16)
+//	float trim_mean = (std::accumulate(trim_perf.begin(), trim_perf.end(), 0.0)/(trim_perf.size()));	//
+//	float trim_rms = cm.take_rms(trim_perf, trim_mean);																									// check for eff. thr. scattering around mean
+	if(bad_trim >= 16)
 	{
 		mtx.lock();
-		calibrep<<fe_name<<" VMM_"<<i_vmm<<": Large effective threshold RMS - ["<<trim_rms<<"], OR many badly trimmed CH - ["<<bad_trim<<"/64](try 1)"<<std::endl;
+//		calibrep<<fe_name<<" VMM_"<<i_vmm<<": Large effective threshold RMS - ["<<trim_rms<<"], OR many badly trimmed CH - ["<<bad_trim<<"/64](try 1)"<<std::endl;
+		calibrep<<fe_name<<" VMM_"<<i_vmm<<": Many badly trimmed CH - ["<<bad_trim<<"/64](try 1)"<<std::endl;
 		mtx.unlock();
 	}
 	//-------- check if there are unmasked channels above threshold, if tis` the case - recalculate values with new thdac ---------------
@@ -1063,7 +1064,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 	if(add_dac.size()>0)
 	{
 		recalc = true;
-		trim_perf.clear();
+	//	trim_perf.clear();
 		std::sort(add_dac.begin(),add_dac.end());
 		int plus_dac = std::round((add_dac.at(add_dac.size()-1))/std::get<1>(thdac_constants)) + 1; 
 		int thdac_new = thdac_i + plus_dac;
@@ -1101,19 +1102,20 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 									channel_mask,
 									DAC_to_add,
 									best_channel_trim,
-									trim_perf,
+//									trim_perf,
 									recalc,
 									debug
 									);
 		}
 		
 		thdacs[feb.getAddress()] = thdac_new; //rewriting thdac after its raised for this VMM
-		float trim_mean = (std::accumulate(trim_perf.begin(), trim_perf.end(), 0.0)/(trim_perf.size()));
-		float trim_rms2 = cm.take_rms(trim_perf, trim_mean);
-		if(trim_rms2 >= 10 or bad_trim >= 16)
+//		float trim_mean = (std::accumulate(trim_perf.begin(), trim_perf.end(), 0.0)/(trim_perf.size()));
+//		float trim_rms2 = cm.take_rms(trim_perf, trim_mean);
+		if(bad_trim >= 16 or recalc)
 		{
 			mtx.lock();
-			calibrep<<fe_name<<" VMM_"<<i_vmm<<": Large effective threshold RMS - ["<<trim_rms2<<"] ,OR many badly trimmed CH - ["<<bad_trim<<"/64](try 2)"<<std::endl;
+//			calibrep<<fe_name<<" VMM_"<<i_vmm<<": Large effective threshold RMS - ["<<trim_rms2<<"] ,OR many badly trimmed CH - ["<<bad_trim<<"/64](try 2)"<<std::endl;
+			calibrep<<fe_name<<" VMM_"<<i_vmm<<":Threshold raised by {"<<plus_dac<<"} DAC, OR many badly trimmed CH - ["<<bad_trim<<"/64](try 2)"<<std::endl;
 			mtx.unlock();
 		}
 		//std::cout<<"\nINFO - "<<fe_name<<" VMM_"<<i_vmm<<" V_eff value RMS = "<<trim_rms2<<std::endl;
@@ -1346,6 +1348,8 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 
 	auto feb = frontend_configs.at(fe_name_sorted);
 
+//	std::cout<<feb.dump()<<std::endl;
+	feb.dump();
   	for (int vmm_id = 0; vmm_id < n_vmms; vmm_id++) {
 
 		std::vector<short unsigned int> results;
@@ -1359,15 +1363,22 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
     		feb.getVmm(vmm_id).setChannelMOMode(channel_id, nsw::vmm::ChannelAnalogOutput);
     		auto results = cs.readVmmPdoConsecutiveSamples(feb, vmm_id, n_samples*10);
 
-				for(auto & result :results)
-				{
-					full_bl<<fe_name<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(result)<<std::endl;  
-				}
+	//			for(auto & result :results)
+	//			{
+	//			//	full_bl<<fe_name<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(result)<<std::endl;  
+	//				full_bl<<fe_name<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(result)<<"\t"<<cm.sample_to_mV(rms)<<std::endl;  
+	//			}
 				float sum    = std::accumulate(results.begin(), results.end(), 0.0);
      	  float mean   = sum / results.size();	
 				float median = cm.take_median(results); 
 				float rms = cm.take_rms(results,mean); 
-				
+	
+				for(auto & result :results)
+				{
+				//	full_bl<<fe_name<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(result)<<std::endl;  
+					full_bl<<fe_name<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(result)<<"\t"<<cm.sample_to_mV(rms)<<std::endl;  
+				}
+		
 				if(cm.sample_to_mV(rms)>30){noisy_channels++;}
 				
 				if(conn_check)

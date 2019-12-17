@@ -119,7 +119,7 @@ std::map< std::pair< std::string,int>, int>  analyse_trimmers(nsw::ConfigSender 
 																												       std::vector<int> & channel_mask,
 																												       std::map<std::pair<std::string,int>,int> & DAC_to_add,
 																												       std::map< std::pair< std::string,int>, int> & best_channel_trim,
-																												       std::vector<float> & trim_perf,
+																												     //  std::vector<float> & trim_perf,
 																												       bool recalc,
 																												       bool debug
 																															);
