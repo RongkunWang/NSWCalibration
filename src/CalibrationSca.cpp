@@ -517,7 +517,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 								std::string io_config_path,
 								int fe_name_sorted,
 								int n_samples,
-								bool pFEB,
+//								bool pFEB,
 								bool debug,
 								int rms_factor)
 {
@@ -591,12 +591,16 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 	std::ofstream ch_calib_data(out_chan_folder+fe_name+"_data.txt");
 
 // ---- account for the detector type -------------------------------
-	int n_vmms = 8;	// MMFE and sFEB have 8 vmms										
-	if(pFEB){n_vmms=4;}  // pFEB has 4 vmms					
+//	int n_vmms = 8;	// MMFE and sFEB have 8 vmms										
+//	if(pFEB){n_vmms=4;}  // pFEB has 4 vmms					
 //------------- Board level calibration starts ---------------------------------------------------	
 
 	auto feb = frontend_configs.at(fe_name_sorted);
-
+//-----------------------------------------------------------------
+	auto VMMS = feb.getVmms();
+	int VmmSize = VMMS.size();
+	int n_vmms = VmmSize;
+//-----------------------------------------------------------------
 	std::string server=feb.getOpcServerIp();	
 
 	out_json_l1.put("OpcServerIp",server); //	
@@ -1230,7 +1234,7 @@ void nsw::CalibrationSca::read_thresholds(std::string config_filename,
 											std::string io_config_path,
 											int n_samples,
 											int fe_name_sorted,
-											bool pFEB,
+//											bool pFEB,
 											bool debug,
 											std::string fe_name)
 {
@@ -1238,8 +1242,8 @@ void nsw::CalibrationSca::read_thresholds(std::string config_filename,
   nsw::ConfigSender cs;
 	nsw::CalibrationMath cm;
 //------------------------------------------------------------------	
-	int n_vmms = 8;
-	if(pFEB){n_vmms=4;}
+//	int n_vmms = 8;
+//	if(pFEB){n_vmms=4;}
 //-------------------------------------------------------------
 	namespace pt = boost::property_tree;
 	pt::ptree input_data;
@@ -1255,7 +1259,13 @@ void nsw::CalibrationSca::read_thresholds(std::string config_filename,
 		int bad_thr_tot = 0;
 		thr_test.is_open();
 		auto feb = frontend_configs.at(fe_name_sorted);
+//----------------------------------------------------------------
+	auto VMMS = feb.getVmms();
+	int VmmSize = VMMS.size();
 
+	int n_vmms = VmmSize;
+
+//----------------------------------------------------------------
     for (int vmm_id = 0; vmm_id < n_vmms; vmm_id++) {
  			std::vector<short unsigned int> results;
 			int dev_thr = 0;
@@ -1319,7 +1329,7 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 											std::string io_config_path,
 											int n_samples,
 											int fe_name_sorted,
-											bool pFEB,
+//											bool pFEB,
 											std::string fe_name,
 											bool conn_check)
 {
@@ -1327,8 +1337,8 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
   nsw::ConfigSender cs;
 	nsw::CalibrationMath cm;
 //------------------------------------------------------------------	
-	int n_vmms = 8;
-	if(pFEB){n_vmms=4;}
+//	int n_vmms = 8;
+//	if(pFEB){n_vmms=4;}
 //-------------------------------------------------------------
 	namespace pt = boost::property_tree;
 	pt::ptree input_data;
@@ -1347,9 +1357,15 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 	int fault_chan_total=0;
 
 	auto feb = frontend_configs.at(fe_name_sorted);
+//----- asking how many vmms FEB has ------------------
+	auto VMMS = feb.getVmms();
+	int VmmSize = VMMS.size();
 
-//	std::cout<<feb.dump()<<std::endl;
-	feb.dump();
+	int n_vmms = VmmSize;
+//	if(pFEB){n_vmms=4;}
+//-------------------------------------------------------
+	std::cout<<fe_name<<" has ["<<VmmSize<<"] VMMs"<<std::endl;
+
   	for (int vmm_id = 0; vmm_id < n_vmms; vmm_id++) {
 
 		std::vector<short unsigned int> results;

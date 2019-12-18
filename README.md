@@ -110,7 +110,7 @@ NSWCalibrationData/
 ```
 Files for separate FEBs in the baselines/, calib_data/, calib_json/, thresholds/ and test_pulse_dac/ are overwritten each time one starts a new calibration run and their merged copy is held in the archive (created by the NSWCalibrationDataPlotter)
 
-What remains is to insert desired configuration file name in the node "configuration_json". The file paths can be changed at any time. In general changes in the input .json file do not require recompilation of the SW itself.
+*What remains is to insert desired configuration file name in the node "configuration_json". The file paths can be changed at any time. In general changes in the input .json file do not require recompilation of the SW itself. Of course one can still call the desitred configuration file using conventional -c option*
 
 _Now the installation is complete.(whop, whop!)_
 

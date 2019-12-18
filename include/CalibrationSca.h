@@ -130,7 +130,7 @@ void sca_calib( std::string config_filename,
            std::string io_config_path,
            int fe_name_sorted,
            int n_samples,
-           bool pFEB,
+//           bool pFEB,
            bool debug,
            int rms_factor);
 
@@ -139,7 +139,7 @@ void read_baseline_full(std::string config_filename,
                        std::string io_config_path,
                        int n_samples,
                        int fe_name_sorted,
-                       bool pFEB,
+  //                     bool pFEB,
                        std::string fe_name,
                        bool conn_check);
 
@@ -154,7 +154,7 @@ void read_thresholds(std::string config_filename,
                        std::string io_config_path,
                        int n_samples,
                        int fe_name_sorted,
-                       bool pFEB,
+   //                    bool pFEB,
                        bool debug,
                        std::string fe_name);
 

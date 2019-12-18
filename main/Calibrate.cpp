@@ -52,7 +52,7 @@ int main(int ac, const char* av[]){
  	std::string base_folder = input_data.get<std::string>("config_dir");
 	std::string cl_file = input_data.get<std::string>("report_log");
 
-    std::string description = "\tProgramm allows to configure/calibrate MM FEBs\n\t declare what you want to do, type:\n\t --init_conf - to load inital VMM configuration or final configuration with resulting json file\n\t --threshold - to read thresholds of the particular VMM\n\t --cal_thresholds - to calibrate threshold and trimmer DAC on FEB scale\n\t --merge_config - to merge separate board .json files into one\t default name -> generated_config.json (name changing option -j)\n\n\tIMPORTANT: programm requires existance of the input configuration .json file with necessary output file location paths, OPC server name and associated communication port\n";
+    std::string description = "\tProgramm allows to configure/calibrate MM FEBs\n\t declare what you want to do, type:\n\t --init_conf - to load inital VMM configuration or final configuration with resulting json file\n\t --threshold - to read thresholds of the particular VMM\n\t --cal_thresholds - to calibrate threshold and trimmer DAC on FEB scale\n\t --merge_config - to merge separate board .json files into one\t default name -> generated_config.json (name changing option -j)\n\n\t!!!\n\tIMPORTANT: programm requires existance of the input configuration .json file with necessary output file location paths, OPC server name and associated communication port\n\t!!!";
 
 		bool init_conf;
 		bool threshold;
@@ -61,7 +61,7 @@ int main(int ac, const char* av[]){
 		bool baseline;
 		bool debug;
 		
-		bool pFEB; //swithch for pFEBs
+//		bool pFEB; //swithch for pFEBs
 		bool conn_check; //swithch baseline checks
     int N_FEB;
     int n_samples;
@@ -89,7 +89,7 @@ int main(int ac, const char* av[]){
 		("threshold", po::bool_switch()->default_value(false), "Read channel thresholds the FEBs\n""Input parameters =>> -c, -b,-s, --debug")
 		("cal_thresholds", po::bool_switch()->default_value(false), "Commence FEB calibration (baseline, thdac, trimmers)\n""Input parameters =>> -c, -b or -L, -s, -r, --debug")
 		("merge_config", po::bool_switch()->default_value(false), "Merge separate configuration child files into one \n""Input parameters =>> -j")
-		("pFEB", po::bool_switch()->default_value(false), "Switch to configure pFEBS, sets number of vmms to 4 \n"" =>> default value - false")
+	//	("pFEB", po::bool_switch()->default_value(false), "Switch to configure pFEBS, sets number of vmms to 4 \n"" =>> default value - false")
 		("debug", po::bool_switch()->default_value(false), "Enable detailed <<cout<<  debug output (((Preferably to be used for single board calibration)))\n"" =>> default value - false")
 		("baseline", po::bool_switch()->default_value(false), "Read baseline of the specified boards \n"" =>> input parameters: -s, --conn_check")
 		("conn_check", po::bool_switch()->default_value(false), "Check the baseline for poorely connected or hot channels. If certain ammount of chennels do not fulfill the prerequesites calibration thread of this FEB is terminated \n"" =>> default value - false ")
@@ -111,7 +111,7 @@ int main(int ac, const char* av[]){
 	threshold    	 = vm["threshold"]     .as<bool>();
 	cal_thresholds = vm["cal_thresholds"]    .as<bool>();
 	merge_config   = vm["merge_config"]  .as<bool>();
-	pFEB   				 = vm["pFEB"]    			.as<bool>();
+//	pFEB   				 = vm["pFEB"]    			.as<bool>();
 	debug   			 = vm["debug"]    		.as<bool>();
 	baseline   		 = vm["baseline"]    .as<bool>();
 	conn_check		= vm["conn_check"]		.as<bool>();	
@@ -253,8 +253,10 @@ int main(int ac, const char* av[]){
 					if(fe_names_v[l].find(dw_layer)!=std::string::npos)
 					{
 						nsw::CalibrationSca * calib_ptr = new nsw::CalibrationSca;
-						if(baseline){conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::read_baseline_full, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, l, pFEB, fe_names_v.at(l),conn_check);}
-						if(threshold){conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::read_thresholds, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, l, pFEB, debug, fe_names_v.at(l));}
+						if(baseline){conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::read_baseline_full, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, l, fe_names_v.at(l),conn_check);}
+						//if(baseline){conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::read_baseline_full, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, l, pFEB, fe_names_v.at(l),conn_check);}
+						if(threshold){conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::read_thresholds, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, l, debug, fe_names_v.at(l));}
+					//	if(threshold){conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::read_thresholds, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, l, pFEB, debug, fe_names_v.at(l));}
 						ifeb++;
 					}
 					else{continue;}
@@ -286,8 +288,8 @@ int main(int ac, const char* av[]){
 					for(int i=0; i<N_FEB; i++)
 					{
 						nsw::CalibrationSca * calib_ptr = new nsw::CalibrationSca;
-						if(threshold){conf_threads[i] = std::thread(&nsw::CalibrationSca::read_thresholds, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, i, pFEB, debug, *ct_it);}
-						if(baseline){conf_threads[i] = std::thread(&nsw::CalibrationSca::read_baseline_full, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, i, pFEB, *ct_it, conn_check);}
+						if(threshold){conf_threads[i] = std::thread(&nsw::CalibrationSca::read_thresholds, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, i, debug, *ct_it);}
+						if(baseline){conf_threads[i] = std::thread(&nsw::CalibrationSca::read_baseline_full, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, i, *ct_it, conn_check);}
 						ct_it++;
 					}
 					
@@ -332,7 +334,7 @@ int main(int ac, const char* av[]){
 					if(fe_names_v[b].find(dw_layer)!=std::string::npos)
 					{
 						nsw::CalibrationSca * calib_ptr = new nsw::CalibrationSca;
-						conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::sca_calib, calib_ptr, config_filename, frontend_configs, fe_names_v[b], io_config_path, b, n_samples, pFEB, debug, rms);
+						conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::sca_calib, calib_ptr, config_filename, frontend_configs, fe_names_v[b], io_config_path, b, n_samples, debug, rms);
 						ifeb++;
 					}
 					else{continue;}
@@ -365,7 +367,7 @@ int main(int ac, const char* av[]){
 				for(int i = 0; i < N_FEB; i++)
 				{
 					nsw::CalibrationSca * calib_ptr = new nsw::CalibrationSca;
-					conf_threads[i] = std::thread(&nsw::CalibrationSca::sca_calib, calib_ptr, config_filename, frontend_configs, *ct_it, io_config_path, i, n_samples, pFEB, debug, rms);
+					conf_threads[i] = std::thread(&nsw::CalibrationSca::sca_calib, calib_ptr, config_filename, frontend_configs, *ct_it, io_config_path, i, n_samples, debug, rms);
 					ct_it++;
 				}
 				for(int j=0;j<N_FEB;j++)
