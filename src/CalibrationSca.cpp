@@ -33,7 +33,7 @@ void nsw::CalibrationSca::read_config(std::string  config_filename,
                            std::set<std::string> &frontend_names, 
                            std::vector<std::string> &fe_names_v, 
                            std::vector<nsw::FEBConfig> & frontend_configs)
-  { 
+{ 
  //-------------- reads the configuratin json file ----------------------------------   
 		 nsw::ConfigReader reader1("json://" + config_filename); 	//<----INJECT FILE FROM lxplus_input_data.json 
      try { 
@@ -77,7 +77,15 @@ void nsw::CalibrationSca::read_config(std::string  config_filename,
        // frontend_configs.back().dump(); 
      }
 		}	 
-  }
+//---------------------------------------------------------------------------------------------------  
+	int counter =0;
+	for(auto feb : frontend_configs)
+	{
+		auto vmm_vect = feb.getVmms();
+		std::cout<<"FEB "<<counter<<" has "<<vmm_vect.size()<<" VMMs"<<std::endl;
+	}
+
+} 
 
 ////-----------------------------------------------------------------------------------------
 void nsw::CalibrationSca::configure_feb(std::vector<nsw::FEBConfig>  frontend_configs, int fe_name_sorted)
@@ -1512,6 +1520,39 @@ void nsw::CalibrationSca::merge_json(std::string & mod_json, std::string io_conf
 	pt::ptree prev_conf;
 	std::string start_configuration = input_data.get<std::string>("configuration_json");
 	pt::read_json(main_path+start_configuration, prev_conf);
+//======================= using config reader to get the nr of vmms =========================================
+	std::vector<nsw::FEBConfig> front_conf; 
+	std::set<std::string> frontend_names;
+
+	nsw::ConfigReader reader1("json://"+main_path+start_configuration);
+  try { 
+    auto config1 = reader1.readConfig(); 
+  } catch (std::exception & e) { 
+    std::cout << "Make sure the json is formed correctly. " 
+              << "Can't read config file due to : " << e.what() << std::endl; 
+    std::cout << "Exiting..." << std::endl; 
+    exit(0); 
+  } 
+
+  frontend_names = reader1.getAllElementNames(); 
+
+  for (auto & name : frontend_names) { 
+    try { 
+      front_conf.emplace_back(reader1.readConfig(name)); 
+    } catch (std::exception & e) { 
+      std::cout << name << " - ERROR: Skipping this FE!" 
+                << " - Problem constructing configuration due to : [" << e.what() <<"]"<< std::endl; 
+    } 
+    // frontend_configs.back().dump(); 
+  }
+	std::map<std::string, int> feb_vmms;
+	for(auto feb : front_conf)
+	{
+		auto vmm_configs = feb.getVmms();
+		feb_vmms[feb.getAddress()] = vmm_configs.size();
+		std::cout<<"FEB - "<<feb.getAddress()<<" has "<<vmm_configs.size()<<" VMMs"<<std::endl;	
+	}
+//====================================================================================================
 
 	for(long unsigned int i=0; i<in_files.size(); i++){
 		std::ifstream in_file_check;
@@ -1526,7 +1567,10 @@ void nsw::CalibrationSca::merge_json(std::string & mod_json, std::string io_conf
 		pt::read_json(json_dir+in_files[i], mmfe_conf);
 		std::string fename = mmfe_conf.get<std::string>("OpcNodeId");
 
-		for(int nth_vmm=0; nth_vmm<8; nth_vmm++)
+		int vmms_in_febconfig = feb_vmms[fename];
+
+		//for(int nth_vmm=0; nth_vmm<8; nth_vmm++)
+		for(int nth_vmm=0; nth_vmm<vmms_in_febconfig; nth_vmm++)
 		{
 			std::string vmm = "vmm"+std::to_string(nth_vmm);
 			std::string child_name = fename+"."+vmm;
