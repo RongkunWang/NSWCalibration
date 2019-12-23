@@ -24,9 +24,7 @@
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/FEBConfig.h"
 
-#include "include/CalibrationMath.h"
-//#include "boost/foreach.hpp"
-//#include "boost/program_options.hpp"
+#include "NSWCalibration/CalibrationMath.h"
 
 namespace nsw{
 
@@ -43,7 +41,7 @@ void read_config(std::string config_filename,
 									std::vector<std::string> &fe_names_v,
 									std::vector<nsw::FEBConfig> &frontend_configs);
 
-void configure_feb(std::vector<nsw::FEBConfig> frontend_configs, int fe_name_sorted);
+void configure_feb(std::vector<nsw::FEBConfig> frontend_configs, int fe_name_sorted); //might be deleted later, better use dedicated NSWConfiguration exe
 
 int calculate_thdac_value(nsw::ConfigSender & cs,
                           nsw::FEBConfig & feb,
@@ -158,7 +156,7 @@ void read_thresholds(std::string config_filename,
                        bool debug,
                        std::string fe_name);
 
-void merge_json(std::string &mod_json, std::string io_config_path);
+void merge_json(std::string &mod_json, std::string io_config_path, std::string config_filename, int rms);
 
 	};
 }

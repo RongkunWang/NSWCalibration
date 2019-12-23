@@ -20,8 +20,8 @@
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/FEBConfig.h"
 
-#include "include/CalibrationMath.h"
-#include "include/CalibrationSca.h"
+#include "NSWCalibration/CalibrationMath.h"
+#include "NSWCalibration/CalibrationSca.h"
 
 nsw::CalibrationSca::CalibrationSca(){
 }
@@ -78,12 +78,11 @@ void nsw::CalibrationSca::read_config(std::string  config_filename,
      }
 		}	 
 //---------------------------------------------------------------------------------------------------  
-	int counter =0;
-	for(auto feb : frontend_configs)
-	{
-		auto vmm_vect = feb.getVmms();
-		std::cout<<"FEB "<<counter<<" has "<<vmm_vect.size()<<" VMMs"<<std::endl;
-	}
+//	for(auto feb : frontend_configs)
+//	{
+//		auto vmm_vect = feb.getVmms();
+//		std::cout<<feb.getAddress()<<" has "<<vmm_vect.size()<<" VMMs"<<std::endl;
+//	}
 
 } 
 
@@ -1370,6 +1369,10 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 	int VmmSize = VMMS.size();
 
 	int n_vmms = VmmSize;
+
+	std::cout<<fe_name<<" - SCA ID: "<<cs.readSCAID(feb)<<std::endl;
+	std::cout<<fe_name<<" - SCA address: "<<cs.readSCAAddress(feb)<<std::endl;
+	std::cout<<fe_name<<" - SCA online: "<<cs.readSCAOnline(feb)<<std::endl;
 //	if(pFEB){n_vmms=4;}
 //-------------------------------------------------------
 	std::cout<<fe_name<<" has ["<<VmmSize<<"] VMMs"<<std::endl;
@@ -1474,7 +1477,7 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 	full_bl.close();
 }
 
-void nsw::CalibrationSca::merge_json(std::string & mod_json, std::string io_config_path)
+void nsw::CalibrationSca::merge_json(std::string & mod_json, std::string io_config_path, std::string config_filename, int rms)
 {
 	namespace pt = boost::property_tree;
 	pt::ptree input_data;
@@ -1484,7 +1487,7 @@ void nsw::CalibrationSca::merge_json(std::string & mod_json, std::string io_conf
 
 	std::cout<<"\nMerging generated and common configuration trees\n"<<std::endl;
 	
- 	std::string main_path = input_data.get<std::string>("config_dir");
+	std::string main_path = input_data.get<std::string>("config_dir");
 	
 	pt::ptree mmfe_conf;
 //---------------------------------------------------------------------
@@ -1518,13 +1521,16 @@ void nsw::CalibrationSca::merge_json(std::string & mod_json, std::string io_conf
 
 //========== trying to modify already existing json==========================================================
 	pt::ptree prev_conf;
-	std::string start_configuration = input_data.get<std::string>("configuration_json");
-	pt::read_json(main_path+start_configuration, prev_conf);
+	//std::string start_configuration = input_data.get<std::string>("configuration_json");
+	std::string start_configuration = config_filename;
+	//pt::read_json(main_path+start_configuration, prev_conf);
+	pt::read_json(config_filename, prev_conf);
 //======================= using config reader to get the nr of vmms =========================================
 	std::vector<nsw::FEBConfig> front_conf; 
 	std::set<std::string> frontend_names;
 
-	nsw::ConfigReader reader1("json://"+main_path+start_configuration);
+	//nsw::ConfigReader reader1("json://"+main_path+start_configuration);
+	nsw::ConfigReader reader1("json://"+config_filename);
   try { 
     auto config1 = reader1.readConfig(); 
   } catch (std::exception & e) { 
@@ -1582,9 +1588,12 @@ void nsw::CalibrationSca::merge_json(std::string & mod_json, std::string io_conf
 
 		}
 	}
-	pt::write_json(main_path+mod_json+"_sdsm_appended.json", prev_conf);
+	//pt::write_json(main_path+mod_json+"_sdsm_appended.json", prev_conf);
+	pt::write_json(main_path+mod_json+"_sdsm_app_RMS_"+std::to_string(rms)+".json", prev_conf);
 //==============================================================
-	printf("\n new configuration file is -> %s\n",mod_json.c_str());
+//	printf("\n new configuration file is -> %s\n",mod_json.c_str());
+	printf("\n new configuration file is -> %s_sdsm_app_RMS_%i.json",mod_json.c_str(), rms);
+	printf("\n Its location is -> %s",main_path.c_str());
 //------------here`s the end-------------
 
 }

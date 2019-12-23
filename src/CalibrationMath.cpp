@@ -20,8 +20,11 @@
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/FEBConfig.h"
 
-#include "include/CalibrationSca.h"
-#include "include/CalibrationMath.h"
+//#include "include/CalibrationSca.h"
+//#include "include/CalibrationMath.h"
+
+#include "NSWCalibration/CalibrationSca.h"
+#include "NSWCalibration/CalibrationMath.h"
 
 nsw::CalibrationMath::CalibrationMath(){
 }
