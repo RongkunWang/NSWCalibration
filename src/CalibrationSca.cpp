@@ -596,10 +596,6 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 	std::mutex mtx; //instance of mutex
 //--------------- opening calibration data output file ------------------------------------------------------------------
 	std::ofstream ch_calib_data(out_chan_folder+fe_name+"_data.txt");
-
-// ---- account for the detector type -------------------------------
-//	int n_vmms = 8;	// MMFE and sFEB have 8 vmms										
-//	if(pFEB){n_vmms=4;}  // pFEB has 4 vmms					
 //------------- Board level calibration starts ---------------------------------------------------	
 
 	auto feb = frontend_configs.at(fe_name_sorted);
@@ -1004,7 +1000,6 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 			std::map<std::pair<std::string, int>, float> channel_trimmed_thr;
 			std::map<std::pair<std::string,int>,int> DAC_to_add;// value to add to THDAC is one of the channels with neg. thr. is unmasked
 		//--------- check for trimmer performance vector of effective thr. --------		
-//			std::vector<float> trim_perf;
 	
 	auto e0 = std::chrono::high_resolution_clock::now();
 			bool recalc = false;
@@ -1040,14 +1035,11 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 									channel_mask,
 									DAC_to_add,
 									best_channel_trim,
-//								trim_perf,
 									recalc,
 									debug
 									);
 			}
 	auto e1 = std::chrono::high_resolution_clock::now();
-//	float trim_mean = (std::accumulate(trim_perf.begin(), trim_perf.end(), 0.0)/(trim_perf.size()));	//
-//	float trim_rms = cm.take_rms(trim_perf, trim_mean);																									// check for eff. thr. scattering around mean
 	if(bad_trim >= 16)
 	{
 		mtx.lock();
@@ -1113,7 +1105,6 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 									channel_mask,
 									DAC_to_add,
 									best_channel_trim,
-//									trim_perf,
 									recalc,
 									debug
 									);
@@ -1155,7 +1146,10 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 							<<thdacs[feb.getAddress()]<<"\t"
 							<<best_channel_trim[feb_ch]<<"\t"
 							<<channel_trimmed_thr[feb_ch]<<"\t"
-							<<eff_thr_w_best_trim[feb_ch]<<std::endl;
+							<<eff_thr_w_best_trim[feb_ch]<<"\t"
+							<<std::get<1>(thdac_constants)<<"\t"
+							<<std::get<2>(thdac_constants)<<"\t"
+							<<channel_mask.at(channel_id)<<std::endl;
 
 				single_trim.put("",best_channel_trim[feb_ch]);
 				trimmer_node.push_back(std::make_pair("",single_trim));			
@@ -1181,13 +1175,6 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 			std::cout<<"\nINFO - "<< feb.getAddress()<<" VMM_"<<i_vmm<<" data written to file\n"<<std::endl;//MAIN DEBUG MSG// check that it was indeed written !?	
 				
 			float nr_ch_masked = std::accumulate(channel_mask.begin(), channel_mask.end(), 0.0);
-//			std::string which_mchan = "";
-//			for(int i = 0; i< channel_mask.size(); i++)
-//			{
-//				if(channel_mask.at(i)!=0){which_mchan += std::to_string(i)+",";}
-//				if()
-//				else{continue;}
-//			}
 			if(nr_ch_masked >=4){
 				mtx.lock();
 				calibrep<<fe_name<<" VMM_"<<i_vmm<<" Nr of masked channels = ["<<nr_ch_masked<<"/64]\n"<<std::endl;
@@ -1241,16 +1228,12 @@ void nsw::CalibrationSca::read_thresholds(std::string config_filename,
 											std::string io_config_path,
 											int n_samples,
 											int fe_name_sorted,
-//											bool pFEB,
 											bool debug,
 											std::string fe_name)
 {
 //------------------ main business starts here !----------------------
   nsw::ConfigSender cs;
 	nsw::CalibrationMath cm;
-//------------------------------------------------------------------	
-//	int n_vmms = 8;
-//	if(pFEB){n_vmms=4;}
 //-------------------------------------------------------------
 	namespace pt = boost::property_tree;
 	pt::ptree input_data;
@@ -1271,7 +1254,6 @@ void nsw::CalibrationSca::read_thresholds(std::string config_filename,
 	int VmmSize = VMMS.size();
 
 	int n_vmms = VmmSize;
-
 //----------------------------------------------------------------
     for (int vmm_id = 0; vmm_id < n_vmms; vmm_id++) {
  			std::vector<short unsigned int> results;
@@ -1336,16 +1318,12 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 											std::string io_config_path,
 											int n_samples,
 											int fe_name_sorted,
-//											bool pFEB,
 											std::string fe_name,
 											bool conn_check)
 {
 //------------------ main business starts here !----------------------
   nsw::ConfigSender cs;
 	nsw::CalibrationMath cm;
-//------------------------------------------------------------------	
-//	int n_vmms = 8;
-//	if(pFEB){n_vmms=4;}
 //-------------------------------------------------------------
 	namespace pt = boost::property_tree;
 	pt::ptree input_data;
@@ -1370,9 +1348,9 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 
 	int n_vmms = VmmSize;
 
-	std::cout<<fe_name<<" - SCA ID: "<<cs.readSCAID(feb)<<std::endl;
-	std::cout<<fe_name<<" - SCA address: "<<cs.readSCAAddress(feb)<<std::endl;
-	std::cout<<fe_name<<" - SCA online: "<<cs.readSCAOnline(feb)<<std::endl;
+//	std::cout<<fe_name<<" - SCA ID: "<<cs.readSCAID(feb)<<std::endl;
+//	std::cout<<fe_name<<" - SCA address: "<<cs.readSCAAddress(feb)<<std::endl;
+//	std::cout<<fe_name<<" - SCA online: "<<cs.readSCAOnline(feb)<<std::endl;
 //	if(pFEB){n_vmms=4;}
 //-------------------------------------------------------
 	std::cout<<fe_name<<" has ["<<VmmSize<<"] VMMs"<<std::endl;

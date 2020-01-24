@@ -26,4 +26,10 @@ tdaq_add_executable(calibrate main/Calibrate.cpp
 										Boost::program_options
 )
 
+tdaq_add_executable(pulse main/small_pulsing_test.cpp
+		LINK_LIBRARIES nswcalib
+										nswconfig
+										nswopcclient
+										Boost::program_options
+)
 
