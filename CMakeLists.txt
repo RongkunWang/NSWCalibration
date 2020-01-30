@@ -8,14 +8,18 @@ tdaq_add_library(nswcalib
 	LINK_LIBRARIES nswconfig 
 								 nswopcclient 
 								 Boost::boost
+								rt
+								Protobuf
 			
 )
 ##----- opc client lib ------------------------------
 set(OPC_OPEN62541_PATH $ENV{OPC_OPEN62541_PATH})
 
-#set()
+#set(
+include_directories(../NSWConfiguration/UaoClientForOpcUaSca/include)
 include_directories(${OPC_OPEN62541_PATH}/include)
 include_directories(${OPC_OPEN62541_PATH}/build/open62541/)
+include_directories(${OPC_OPEN62541_PATH}/build/LogIt/include)
 #
 file(GLOB OPC_GENERATED_CLIENT_SRCS UaoClientForOpcUaSca/src/*.cpp)
 #--------- calibration exe --------------------------
