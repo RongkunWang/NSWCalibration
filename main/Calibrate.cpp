@@ -15,7 +15,6 @@
 #include <dirent.h>
 #include <ctime>
 #include <mutex>
-#
 
 #include "NSWConfiguration/ConfigReader.h"
 #include "NSWConfiguration/ConfigSender.h"
@@ -57,6 +56,7 @@ int main(int ac, const char* av[]){
 		bool threshold;
 		bool cal_thresholds;
 		bool merge_config;
+		bool split_config;
 		bool baseline;
 		bool debug;
 		
@@ -83,11 +83,12 @@ int main(int ac, const char* av[]){
     ("boards,b", po::value<int>(&N_FEB)->
         default_value(2), "Number of boards to configure >>> Set the value according to number of borads one wants to configure,\n Limited by the number of FEBs includeed in .json file")
    	("rms,R", po::value<int>(&rms)->
-        default_value(8), "RMS factor")
+        default_value(9), "RMS factor")
 		("init_conf", po::bool_switch()->default_value(false), "Send initial configuration to FEBs\n""Input parameters =>> -c, -b ")
 		("threshold", po::bool_switch()->default_value(false), "Read channel thresholds the FEBs\n""Input parameters =>> -c, -b,-s, --debug")
 		("cal_thresholds", po::bool_switch()->default_value(false), "Commence FEB calibration (baseline, thdac, trimmers)\n""Input parameters =>> -c, -b or -L, -s, -r, --debug")
 		("merge_config", po::bool_switch()->default_value(false), "Merge separate configuration child files into one \n""Input parameters =>> -j")
+		("split_config", po::bool_switch()->default_value(false), "Create separate config files for HO and IP sides for layers 1,2 and 3,4 \n""Input parameters =>> deffault value - false")
 		("debug", po::bool_switch()->default_value(false), "Enable detailed <<cout<<  debug output (((Preferably to be used for single board calibration)))\n"" =>> default value - false")
 		("baseline", po::bool_switch()->default_value(false), "Read baseline of the specified boards \n"" =>> input parameters: -s, --conn_check")
 		("conn_check", po::bool_switch()->default_value(false), "Check the baseline for poorely connected or hot channels. If certain ammount of chennels do not fulfill the prerequesites calibration thread of this FEB is terminated \n"" =>> default value - false ")
@@ -109,6 +110,7 @@ int main(int ac, const char* av[]){
 	threshold    	 = vm["threshold"]     .as<bool>();
 	cal_thresholds = vm["cal_thresholds"]    .as<bool>();
 	merge_config   = vm["merge_config"]  .as<bool>();
+	split_config   = vm["split_config"]  .as<bool>();
 	debug   			 = vm["debug"]    		.as<bool>();
 	baseline   		 = vm["baseline"]    .as<bool>();
 	conn_check		= vm["conn_check"]		.as<bool>();	
@@ -131,7 +133,10 @@ int main(int ac, const char* av[]){
 	calibrep<<"\n------------------ Calibration run log -------------------------\n";
 	calibrep<<"\t\t   "<<std::ctime(&run_start);
 	calibrep<<"-----------------------------------------------------------------\n";
-	calibrep<<"MAIN INPUT PARAMETERS: [samples:"<<n_samples<<"([bl:x10][trims:x1][thdac:x2])]-[RMS:"<<rms<<"]\n"<<std::endl;
+	if(baseline or threshold){calibrep<<"MAIN INPUT PARAMETERS: [samples:"<<n_samples<<"([x10]\n"<<std::endl;}
+	if(cal_thresholds){calibrep<<"MAIN INPUT PARAMETERS: [samples:"<<n_samples<<"([bl:x10][trims:x1][thdac:x2])]-[RMS:"<<rms<<"]\n"<<std::endl;}
+	if(merge_config){calibrep<<"MAIN INPUT PARAMETERS: [new config file name - "<<mod_json<<"_sdsm_app_"<<rms<<"]\n"<<std::endl;}
+	else{calibrep<<"MAIN INPUT PARAMETERS: [config file - "<<config_filename<<"]\n"<<std::endl;}
 //--------------------------------------------------------------------------------------------------------------------------------
 
 //------- using input data json file (mainly paths to folders)--------------------------------
@@ -345,7 +350,7 @@ int main(int ac, const char* av[]){
 				printf("\nthreads joined!\n");
 		
 			std::this_thread::sleep_for(std::chrono::seconds(1));
-			if(nfebs>1){sca.merge_json(mod_json, io_config_path, config_filename, rms);} //generate new .json file 
+			if(nfebs>1){sca.merge_json(mod_json, io_config_path, config_filename, rms, split_config);} //generate new .json file 
 			}
 			catch(std::exception & e)
 			{
@@ -371,7 +376,7 @@ int main(int ac, const char* av[]){
 				}
 				printf("\nthreads joined!\n");
 			std::this_thread::sleep_for(std::chrono::seconds(1));
-			if(N_FEB>1){sca.merge_json(mod_json, io_config_path, config_filename, rms);} //generate new .json file 
+			if(N_FEB>1){sca.merge_json(mod_json, io_config_path, config_filename, rms, split_config);} //generate new .json file 
 		}
 		catch(std::exception &e){
 				std::cout<<"Error on thread: ["<<e.what()<<"]"<<std::endl;
@@ -383,7 +388,7 @@ int main(int ac, const char* av[]){
 	if(merge_config){
 		calibrep<<"\n\t\t_____Merging json files_____"<<std::endl;
 		try{
-			sca.merge_json(mod_json, io_config_path, config_filename, rms);
+			sca.merge_json(mod_json, io_config_path, config_filename, rms, split_config);
 		}catch(std::exception &e){
 			std::cout<<"Couldn`t merge .json files, reason: "<<e.what()<<std::endl;
 			calibrep<<"\nERROR interupt: "<<e.what()<<std::endl;

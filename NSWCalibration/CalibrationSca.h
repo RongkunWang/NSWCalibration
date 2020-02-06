@@ -156,7 +156,14 @@ void read_thresholds(std::string config_filename,
                        bool debug,
                        std::string fe_name);
 
-void merge_json(std::string &mod_json, std::string io_config_path, std::string config_filename, int rms);
+void calib_pulserDAC( std::vector<nsw::FEBConfig> frontend_configs,
+		                  std::string io_config_path,
+                  		std::string fe_name,
+									     int n_samples,
+                       int fe_name_sorted,
+                       bool debug);
+
+void merge_json(std::string &mod_json, std::string io_config_path, std::string config_filename, int rms, bool split_config);
 
 	};
 }

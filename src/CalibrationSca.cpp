@@ -1454,8 +1454,89 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 	calibrep.close();	
 	full_bl.close();
 }
+////////////////////////////////// pulser calibration ////////////////////////////////////////////////////////////////////////
 
-void nsw::CalibrationSca::merge_json(std::string & mod_json, std::string io_config_path, std::string config_filename, int rms)
+ void nsw::CalibrationSca::calib_pulserDAC( std::vector<nsw::FEBConfig> frontend_configs,
+                       std::string io_config_path,
+                       std::string fe_name,
+                       int n_samples,
+                       int fe_name_sorted,
+                       bool debug)
+ {
+ 
+  nsw::ConfigSender cs;
+	nsw::CalibrationMath cm;	
+
+  namespace pt = boost::property_tree;
+  pt::ptree input_data;
+  pt::read_json(io_config_path,input_data);
+  std::string tp_path = input_data.get<std::string>("tp_data_output");
+  std::string tp_path2 = input_data.get<std::string>("tp_data_output2");
+ //--------------------------------------------------------------------
+ // std::vector<int> tp_dac_points;
+  std::vector<int> tp_dac_points = {200, 300, 400, 500, 600, 700, 800, 900, 1000};
+  auto feb = frontend_configs.at(fe_name_sorted); 
+//--------- what board am i? ---------------------------------- 
+	auto VMMS = feb.getVmms();
+	int VmmSize = VMMS.size();
+
+	int n_vmms = VmmSize;
+ //-------------------------------------------------------------
+    std::ofstream tp_file(tp_path2+fe_name+"_tp_sample_data.txt");
+    std::ofstream tp_var_file(tp_path+fe_name+"tp_data.txt");
+ 
+    for (int vmm_id = 0; vmm_id < n_vmms; vmm_id++) {
+ 
+ //       tp_file.is_open();
+        tp_var_file.is_open();
+ 
+        std::vector<float> sample_mean_v;
+ 
+        for(unsigned int i = 0; i<tp_dac_points.size();i++)
+        {
+           std::cout<<"\nINFO - "<<feb.getAddress()<< " VMM_"<<vmm_id<<"\t reading pulser ADC at ["<<tp_dac_points.at(i)<<"]"<<std::endl;
+           feb.getVmm(vmm_id).setMonitorOutput(nsw::vmm::TestPulseDAC, nsw::vmm::CommonMonitor);
+           feb.getVmm(vmm_id).setTestPulseDAC((size_t)(tp_dac_points[i]));
+           auto results = cs.readVmmPdoConsecutiveSamples(feb, vmm_id, n_samples);
+ 
+           float sample_sum = std::accumulate(results.begin(), results.end(), 0.0);
+           float sample_mean = sample_sum/results.size();
+           float sample_mean_mV = sample_mean*1000.*1.5/4095.0;
+ 	
+					 for(auto & res: results){
+						tp_file<<fe_name<<"\t"<<vmm_id<<"\t"<<tp_dac_points[i]<<"\t"<<res<<"\t"<<cm.sample_to_mV(res)<<std::endl;
+					 }
+			
+           sample_mean_v.push_back(sample_mean);
+ 
+           tp_var_file<<fe_name<<"\t"<<vmm_id<<"\t"<<tp_dac_points[i]<<"\t"<<sample_mean<<"\t"<<sample_mean_mV<<std::endl;
+           if(debug){std::cout<<fe_name<<"\t"<<vmm_id<<"\t"<<tp_dac_points[i]<<"\t"<<sample_mean<<"\t"<<sample_mean_mV<<std::endl;}
+        }
+ 
+ 
+       float tpdac_point_mean = std::accumulate(tp_dac_points.begin(), tp_dac_points.end(),0.0);
+       float point_vect_sample_mean = std::accumulate(sample_mean_v.begin(),sample_mean_v.end(),0.0);
+       float num = 0.;
+       float denom = 0.;
+ 
+       for(unsigned int i=0; i<tp_dac_points.size(); i++)
+       {
+             num += (tp_dac_points[i]-tpdac_point_mean)*(sample_mean_v[i]-point_vect_sample_mean);
+             denom += pow((tp_dac_points[i]-tpdac_point_mean),2);
+       }
+ 
+        float slope     = num/denom;
+        float intercept = point_vect_sample_mean - slope*tpdac_point_mean;
+
+        std::cout<<"\nINFO - linear fit for "<<fe_name<<" VMM_"<<vmm_id<<" - yields: "<<"[a = "<<intercept<<"] - [b = "<< slope<<"]"<<std::endl;
+    }
+ //    tp_file.close();
+     tp_var_file.close();
+ 
+ }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void nsw::CalibrationSca::merge_json(std::string & mod_json, std::string io_config_path, std::string config_filename, int rms, bool split_config)
 {
 	namespace pt = boost::property_tree;
 	pt::ptree input_data;
@@ -1499,10 +1580,69 @@ void nsw::CalibrationSca::merge_json(std::string & mod_json, std::string io_conf
 
 //========== trying to modify already existing json==========================================================
 	pt::ptree prev_conf;
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	//std::string start_configuration = input_data.get<std::string>("configuration_json");
 	std::string start_configuration = config_filename;
 	//pt::read_json(main_path+start_configuration, prev_conf);
 	pt::read_json(config_filename, prev_conf);
+
+		pt::ptree hol1l2_conf;
+		pt::ptree hol3l4_conf;
+		pt::ptree ipl1l2_conf;
+		pt::ptree ipl3l4_conf;
+
+		pt::ptree vmm_conf = prev_conf.get_child("vmm_common_config");
+//		pt::write_json(std::cout, vmm_conf);
+		pt::ptree roc_conf = prev_conf.get_child("roc_common_config");
+		pt::ptree tds_conf = prev_conf.get_child("tds_common_config");
+
+	if(split_config)
+	{
+		hol1l2_conf.add_child("vmm_common_config",vmm_conf);
+		hol1l2_conf.add_child("roc_common_config",roc_conf);
+		hol1l2_conf.add_child("tds_common_config",tds_conf);
+	
+		hol3l4_conf.add_child("vmm_common_config",vmm_conf);
+		hol3l4_conf.add_child("roc_common_config",roc_conf);
+		hol3l4_conf.add_child("tds_common_config",tds_conf);
+	
+		ipl1l2_conf.add_child("vmm_common_config",vmm_conf);
+		ipl1l2_conf.add_child("roc_common_config",roc_conf);
+		ipl1l2_conf.add_child("tds_common_config",tds_conf);
+	
+		ipl3l4_conf.add_child("vmm_common_config",vmm_conf);
+		ipl3l4_conf.add_child("roc_common_config",roc_conf);
+		ipl3l4_conf.add_child("tds_common_config",tds_conf);
+
+	
+		pt::ptree mmfe;
+		for(auto & feb_node: prev_conf)
+		{
+			std::string name = feb_node.first;
+			//pt::ptree mmfe = prev_conf.get_child(name);
+			mmfe = prev_conf.get_child(name);
+			std::cout<<name<<std::endl;
+			pt::write_json(std::cout, mmfe);
+
+			//if(name.find("HO")!=std::string::npos and name.find("L1")!=std::string::npos){hol1l2_conf.put(name,prev_conf.get<std::string>(name));}	
+			if(name.find("HO")!=std::string::npos){
+//			std::cout<<"\nNASOOOOOOOOOL - "<<name<<" JOPTA!\n"<<std::endl;
+				if(name.find("L1")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; hol1l2_conf.add_child(name,mmfe); mmfe.clear();}
+				if(name.find("L2")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; hol1l2_conf.add_child(name,mmfe); mmfe.clear();}
+				if(name.find("L3")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; hol3l4_conf.add_child(name,mmfe); mmfe.clear();}
+				if(name.find("L4")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; hol3l4_conf.add_child(name,mmfe); mmfe.clear();}
+			}	
+
+			if(name.find("IP")!=std::string::npos){
+//			std::cout<<"\nNASOOOOOOOOOL - "<<name<<" JOPTA!\n"<<std::endl;
+				if(name.find("L1")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; ipl1l2_conf.add_child(name,mmfe); mmfe.clear();}
+				if(name.find("L2")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; ipl1l2_conf.add_child(name,mmfe); mmfe.clear();}
+				if(name.find("L3")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; ipl3l4_conf.add_child(name,mmfe); mmfe.clear();}
+				if(name.find("L4")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; ipl3l4_conf.add_child(name,mmfe); mmfe.clear();}
+			}	
+			else{continue;}
+		}
+	}
 //======================= using config reader to get the nr of vmms =========================================
 	std::vector<nsw::FEBConfig> front_conf; 
 	std::set<std::string> frontend_names;
@@ -1561,9 +1701,19 @@ void nsw::CalibrationSca::merge_json(std::string & mod_json, std::string io_conf
 			std::cout<<"\nLooking for node:"<<vmm<<std::endl;
 			if(mmfe_conf.count(vmm)==0){std::cout<<"Failed"<<std::endl;continue;}
 			else{std::cout<<"Success"<<std::endl;}
-			prev_conf.add_child(child_name, mmfe_conf.get_child(vmm));	
+			prev_conf.add_child(child_name, mmfe_conf.get_child(vmm));
+			if(split_config){	
+				if(child_name.find("HO")!=std::string::npos and child_name.find("L1")!=std::string::npos){hol1l2_conf.add_child(child_name, mmfe_conf.get_child(vmm));}	
+				if(child_name.find("HO")!=std::string::npos and child_name.find("L2")!=std::string::npos){hol1l2_conf.add_child(child_name, mmfe_conf.get_child(vmm));}	
+				if(child_name.find("HO")!=std::string::npos and child_name.find("L3")!=std::string::npos){hol3l4_conf.add_child(child_name, mmfe_conf.get_child(vmm));}	
+				if(child_name.find("HO")!=std::string::npos and child_name.find("L4")!=std::string::npos){hol3l4_conf.add_child(child_name, mmfe_conf.get_child(vmm));}	
+				if(child_name.find("IP")!=std::string::npos and child_name.find("L1")!=std::string::npos){ipl1l2_conf.add_child(child_name, mmfe_conf.get_child(vmm));}	
+				if(child_name.find("IP")!=std::string::npos and child_name.find("L2")!=std::string::npos){ipl1l2_conf.add_child(child_name, mmfe_conf.get_child(vmm));}	
+				if(child_name.find("IP")!=std::string::npos and child_name.find("L3")!=std::string::npos){ipl3l4_conf.add_child(child_name, mmfe_conf.get_child(vmm));}	
+				if(child_name.find("IP")!=std::string::npos and child_name.find("L4")!=std::string::npos){ipl3l4_conf.add_child(child_name, mmfe_conf.get_child(vmm));}	
+				else{continue;}
+			}
 			printf("\nadded %s VMM%i node", fename.c_str(), nth_vmm);
-
 		}
 	}
 	//pt::write_json(main_path+mod_json+"_sdsm_appended.json", prev_conf);
@@ -1572,6 +1722,24 @@ void nsw::CalibrationSca::merge_json(std::string & mod_json, std::string io_conf
 //	printf("\n new configuration file is -> %s\n",mod_json.c_str());
 	printf("\n new configuration file is -> %s_sdsm_app_RMS_%i.json",mod_json.c_str(), rms);
 	printf("\n Its location is -> %s",main_path.c_str());
+//=============================================================
+if(split_config){
+
+	pt::write_json(main_path+mod_json+"_HO_L1L2_sdsm_app_RMS_"+std::to_string(rms)+".json", hol1l2_conf);
+	printf("\n written configuration file -> %s_HO_L1L2_sdsm_app_RMS_%i.json",mod_json.c_str(), rms);
+
+	pt::write_json(main_path+mod_json+"_HO_L3L4_sdsm_app_RMS_"+std::to_string(rms)+".json", hol3l4_conf);
+	printf("\n written configuration file-> %s_HO_L3L4_sdsm_app_RMS_%i.json",mod_json.c_str(), rms);
+//
+	pt::write_json(main_path+mod_json+"_IP_L1L2_sdsm_app_RMS_"+std::to_string(rms)+".json", ipl1l2_conf);
+	printf("\n written configuration file -> %s_IP_L1L2_sdsm_app_RMS_%i.json",mod_json.c_str(), rms);
+//
+	pt::write_json(main_path+mod_json+"_IP_L3L4_sdsm_app_RMS_"+std::to_string(rms)+".json", ipl3l4_conf);
+	printf("\n written configuration file -> %s_IP_L3L4_sdsm_app_RMS_%i.json",mod_json.c_str(), rms);
+	
+	printf("\n Splitted file location is -> %s",main_path.c_str());
+
+}
 //------------here`s the end-------------
 
 }

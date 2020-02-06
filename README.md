@@ -31,7 +31,7 @@ cmake_config
 cd x64...
 make -j
 ```
-In case build exits with pkill error or One of the libraries is not linking properly - try repeating last step with lesser nr of cores: {make -j5}. For sure it helps when NSWConfigRc.cpp linking is not working properly.
+In case build exits with pkill error or One of the libraries is not linking properly - try repeating last step with lesser nr of cores: {make -j5}. For sure it helps when NSWConfigRc.cpp linking is not working properly. Sometimes one must delete the hardware tagged directory (x64_86...) and repeat from cmake_config command.
 
 After this NSWCalibration will be installed and will use appropriate libraties from NSWConfiguration
 
@@ -118,23 +118,27 @@ _Now the installation is complete.(whop, whop!)_
 
 Script itself allows to:
 
-* Configure frontends;
+* Configure frontends (function applicable for SCA path calibration only);
 * Read channel baseline and thresholds;
 * Modify configuration .json files;
+(Calibrate.cpp)
+* Calibrate internal pulser DAC;
+(pulse.cpp, description will follow later...)
 
-In more detail, use following options (that can be viewed by using option -h):
+For example, lets inspect Calibate.cpp that does SCA path calibrations (executable name - ./calibrate) that has following options (can be viewed by using option -h):
 
-## General function calls
+## General function calls (flags)
 -------------------------------------------------------------------------
 
-	* --init_conf 	-	-> send configuration to FEBs;
+	* --init_conf 	-	-> send configuration to FEBs (use only for SCA calibrations - for L1 data taking use configure_frontend.cpp from NSWConfiguration);
 	* --baseline 	-	-> read channel baseline;
 	* --threshold	-	-> read channel thresholds;
 	* --cal_thresholds	-> calibrate global and trimmer DAC;
 	* --merge_config	-> merge append channel masking/trimmer values to the initial .json file;
+	* --split_config	-> (for bb5/191 sites) split configuration into 4 separate .json files for HO_L1L2, HO_L3L$, IP_L1L2, and IP_L3L4 front-end mapping;
 			(if Nr. of FEBs in operation is >1, function is called automatically)
 
-Every aforementioned option writes notifications in the CalibReport.txt in user defined directory. In case there were no calculations with strong deviations or any misbehaving channels the log woill just have the start message with date-time stamp and overall procedure time.
+Aforementioned options (except split_config) write notifications in the CalibReport.txt in user defined directory. In case there were no calculations with strong deviations or any misbehaving channels the log woill just have the start message with date-time stamp and overall procedure time.
 
 ## Other options
 ----------------------------------------------------------------------------------
@@ -164,10 +168,12 @@ In general the sequence for the full cycle would be:
 
  --init_conf -> --threshold(OR --baseline, then got to start) -> --cal_thresholds -> --init_conf
 
-with appropriate additional options;
+with appropriate additional options.
+
+IMPORTANT - In case of small scale operations (less than 96 FEBs) on can give multiple function calls (flags) in one execution. IF opeation scale is > 96 FEBs it is advised to execute each function call separately (otherwise memory is overwhelmed and process fails with pkill error).
 
 **Few warnings:**
-
+	
 	* !Always! put search string in the -L option that will match the name in working .json file - otherwise >> exception;
 	* -b option sorts FEB names from .json file and starts count from 0 to entered number;
 	* --baseline and --threshold can not be called simultaneously;
