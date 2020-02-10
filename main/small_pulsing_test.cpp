@@ -40,7 +40,7 @@ int main(int argc, const char *argv[])
     bool mask_all;
 
     // CL options
-    po::options_description desc(std::string("ADDC configuration script"));
+    po::options_description desc(std::string("ADDC configuration script adaptation for the charge calibration purposes"));
     desc.add_options()
         ("help,h", "produce help message")
         ("config_file,c", po::value<std::string>(&config_filename)->
@@ -445,11 +445,14 @@ std::vector< std::vector< std::tuple<std::string, int, int> > > patterns() {
      std::vector< std::tuple<std::string, int, int> > patt0 = {};
 		 for(int ch=0; ch<64; ch++){
 	     patt0.push_back(std::make_tuple("MMFE8-0004", 2, ch));
-		 }
-   //  patt0.push_back(std::make_tuple("MMFE8-0001", 2, 10));
-   //  patt0.push_back(std::make_tuple("MMFE8-0002", 2, 10));
-   //  patt0.push_back(std::make_tuple("MMFE8-0003", 2, 10));
-   //  patt0.push_back(std::make_tuple("MMFE8-0004", 2, 10));
+		// }
+  //	   patt0.push_back(std::make_tuple("MMFE8-0001", 2, 10));
+  //	   patt0.push_back(std::make_tuple("MMFE8-0002", 2, 10));
+  //	   patt0.push_back(std::make_tuple("MMFE8-0003", 2, 10));
+  //	   patt0.push_back(std::make_tuple("MMFE8-0005", 2, 10));
+  //	   patt0.push_back(std::make_tuple("MMFE8-0006", 2, 10));
+  //	   patt0.push_back(std::make_tuple("MMFE8-0007", 2, 10));
+		}
     // patt0.push_back(std::make_tuple(std::string("MMFE8_L2P1_HOL"), 2, 10));
      patts.push_back(patt0);
     return patts;

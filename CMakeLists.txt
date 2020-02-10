@@ -42,4 +42,9 @@ tdaq_add_executable(calibrate_pulser main/calibrate_pulser.cpp
 										nswopcclient
 										Boost::program_options
 )
-
+tdaq_add_executable(calibratex3 main/calibrate_3offsets.cpp
+		LINK_LIBRARIES nswcalib
+										nswconfig
+										nswopcclient
+										Boost::program_options
+)

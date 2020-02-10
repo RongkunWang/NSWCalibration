@@ -445,7 +445,7 @@ std::map< std::pair< std::string,int>, int>  nsw::CalibrationSca::analyse_trimme
 					}
 	        // again check if channel is sensible
 	        if (fabs(channel_eff_thresh_slope[feb_ch]) < pow(10,-9.)) {
-	      		printf("\n %s VMM_%i channels` %i slope is not usefull - %f",feb.getAddress().c_str(), i_vmm, channel_id, channel_eff_thresh_slope[feb_ch]);//temporary
+	      		if(debug){printf("\n %s VMM_%i channels` %i slope is not usefull - %f",feb.getAddress().c_str(), i_vmm, channel_id, channel_eff_thresh_slope[feb_ch]);}//temporary
 				   	slope_ok = false;
 	        }else{slope_ok = true;}
 	
@@ -780,6 +780,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 					{
 						std::cout<<"\nWARNING: "<<fe_name<<" VMM_"<<i_vmm<<" resulting threshold is ["<<thr_diff<<"] mV BELOW baseline! tryning once more after slignt delay"<<std::endl;
 					 	std::this_thread::sleep_for(std::chrono::milliseconds(30));
+						calibrep<<fe_name<<" VMM-"<<i_vmm<<" -> calculated thdac value below baseline [BL:"<<vmm_median<<" | calc THDAC:"<<thdac<<"]"<<std::endl;
 						if(debug){std::cout<<"CHECK - [DAC-Slope = "<<std::get<1>(thdac_constants)<<" : DAC-offset = "<<std::get<2>(thdac_constants)<<"]"<<std::endl;}
 						if(th_try!=2){continue;}	
 					}
@@ -794,6 +795,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 					{
 						std::cout<<"\nWARNING - "<<feb.getAddress()<<"VMM_"<<i_vmm<<" - {"<<thdac_dev*100<<"%} deviation in threshold calculation\n"<<"[guess = "<<thdac_central_guess<<" -> calc. = "<<cm.sample_to_mV(mean)<<"] : repeating calculation "<<th_try<<" time"<<std::endl;	
 					std::this_thread::sleep_for(std::chrono::milliseconds(40));
+					calibrep<<fe_name<<" VMM-"<<i_vmm<<" -> thdac was calculated with high deviation from guess value [thdac-guess:"<<thdac_central_guess<<" | calculated:"<<thdac<<"]"<<std::endl;
 					}		
 		  	}
 			  thdacs[feb.getAddress()] = thdac;			
@@ -816,7 +818,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 				{	
 					if(channel_mask.at(channel_id)!=0)
 					{
-						std::cout<<"\nINFO - "<<fe_name<<" VMM_"<<i_vmm<<" Channel "<<channel_id<<" masked, so skipping it"<<std::endl;
+						if(debug){std::cout<<"\nINFO - "<<fe_name<<" VMM_"<<i_vmm<<" Channel "<<channel_id<<" masked, so skipping it"<<std::endl;}
 						continue;
 					}
 	//-------------- vmm level average function test ------------------------------------
@@ -1010,7 +1012,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 	//--------------- trimmer analysis function tryout -------------------------------------------------
 					if(channel_mask.at(channel_id)!=0)
 					{
-						std::cout<<"\nINFO - "<<fe_name<<" VMM_"<<i_vmm<<" Channel "<<channel_id<<" masked, so skipping it"<<std::endl;
+						if(debug){std::cout<<"\nINFO - "<<fe_name<<" VMM_"<<i_vmm<<" Channel "<<channel_id<<" masked, so skipping it"<<std::endl;}
 						continue;
 					}
 
@@ -1072,13 +1074,13 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 		int plus_dac = std::round((add_dac.at(add_dac.size()-1))/std::get<1>(thdac_constants)) + 1; 
 		int thdac_new = thdac_i + plus_dac;
 		std::cout<<"\nINFO - "<<fe_name<<" VMM_"<<i_vmm<<" New THDAC value is set to - ( "<<thdac_new<<" )"
-													<<" by adding ( "<<plus_dac<<" + 1 )[DAC]  -> recalculating threshold values"<<std::endl;
+													<<" by adding ( "<<plus_dac<<" + 1 )[DAC]  -> recalculating channel threshold values"<<std::endl;
 	
 	  for (int channel_id = 0; channel_id < NCH_PER_VMM; channel_id++)
 		{ // channel loop
 				if(channel_mask.at(channel_id)!=0)
 				{
-					std::cout<<"\nINFO - "<<fe_name<<" VMM_"<<i_vmm<<" Channel "<<channel_id<<" masked, so skipping it"<<std::endl;
+					if(debug){std::cout<<"\nINFO - "<<fe_name<<" VMM_"<<i_vmm<<" Channel "<<channel_id<<" masked, so skipping it"<<std::endl;}
 					continue;
 				}
 				std::pair<std::string,int> feb_ch(fe_name,channel_id);
@@ -1111,8 +1113,6 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 		}
 		
 		thdacs[feb.getAddress()] = thdac_new; //rewriting thdac after its raised for this VMM
-//		float trim_mean = (std::accumulate(trim_perf.begin(), trim_perf.end(), 0.0)/(trim_perf.size()));
-//		float trim_rms2 = cm.take_rms(trim_perf, trim_mean);
 		if(bad_trim >= 16 or recalc)
 		{
 			mtx.lock();
@@ -1120,7 +1120,6 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 			calibrep<<fe_name<<" VMM_"<<i_vmm<<":Threshold raised by {"<<plus_dac<<"} DAC, OR many badly trimmed CH - ["<<bad_trim<<"/64](try 2)"<<std::endl;
 			mtx.unlock();
 		}
-		//std::cout<<"\nINFO - "<<fe_name<<" VMM_"<<i_vmm<<" V_eff value RMS = "<<trim_rms2<<std::endl;
 	}	
 ///-------------------- end of trimmer analysis-----------------------------------------------------------------
 		int thdac_to_json = thdacs[feb.getAddress()];
@@ -1180,15 +1179,15 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 				calibrep<<fe_name<<" VMM_"<<i_vmm<<" Nr of masked channels = ["<<nr_ch_masked<<"/64]\n"<<std::endl;
 				mtx.unlock();
 			}
-	auto f1 = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<double> t_bl = b1 - b0;
-	std::chrono::duration<double> t_thdac = t1 - t0;
-	std::chrono::duration<double> t_bl_wtrim = tr1 - tr0;
-	std::chrono::duration<double> t_trim_lin = lr1 - lr0;
-	std::chrono::duration<double> t_ef_thr = e1 - e0;
-	std::chrono::duration<double> t_files = f1 - f0;
-
 	if(debug){
+		auto f1 = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> t_bl = b1 - b0;
+		std::chrono::duration<double> t_thdac = t1 - t0;
+		std::chrono::duration<double> t_bl_wtrim = tr1 - tr0;
+		std::chrono::duration<double> t_trim_lin = lr1 - lr0;
+		std::chrono::duration<double> t_ef_thr = e1 - e0;
+		std::chrono::duration<double> t_files = f1 - f0;
+//	if(debug){
 		std::cout << "\n baseline reading time: " << t_bl.count() << " s";
 		std::cout << "\n thdac read/calc time: " << t_thdac.count() << " s";
 		std::cout << "\n baseline w trims reading time: " << t_bl_wtrim.count() << " s";
@@ -1196,6 +1195,12 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 		std::cout << "\n effective threshold calc time: " << t_ef_thr.count() << " s";
 		std::cout << "\n file writing time: " << t_files.count() << " s";
 		}
+//
+//	std::cout<<"\nMAP of channel baselines has --"<<channel_baseline_med.size()<<"-- entries "<<std::endl; 
+//	std::cout<<"\nMAP of channel RMS has --"<<channel_baseline_med.size()<<"-- entries "<<std::endl;
+//	std::cout<<"\nMAP of channel max effective thresholds has --"<<channel_baseline_med.size()<<"-- entries "<<std::endl;
+//	std::cout<<"\nMAP of channel effective threshold slopes has--"<<channel_baseline_med.size()<<"-- entries "<<std::endl;
+
 	}
 //------------------end of VMM loop-------------------------
 	calibrep.close();
@@ -1208,7 +1213,8 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 	std::chrono::duration<double> elapsed = finish - start;
 	std::cout << "\n Elapsed time: " << elapsed.count() << " s\n";
 
-//--------------------end of board configuration ----------------------------	
+//--------------------end of board configuration clearing containers to save memory ----------------------------	
+
 }
 
 std::vector<short unsigned int> nsw::CalibrationSca::ch_threshold(nsw::ConfigSender &cs,
@@ -1288,7 +1294,7 @@ void nsw::CalibrationSca::read_thresholds(std::string config_filename,
 						float thr_dev = max_dev - min_dev;
 						if(thr_dev > 50)
 						{
-							std::cout<<feb.getAddress()<<" VMM_"<<vmm_id<<" channel - "<<channel_id<<" -> high threshold deviation = ["<<cm.sample_to_mV(thr_dev)<<" mV]"<<std::endl;
+							if(debug){std::cout<<feb.getAddress()<<" VMM_"<<vmm_id<<" channel - "<<channel_id<<" -> high threshold deviation = ["<<cm.sample_to_mV(thr_dev)<<" mV]"<<std::endl;}
 							dev_thr++;
 						}
 					
@@ -1417,21 +1423,23 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 				//	}
 				}
 		}//channel loop ends
+  	results.clear(); 
 		fault_chan_total += fault_chan;
 		vmm_fchan.push_back(fault_chan);		
 		auto t1 = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double>	t_bl = t1 - t0;
+
 		if(conn_check){std::cout<<"VMM_"<<vmm_id<<" done in "<<t_bl.count()<<"[s]"<<std::endl;}
 
 		if(noisy_channels>16){
 			std::cout<<"\n[ [WARNING!] - "<<fe_name<<" -> VMM "<<vmm_id<<" has >16 channels w noise above 30mV - "<<noisy_channels<<" ]]\n"<<std::endl;
 			mtx.lock();
-			calibrep<<fe_name<<" VMM_"<<vmm_id<<" >>"<<fault_chan<<"<< faulty channels\n"<<std::endl;
+			calibrep<<fe_name<<" VMM_"<<vmm_id<<" >>"<<fault_chan<<"<< noisy channels\n"<<std::endl;
 			mtx.unlock();
 		}
 
 		std::cout<<fe_name<<" VMM_"<<vmm_id<<" done"<<std::endl;
-  	results.clear(); 
+
 		if(fault_chan>10 and fault_chan<32){
 			std::cout<<"\n[ [WARNING!] - "<<fe_name<<" -> VMM "<<vmm_id<<" has >10 faulty channels - "<<fault_chan<<" ]]\n"<<std::endl;
 			mtx.lock();
@@ -1447,12 +1455,13 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 	}//vmm loop ends
 	if(conn_check){
 		mtx.lock();
-		calibrep<<fe_name<<" - NR of unusable channels = ["<<fault_chan_total<<"]\n"<<std::endl;
+		calibrep<<fe_name<<" - NR of unusable channels = ["<<fault_chan_total<<"/512]\n"<<std::endl;
 		mtx.unlock();
 	}
 	
 	calibrep.close();	
 	full_bl.close();
+	vmm_fchan.clear();
 }
 ////////////////////////////////// pulser calibration ////////////////////////////////////////////////////////////////////////
 
@@ -1621,8 +1630,8 @@ void nsw::CalibrationSca::merge_json(std::string & mod_json, std::string io_conf
 			std::string name = feb_node.first;
 			//pt::ptree mmfe = prev_conf.get_child(name);
 			mmfe = prev_conf.get_child(name);
-			std::cout<<name<<std::endl;
-			pt::write_json(std::cout, mmfe);
+			//std::cout<<name<<std::endl;
+			//pt::write_json(std::cout, mmfe);
 
 			//if(name.find("HO")!=std::string::npos and name.find("L1")!=std::string::npos){hol1l2_conf.put(name,prev_conf.get<std::string>(name));}	
 			if(name.find("HO")!=std::string::npos){
@@ -1674,7 +1683,7 @@ void nsw::CalibrationSca::merge_json(std::string & mod_json, std::string io_conf
 	{
 		auto vmm_configs = feb.getVmms();
 		feb_vmms[feb.getAddress()] = vmm_configs.size();
-		std::cout<<"FEB - "<<feb.getAddress()<<" has "<<vmm_configs.size()<<" VMMs"<<std::endl;	
+		//std::cout<<"FEB - "<<feb.getAddress()<<" has "<<vmm_configs.size()<<" VMMs"<<std::endl;	
 	}
 //====================================================================================================
 
