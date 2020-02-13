@@ -10,6 +10,13 @@ channel mask and trimmer register json files, and desired default configuration 
 
 NSWCalibration has dependencies on the NSWConfiguration libraries of _UaoClientForOpcUa_ and _NSWConfiguration_ - thus installation of NSWConfiguration is a pre-requisite. In long-term perspective a standalone build should be available.
 
+In the beginning, for the installation and afterwards, one needs to setup the work enviroment by sourcing current tdaq release libraries and exporting external opc client path:
+```bash
+source /afs/cern.ch/atlas/project/tdaq/cmake/cmake_tdaq/bin/cm_setup.sh tdaq-08-03-01 # replace nightly with any other release
+export OPC_OPEN62541_PATH=/afs/cern.ch/work/n/nswdaq/public/tdaq-08-03-01/sw/external/open62541-compat
+```
+In case a local opc client installation was made for the NSWConfiguration package - one should set the OPC_OPEN62541_PATH variable with a complete path to it.
+
 ## Installation
 
 Move to the directory where NSWConfiguration is installed and:
@@ -179,7 +186,8 @@ IMPORTANT - In case of small scale operations (less than 96 FEBs) on can give mu
 	* --baseline and --threshold can not be called simultaneously;
 	* if only one FEB was calibrated - one needs to manually call --merge_config and -j options;
 	* in case Nr. of FEBs to be calibrated is >64 -> call --threshold and --cal_thresholds as a separate, consequen processes - otherwise memory gets overloaded and programm flips out.(to be fixed)
-
+	* Text file archivation is temporarily suspended to decease disk space usage (from 12.02.2020)
+	
 **Usefull links:**
 
 	[Data plotter](https://gitlab.cern.ch/vplesano/nswcalibrationdataplotter/tree/master)

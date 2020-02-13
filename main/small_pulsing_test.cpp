@@ -444,7 +444,7 @@ std::vector< std::vector< std::tuple<std::string, int, int> > > patterns() {
     // extremely simple example:
      std::vector< std::tuple<std::string, int, int> > patt0 = {};
 		 for(int ch=0; ch<64; ch++){
-	     patt0.push_back(std::make_tuple("MMFE8-0004", 2, ch));
+	     patt0.push_back(std::make_tuple("MMFE8_L1P1_HOR", 2, ch));
 		// }
   //	   patt0.push_back(std::make_tuple("MMFE8-0001", 2, 10));
   //	   patt0.push_back(std::make_tuple("MMFE8-0002", 2, 10));
