@@ -39,12 +39,12 @@ int main(int ac, const char* av[]){
 //--------------------------------------------------------------
 	namespace pt = boost::property_tree;
 	pt::ptree input_data;
-//	std::string io_config_path = "../../NSWCalibration/lxplus_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
+	std::string io_config_path = "../../NSWCalibration/lxplus_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
 //	std::string io_config_path = "../../NSWCalibration/bb5_sectA14_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
 //	std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/lxplus_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
 	//std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/bb5_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
 //	std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/vs_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
-	std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/vs_pulser_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
+//	std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/vs_pulser_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
 	pt::read_json(io_config_path, input_data);
 //-------------------------------------------------------------------
 	std::string	def_config = input_data.get<std::string>("configuration_json");
@@ -60,7 +60,8 @@ int main(int ac, const char* av[]){
 		bool split_config;
 		bool baseline;
 		bool debug;
-		
+	//	bool stgc;
+	
 //		bool pFEB; //swithch for pFEBs
 		bool conn_check; //swithch baseline checks
     int N_FEB;
@@ -93,6 +94,7 @@ int main(int ac, const char* av[]){
 		("debug", po::bool_switch()->default_value(false), "Enable detailed <<cout<<  debug output (((Preferably to be used for single board calibration)))\n"" =>> default value - false")
 		("baseline", po::bool_switch()->default_value(false), "Read baseline of the specified boards \n"" =>> input parameters: -s, --conn_check")
 		("conn_check", po::bool_switch()->default_value(false), "Check the baseline for poorely connected or hot channels. If certain ammount of chennels do not fulfill the prerequesites calibration thread of this FEB is terminated \n"" =>> default value - false ")
+//		("stgc", po::bool_switch()->default_value(false), "Modify data processing for stgc \n"" =>> default value - false ")
      ;
 //------------ input of the board names ------------------------
 		po::parsed_options parsed_options = po::command_line_parser(ac,av)

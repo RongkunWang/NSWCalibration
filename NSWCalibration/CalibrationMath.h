@@ -35,13 +35,13 @@ float take_rms(std::vector<short unsigned int> &v, float mean);
 
 float take_rms(std::vector<float> &v, float mean);
 
-float sample_to_mV(float sample);
+float sample_to_mV(float sample, bool stgc);
 
-float sample_to_mV(short unsigned int sample);
+float sample_to_mV(short unsigned int sample, bool stgc);
 
-float mV_to_sample(float mV_read);
+float mV_to_sample(float mV_read, bool stgc);
 
-bool check_channel(float ch_baseline_med, float ch_baseline_rms, float vmm_baseline_med);
+bool check_channel(float ch_baseline_med, float ch_baseline_rms, float vmm_baseline_med, bool stgc);
 
 bool check_slopes(float m1, float m2, float slope_check_val);
 

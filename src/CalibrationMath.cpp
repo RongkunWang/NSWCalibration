@@ -43,16 +43,25 @@ float nsw::CalibrationMath::take_median(std::vector<short unsigned int> &v) {
   return median;
 }
 
-float nsw::CalibrationMath::sample_to_mV(float sample){
-  return sample * 1000. * 1.5 / 4095.0; //1.5 is due to a resistor
+float nsw::CalibrationMath::sample_to_mV(float sample, bool stgc){
+	float val;
+  if(stgc){val = sample * 1000. * 1.5 / 4095.0;} //stgc doesn`t have input resistor
+  else{val = sample * 1000. / 4095.0;} //1,5 is due to a resistor
+	return val;
 }
 
-float nsw::CalibrationMath::sample_to_mV(short unsigned int sample){
-  return sample * 1000. * 1.5 / 4095.0; //1.5 is due to a resistor
+float nsw::CalibrationMath::sample_to_mV(short unsigned int sample, bool stgc){
+	float val;
+  if(stgc){val = sample * 1000. * 1.5/ 4095.0;} //no resistor
+  else{val = sample * 1000. / 4095.0;} //1.5 is due to a resistor
+	return val;
 }
 
-float nsw::CalibrationMath::mV_to_sample(float mV_read){
-  return mV_read / 1000. / 1.5 * 4095.0; //1.5 is due to a resistor
+float nsw::CalibrationMath::mV_to_sample(float mV_read, bool stgc){
+	float val;
+  if(stgc){val = mV_read / 1000./1.5 * 4095.0;} //1.5 is due to a resistor
+  else{val = mV_read / 1000. * 4095.0;} //1.5 is due to a resistor
+	return val;
 }
 
 float nsw::CalibrationMath::take_rms(std::vector<float> &v, float mean) {
@@ -67,8 +76,8 @@ float nsw::CalibrationMath::take_rms(std::vector<short unsigned int> &v, float m
   return stdev;
 }
 
-bool nsw::CalibrationMath::check_channel(float ch_baseline_med, float ch_baseline_rms, float vmm_baseline_med){
-  if (sample_to_mV(ch_baseline_rms) > nsw::ref_val::RmsCutoff/*RMS_CUTOFF*/)
+bool nsw::CalibrationMath::check_channel(float ch_baseline_med, float ch_baseline_rms, float vmm_baseline_med, bool stgc){
+  if (sample_to_mV(ch_baseline_rms, stgc) > nsw::ref_val::RmsCutoff/*RMS_CUTOFF*/)
     return false;
   return true;
 }

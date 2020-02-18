@@ -110,6 +110,7 @@ std::vector<float> nsw::CalibrationSca::read_baseline(
 				std::map< std::pair< std::string,int>, float> & channel_baseline_med,
 				std::map< std::pair< std::string,int>, float> & channel_baseline_rms,
 				bool debug,
+				bool stgc,
 				int RMS_CUTOFF
 				)
 	{
@@ -131,14 +132,14 @@ std::vector<float> nsw::CalibrationSca::read_baseline(
     // add medians, baseline to (MMFE8, CH) map
     channel_baseline_med[feb_ch] = median;
     channel_baseline_rms[feb_ch] = stdev;
-    if (debug)
-      std::cout << "INFO - "      << feb.getAddress()
+    if (debug){
+    	  std::cout << "INFO - "      << feb.getAddress()
                 << " VMM_"       << i_vmm
                 << ", CH " << channel_id
-                << " : [mean = "  << cm.sample_to_mV(mean)
-                << "], [stdev = " << cm.sample_to_mV(stdev)
+                << " : [mean = "  << cm.sample_to_mV(mean, stgc)
+                << "], [stdev = " << cm.sample_to_mV(stdev, stgc)
                 << "]"	<<std::endl;
-	  
+	  }
 		for (unsigned int i = 0; i < results.size(); i++)
 		{
 			fe_samples_tmp.push_back(results[i]);
@@ -162,6 +163,7 @@ int nsw::CalibrationSca::calculate_thdac_value(nsw::ConfigSender & cs,
                           int thdac_central_guess,
 													std::tuple<std::string, float, float> &thdac_constants,
                           std::vector<int> & thdac_guess_variations,
+													bool stgc,
 													bool debug)
 {
 		
@@ -197,7 +199,7 @@ int nsw::CalibrationSca::calculate_thdac_value(nsw::ConfigSender & cs,
 	          << feb.getAddress()
 	          << " vmm" << vmm_id
 	          << ", thdac " << thdac_guess_variations[i]
-	          << ", thdac (mV) " << cm.sample_to_mV(mean)
+	          << ", thdac (mV) " << cm.sample_to_mV(mean, stgc)
 	          << std::endl;
 			
 			}
@@ -222,7 +224,7 @@ int nsw::CalibrationSca::calculate_thdac_value(nsw::ConfigSender & cs,
 			if(thdac_slope > 2.2 or thdac_slope < 1.8){std::cout<<"\nINFO - "<<feb.getAddress()<<" VMM_"<<vmm_id<<" THDAC calculation yields: \n\t[slope = "<<thdac_slope<<"] [offset = "<<thdac_intercept<<"]"<<std::endl;}
 			else{std::cout<<"INFO - "<<feb.getAddress()<<" VMM "<<vmm_id<<" DAC slope ok! [approx 2 DAC/mV]"<<std::endl;}
 		  // (y-b) / m = x
-		  int thdac = (cm.mV_to_sample(thdac_central_guess) - thdac_intercept)/thdac_slope;
+		  int thdac = (cm.mV_to_sample(thdac_central_guess, stgc) - thdac_intercept)/thdac_slope;
 			return thdac;
 
 }
@@ -271,8 +273,9 @@ std::pair<float,int> nsw::CalibrationSca::find_linear_region_slope(nsw::ConfigSe
       std::vector<int> trims;
 
       trims.push_back(trim_lo );
-      trims.push_back(trim_hi );
+     // trims.push_back(trim_hi );
       trims.push_back(trim_mid);
+      trims.push_back(trim_hi );
 
       for (auto trim : trims) {
 
@@ -292,7 +295,7 @@ std::pair<float,int> nsw::CalibrationSca::find_linear_region_slope(nsw::ConfigSe
 
         if (trim == trim_mid){
           channel_mid_eff_thresh = eff_thresh;
-
+//					med_mid = median;
 				//------- check for the negative eff thr value ---------------------
 					if(channel_mid_eff_thresh<0)
 					{
@@ -303,10 +306,14 @@ std::pair<float,int> nsw::CalibrationSca::find_linear_region_slope(nsw::ConfigSe
         }
         else if (trim == trim_lo){
           channel_max_eff_thresh = eff_thresh;
+//					med_hi = median;
         }
         else if (trim == trim_hi){
           channel_min_eff_thresh = eff_thresh;
+//					med_lo = median;
         }
+			if(debug){std::cout<<"VMM_"<<vmm_id<<" CH"<<channel_id<<" (Trim <<"<<trim<<">>) sample median = "<<median<<" and effective thr [ "<<eff_thresh<<" ]"<<std::endl;}		
+
       } // end of trim loop
 		/// highest trimmer value corresponds to the lowest set threshold! mc
 
@@ -318,13 +325,16 @@ std::pair<float,int> nsw::CalibrationSca::find_linear_region_slope(nsw::ConfigSe
       tmp_mid_eff_threshold = mid;
       tmp_max_eff_threshold = max;
 
-      std::pair<float,float> slopes = cm.get_slopes(min,mid,max,trim_hi,trim_mid,trim_lo);
+			if(debug){std::cout<<"slope calc params -> | "<<min<<" | "<<mid<<" | "<<max<<" | "<<trim_hi<<" | "<<trim_mid<<" | "<<trim_lo<<" | "<<std::endl;}
+      //std::pair<float,float> slopes = cm.get_slopes(min,mid,max,trim_hi,trim_mid,trim_lo);
+      std::pair<float,float> slopes = cm.get_slopes(min,mid,max,31,14,0);
+
       float m1 = slopes.first;
       float m2 = slopes.second;
       float avg_m = (m1+m2)/2.;
 			first_trim_slope = m1;
-		
-      if(debug) 
+      
+			if(debug){ 
         std::cout << "INFO - " << feb.getAddress() 
                   << " VMM_"   << vmm_id 
                   << " CH " << channel_id 
@@ -333,9 +343,10 @@ std::pair<float,int> nsw::CalibrationSca::find_linear_region_slope(nsw::ConfigSe
                   << "], [m1 " << m1 
                   << "], [m2 " << m2 
                   << "] }" <<std::endl;
-
+			}
 			float slope_check_val = nsw::ref_val::SlopeCheck;
       if (!cm.check_slopes(m1,m2,slope_check_val)){
+				if(debug){std::cout<<" slope comparison gives --"<<cm.check_slopes(m1,m2,slope_check_val)<<"--"<<std::endl;}
         return find_linear_region_slope(cs,
                             feb,
 														cm,
@@ -426,6 +437,7 @@ std::map< std::pair< std::string,int>, int>  nsw::CalibrationSca::analyse_trimme
 			std::map< std::pair< std::string,int>, int> & best_channel_trim,
 //			std::vector<float> & trim_perf,
 			bool recalc,
+			bool stgc,
 			bool debug
 			)
 		{
@@ -451,7 +463,7 @@ std::map< std::pair< std::string,int>, int>  nsw::CalibrationSca::analyse_trimme
 	
 	        float ch_baseline_rms = channel_baseline_rms[feb_ch];
 	        float ch_baseline_med = channel_baseline_med[feb_ch];
-	        if (!cm.check_channel(ch_baseline_med, ch_baseline_rms, vmm_baseline_med[feb.getAddress()]))
+	        if (!cm.check_channel(ch_baseline_med, ch_baseline_rms, vmm_baseline_med[feb.getAddress()], stgc))
 					{
 	       		printf("\n %s VMM_%i channel %i is noisy - %f mV RMS", feb.getAddress().c_str(), i_vmm, channel_id, ch_baseline_rms);//temporary	
 					}
@@ -603,6 +615,10 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 	auto VMMS = feb.getVmms();
 	int VmmSize = VMMS.size();
 	int n_vmms = VmmSize;
+	std::string f_name = feb.getAddress();
+	bool stgc = f_name.find("MMFE")!=std::string::npos;
+	if(debug and stgc){std::cout<<"this is one of sTGC FEBs!"<<std::endl;}
+	if(debug and !stgc){std::cout<<"this is one of MM FEBs!"<<std::endl;}
 //-----------------------------------------------------------------
 	std::string server=feb.getOpcServerIp();	
 
@@ -637,6 +653,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 							channel_baseline_med,
 							channel_baseline_rms,
 							debug,
+							stgc,
 							RMS_CUTOFF
 							);
 			 }
@@ -658,8 +675,8 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 			{
 				std::pair<std::string,int> feb_ch(fe_name,channel_id);	
 //				vmm_median = cm.cm.sample_to_mV(vmm_baseline_med[fe_name]); 
-				ch_med_dev = cm.sample_to_mV(channel_baseline_med[feb_ch]) - cm.sample_to_mV(tmp_median);//vmm_baseline_med[feb.getAddress()]);
-				ch_noise = cm.sample_to_mV(channel_baseline_rms[feb_ch]); //checking the noise
+				ch_med_dev = cm.sample_to_mV(channel_baseline_med[feb_ch], stgc) - cm.sample_to_mV(tmp_median, stgc);//vmm_baseline_med[feb.getAddress()]);
+				ch_noise = cm.sample_to_mV(channel_baseline_rms[feb_ch], stgc); //checking the noise
 				sum_rms += ch_noise; 
 				if(ch_noise > RMS_CUTOFF){noisy_chan++;}
 				if(ch_med_dev > BASELINE_CUTOFF)//cutoff)
@@ -715,7 +732,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 					float samp_chan = counter/(n_samples*10);
 					CH = std::floor(samp_chan);
 				//	std::cout<<counter<<" -> "<<samp_chan<<" -> "<<CH<<" -> "<<sample<<std::endl; 
-		      if ((channel_mask.at(CH)!=1) and fabs(cm.sample_to_mV(sample - tmp_median)) < RMS_CUTOFF)/*mV*/ // kicking out the samples with 30mV above median, with channel check
+		      if ((channel_mask.at(CH)!=1) and fabs(cm.sample_to_mV(sample - tmp_median, stgc)) < RMS_CUTOFF)/*mV*/ // kicking out the samples with 30mV above median, with channel check
 					{
 		        fe_samples_pruned.push_back(sample);
 					}else{
@@ -732,7 +749,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 		    float vmm_median = cm.take_median(fe_samples_pruned);
 
 				if(debug){std::cout<<"\nINFO - "<<fe_name<<" VMM_"<<i_vmm<<
-				" : Calculated global {tmp_vmm_median = "<<cm.sample_to_mV(tmp_median)<<"}{vmm_median = "<<cm.sample_to_mV(vmm_median)<<"}{vmm_stdev = "<<cm.sample_to_mV(vmm_stdev)<<"}"<<std::endl;}
+				" : Calculated global {tmp_vmm_median = "<<cm.sample_to_mV(tmp_median, stgc)<<"}{vmm_median = "<<cm.sample_to_mV(vmm_median, stgc)<<"}{vmm_stdev = "<<cm.sample_to_mV(vmm_stdev, stgc)<<"}"<<std::endl;}
 		    vmm_baseline_med[fe_name] = vmm_median;
 		    vmm_baseline_rms[fe_name] = vmm_stdev;
 
@@ -745,18 +762,18 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 		    // Global Threshold Calculations
 		    std::tuple<std::string, float, float> thdac_constants;
 				
-	    	int thdac_central_guess = rms_factor * cm.sample_to_mV(vmm_baseline_rms[fe_name]) + cm.sample_to_mV(vmm_baseline_med[fe_name]) + offset_center;
+	    	int thdac_central_guess = rms_factor * cm.sample_to_mV(vmm_baseline_rms[fe_name], stgc) + cm.sample_to_mV(vmm_baseline_med[fe_name], stgc) + offset_center;
 		
 				std::cout<<"\nINFO - "<<fe_name<<" VMM_"<<i_vmm<<" THDAC guess - ["<<thdac_central_guess<<" (mV)]"<<std::endl;
 
 		    std::cout << "\nINFO - "<<fe_name<<" VMM_"<<i_vmm<<" baseline_mean, baseline_med, baseline_rms, rms_factor: "
-		                << cm.sample_to_mV(vmm_mean) << ", "
-		                << cm.sample_to_mV(vmm_baseline_med[fe_name]) << ", "
-		                << cm.sample_to_mV(vmm_baseline_rms[fe_name]) << ", "
+		                << cm.sample_to_mV(vmm_mean, stgc) << ", "
+		                << cm.sample_to_mV(vmm_baseline_med[fe_name], stgc) << ", "
+		                << cm.sample_to_mV(vmm_baseline_rms[fe_name], stgc) << ", "
 		                << rms_factor
 		                << std::endl;
 		//------------------ against this value later calibration result is checked to see if the result is what was expected ------------------------------
-				float expected_eff_thr = cm.sample_to_mV(vmm_baseline_rms[fe_name] * (rms_factor));
+				float expected_eff_thr = cm.sample_to_mV(vmm_baseline_rms[fe_name] * (rms_factor), stgc);
 		//-------------------------------------------------------------------------------------------------------------------------------------------------	
 
 		    std::vector<int> thdac_guess_variations = {100,150,200,250,300,350,400};
@@ -766,7 +783,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 				int thdac;
 				for(int th_try = 0; th_try < 3; th_try++)
 				{	
-			    thdac = calculate_thdac_value(cs,feb,cm,i_vmm,n_samples,thdac_central_guess,thdac_constants,thdac_guess_variations, debug);
+			    thdac = calculate_thdac_value(cs,feb,cm,i_vmm,n_samples,thdac_central_guess,thdac_constants,thdac_guess_variations, stgc, debug);
 
 					std::cout<<"\nINFO - "<<fe_name<<" VMM_"<<i_vmm<<": Calcuated THDAC value -> ["<<thdac<<"] DAC counts"<<std::endl;	
 
@@ -775,7 +792,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 		  		auto results = cs.readVmmPdoConsecutiveSamples(feb, i_vmm, n_samples);
 		   		float sum = std::accumulate(results.begin(), results.end(), 0.0);
 		   		mean = sum / results.size();
-					float thr_diff = mean - cm.sample_to_mV(vmm_baseline_med[fe_name]);
+					float thr_diff = mean - cm.sample_to_mV(vmm_baseline_med[fe_name], stgc);
 					if(thr_diff <= 0)
 					{
 						std::cout<<"\nWARNING: "<<fe_name<<" VMM_"<<i_vmm<<" resulting threshold is ["<<thr_diff<<"] mV BELOW baseline! tryning once more after slignt delay"<<std::endl;
@@ -785,21 +802,21 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 						if(th_try!=2){continue;}	
 					}
 		   		thdacs_sample[feb.getAddress()] = mean;  //actually set threshold, previous samples were readout on guess
-					float thdac_dev = fabs(cm.sample_to_mV(mean) - thdac_central_guess)/thdac_central_guess;
+					float thdac_dev = fabs(cm.sample_to_mV(mean, stgc) - thdac_central_guess)/thdac_central_guess;
 					if(thdac_dev < 0.1)
 					{
-			 			std::cout << "\nINFO - Threshold for " << feb.getAddress() << " vmm" << i_vmm << " is " << cm.sample_to_mV(mean) << " in mV with deviation from guess: ["<<thdac_dev*100<<" %]"<<std::endl;
+			 			std::cout << "\nINFO - Threshold for " << feb.getAddress() << " vmm" << i_vmm << " is " << cm.sample_to_mV(mean, stgc) << " in mV with deviation from guess: ["<<thdac_dev*100<<" %]"<<std::endl;
 						break;
 					}
 					else
 					{
-						std::cout<<"\nWARNING - "<<feb.getAddress()<<"VMM_"<<i_vmm<<" - {"<<thdac_dev*100<<"%} deviation in threshold calculation\n"<<"[guess = "<<thdac_central_guess<<" -> calc. = "<<cm.sample_to_mV(mean)<<"] : repeating calculation "<<th_try<<" time"<<std::endl;	
+						std::cout<<"\nWARNING - "<<feb.getAddress()<<"VMM_"<<i_vmm<<" - {"<<thdac_dev*100<<"%} deviation in threshold calculation\n"<<"[guess = "<<thdac_central_guess<<" -> calc. = "<<cm.sample_to_mV(mean, stgc)<<"] : repeating calculation "<<th_try<<" time"<<std::endl;	
 					std::this_thread::sleep_for(std::chrono::milliseconds(40));
 					calibrep<<fe_name<<" VMM-"<<i_vmm<<" -> thdac was calculated with high deviation from guess value [thdac-guess:"<<thdac_central_guess<<" | calculated:"<<thdac<<"]"<<std::endl;
 					}		
 		  	}
 			  thdacs[feb.getAddress()] = thdac;			
-				if((mean - cm.sample_to_mV(vmm_baseline_med[fe_name])) < 0){
+				if((mean - cm.sample_to_mV(vmm_baseline_med[fe_name], stgc)) < 0){
 					mtx.lock();
 					calibrep<<fe_name<<" VMM_"<<i_vmm<<" threshold below baseline!\n"<<std::endl;
 					mtx.unlock();
@@ -845,7 +862,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 				if(vmm_eff_thresh < 30)// 30 ADC counts - roughly 10 mV;
 			 	{
 					fe_samples_tmp.clear();
-					int noise_fact = cm.sample_to_mV(vmm_baseline_rms[feb.getAddress()]);	//converting noise rms adc to mV
+					int noise_fact = cm.sample_to_mV(vmm_baseline_rms[feb.getAddress()], stgc);	//converting noise rms adc to mV
 					int AddFactor = std::round(noise_fact/std::get<1>(thdac_constants));		//calculating dac counts to be added
 					if(AddFactor == 0){AddFactor = 1;} // if resulting rms is too low to give at least 1dac count - assigning 1dac count
 					int thdac_raised = thdac + AddFactor;
@@ -886,9 +903,9 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 
 		    vmm_mid_eff_thresh[feb.getAddress()] = vmm_eff_thresh;   /// fill the mapo with median value with trimmers enabled at the middle value
 				
-				if((cm.sample_to_mV(vmm_eff_thresh) >= 40) or (cm.sample_to_mV(vmm_eff_thresh) <= 5)){ //if res. effective threshold is >40 mV or <5 mV inform calibrep
+				if((cm.sample_to_mV(vmm_eff_thresh, stgc) >= 40) or (cm.sample_to_mV(vmm_eff_thresh, stgc) <= 5)){ //if res. effective threshold is >40 mV or <5 mV inform calibrep
 					mtx.lock();
-					calibrep<<fe_name<<" VMM_"<<i_vmm<<" high threshold [result:"<<cm.sample_to_mV(vmm_eff_thresh)<<"(mV), expected:"<<expected_eff_thr<<"(mV), noise:"<<cm.sample_to_mV(vmm_stdev)<<"(mV)]\n"<<std::endl;	
+					calibrep<<fe_name<<" VMM_"<<i_vmm<<" high threshold [result:"<<cm.sample_to_mV(vmm_eff_thresh, stgc)<<"(mV), expected:"<<expected_eff_thr<<"(mV), noise:"<<cm.sample_to_mV(vmm_stdev, stgc)<<"(mV)]\n"<<std::endl;	
 					mtx.unlock();
 				}
 		    //////////////////////////////////
@@ -918,7 +935,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 		      float ch_baseline_rms = channel_baseline_rms[feb_ch];
 		      float ch_baseline_med = channel_baseline_med[feb_ch];
 		
-		      if (!cm.check_channel(ch_baseline_med, ch_baseline_rms, vmm_baseline_med[fe_name])){continue;}
+		      if (!cm.check_channel(ch_baseline_med, ch_baseline_rms, vmm_baseline_med[fe_name], stgc)){continue;}
 		
 		      /////////////////////////////////////
 		      float tmp_min_eff_threshold = 0.;
@@ -961,17 +978,17 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 		      ch_baseline_rms = channel_baseline_rms[std::make_pair(feb.getAddress(), channel_id)];
 		      ch_baseline_med = channel_baseline_med[std::make_pair(feb.getAddress(), channel_id)];
 		
-		      if (!cm.check_channel(ch_baseline_med, ch_baseline_rms, vmm_baseline_med[feb.getAddress()])){
+		      if (!cm.check_channel(ch_baseline_med, ch_baseline_rms, vmm_baseline_med[feb.getAddress()], stgc)){
 		        tot_chs--;
 		        continue;
 		      }
 		
 		      if (debug) std::cout << "INFO -  [MIN_EF_TH = "
-		                            << cm.sample_to_mV(tmp_min_eff_threshold)
+		                            << cm.sample_to_mV(tmp_min_eff_threshold, stgc)
 		                            << "], [MAX_EF_TH =  "
-		                            << cm.sample_to_mV(tmp_max_eff_threshold)
+		                            << cm.sample_to_mV(tmp_max_eff_threshold, stgc)
 		                            << "], [VMM_EF_TH =  "
-		                            << cm.sample_to_mV(vmm_eff_thresh) <<"]" <<std::endl;
+		                            << cm.sample_to_mV(vmm_eff_thresh, stgc) <<"]" <<std::endl;
 	
 		///-------------------- trimmer range check -------------------------
 		      if ( vmm_eff_thresh < tmp_min_eff_threshold || vmm_eff_thresh > tmp_max_eff_threshold ){
@@ -981,6 +998,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 		        good_chs++;
 		        if (debug) std::cout << "INFO :) channel " << channel_id << " is okay!" << std::endl;
 		      }
+				std::cout<<"\n"<<std::endl;	
 		    } // end of channel loop
 		
 	auto lr1 = std::chrono::high_resolution_clock::now();
@@ -1038,6 +1056,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 									DAC_to_add,
 									best_channel_trim,
 									recalc,
+									stgc,
 									debug
 									);
 			}
@@ -1057,7 +1076,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 		std::pair<std::string,int> feb_ch(fe_name,i);
 		float extraDAC = DAC_to_add[feb_ch];
 		//int extraDAC = DAC_to_add[feb_ch];
-		if(extraDAC > 0 and cm.sample_to_mV(extraDAC) <= 16)/*mV, half of trimmer working range*/
+		if(extraDAC > 0 and cm.sample_to_mV(extraDAC, stgc) <= 16)/*mV, half of trimmer working range*/
 		{		
 			add_dac.push_back(extraDAC);
 		}
@@ -1108,6 +1127,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 									DAC_to_add,
 									best_channel_trim,
 									recalc,
+									stgc,
 									debug
 									);
 		}
@@ -1134,14 +1154,14 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 				ch_calib_data<<feb.getAddress()<<"\t"
 							<<i_vmm<<"\t"
 							<<channel_id<<"\t"
-							<<cm.sample_to_mV(channel_baseline_med[feb_ch])<<"\t"			
-							<<cm.sample_to_mV(channel_baseline_rms[feb_ch])<<"\t"
-							<<cm.sample_to_mV(channel_mid_eff_thresh[feb_ch])<<"\t"
+							<<cm.sample_to_mV(channel_baseline_med[feb_ch], stgc)<<"\t"			
+							<<cm.sample_to_mV(channel_baseline_rms[feb_ch], stgc)<<"\t"
+							<<cm.sample_to_mV(channel_mid_eff_thresh[feb_ch], stgc)<<"\t"
 							<<channel_eff_thresh_slope[feb_ch]<<"\t"
-							<<cm.sample_to_mV(vmm_baseline_med[feb.getAddress()])<<"\t"
-							<<cm.sample_to_mV(vmm_baseline_rms[feb.getAddress()])<<"\t"
-							<<cm.sample_to_mV(vmm_median_trim_mid)<<"\t"
-							<<cm.sample_to_mV(vmm_eff_thresh)<<"\t"
+							<<cm.sample_to_mV(vmm_baseline_med[feb.getAddress()], stgc)<<"\t"
+							<<cm.sample_to_mV(vmm_baseline_rms[feb.getAddress()], stgc)<<"\t"
+							<<cm.sample_to_mV(vmm_median_trim_mid, stgc)<<"\t"
+							<<cm.sample_to_mV(vmm_eff_thresh, stgc)<<"\t"
 							<<thdacs[feb.getAddress()]<<"\t"
 							<<best_channel_trim[feb_ch]<<"\t"
 							<<channel_trimmed_thr[feb_ch]<<"\t"
@@ -1258,8 +1278,10 @@ void nsw::CalibrationSca::read_thresholds(std::string config_filename,
 //----------------------------------------------------------------
 	auto VMMS = feb.getVmms();
 	int VmmSize = VMMS.size();
-
-	int n_vmms = VmmSize;
+  int n_vmms = VmmSize;
+	
+  std::string f_name = feb.getAddress();
+	bool fetype = f_name.find("MMFE")!=std::string::npos; 
 //----------------------------------------------------------------
     for (int vmm_id = 0; vmm_id < n_vmms; vmm_id++) {
  			std::vector<short unsigned int> results;
@@ -1281,7 +1303,7 @@ void nsw::CalibrationSca::read_thresholds(std::string config_filename,
 
 						if(mean < 100)
 						{
-							std::cout<<"WARNING - "<<feb.getAddress()<<" VMM_"<<vmm_id<<" channel - "<<channel_id<<" -> threshold might be dead = ["<<cm.sample_to_mV(mean)<<" mV]"<<std::endl;
+							std::cout<<"WARNING - "<<feb.getAddress()<<" VMM_"<<vmm_id<<" channel - "<<channel_id<<" -> threshold might be dead = ["<<cm.sample_to_mV(mean, fetype)<<" mV]"<<std::endl;
 						}
 	
 //-------------- searching for max and min deviation in samples -----------------------------------------------------------	   
@@ -1294,13 +1316,13 @@ void nsw::CalibrationSca::read_thresholds(std::string config_filename,
 						float thr_dev = max_dev - min_dev;
 						if(thr_dev > 50)
 						{
-							if(debug){std::cout<<feb.getAddress()<<" VMM_"<<vmm_id<<" channel - "<<channel_id<<" -> high threshold deviation = ["<<cm.sample_to_mV(thr_dev)<<" mV]"<<std::endl;}
+							if(debug){std::cout<<feb.getAddress()<<" VMM_"<<vmm_id<<" channel - "<<channel_id<<" -> high threshold deviation = ["<<cm.sample_to_mV(thr_dev,fetype)<<" mV]"<<std::endl;}
 							dev_thr++;
 						}
 					
 //--------------------- text file output ----------------------------------------------------------------------------------------------
-						if(debug){std::cout<<feb.getAddress()<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(mean)<<"\t"<<cm.sample_to_mV(max_dev)<<"\t"<<cm.sample_to_mV(min_dev)<<std::endl;}  
-						thr_test<<feb.getAddress()<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(mean)<<"\t"<<cm.sample_to_mV(max_dev)<<"\t"<<cm.sample_to_mV(min_dev)<<std::endl;  
+						if(debug){std::cout<<feb.getAddress()<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(mean, fetype)<<"\t"<<cm.sample_to_mV(max_dev,fetype)<<"\t"<<cm.sample_to_mV(min_dev,fetype)<<std::endl;}  
+						thr_test<<feb.getAddress()<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(mean,fetype)<<"\t"<<cm.sample_to_mV(max_dev,fetype)<<"\t"<<cm.sample_to_mV(min_dev,fetype)<<std::endl;  
         
 		}//channel loop ends
 		bad_thr_tot += dev_thr;
@@ -1354,6 +1376,10 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 
 	int n_vmms = VmmSize;
 
+	bool fetype = fe_name.find("MMFE")!=std::string::npos;
+	
+	if(conn_check and fetype){std::cout<<" I AM GROOOOT!"<<std::endl;}
+	if(conn_check and !fetype){std::cout<<" I AM ..... something else!"<<std::endl;}
 //	std::cout<<fe_name<<" - SCA ID: "<<cs.readSCAID(feb)<<std::endl;
 //	std::cout<<fe_name<<" - SCA address: "<<cs.readSCAAddress(feb)<<std::endl;
 //	std::cout<<fe_name<<" - SCA online: "<<cs.readSCAOnline(feb)<<std::endl;
@@ -1387,22 +1413,22 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 				for(auto & result :results)
 				{
 				//	full_bl<<fe_name<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(result)<<std::endl;  
-					full_bl<<fe_name<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(result)<<"\t"<<cm.sample_to_mV(rms)<<std::endl;  
+					full_bl<<fe_name<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(result, fetype)<<"\t"<<cm.sample_to_mV(rms, fetype)<<std::endl;  
 				}
 		
-				if(cm.sample_to_mV(rms)>30){noisy_channels++;}
+				if(cm.sample_to_mV(rms,fetype)>30){noisy_channels++;}
 				
 				if(conn_check)
 				{
-					if(cm.sample_to_mV(mean)>180)
+					if(cm.sample_to_mV(mean,fetype)>180)
 					{
 						fault_chan++;
-						printf("\nWARNING - %s - VMM %i - %i high baseline = <<%f mV>>, probably needs to be masked\n", fe_name.c_str(), vmm_id, channel_id, cm.sample_to_mV(mean));
+						printf("\nWARNING - %s - VMM %i - %i high baseline = <<%f mV>>, probably needs to be masked\n", fe_name.c_str(), vmm_id, channel_id, cm.sample_to_mV(mean, fetype));
 					}
-					if(cm.sample_to_mV(mean)<140)
+					if(cm.sample_to_mV(mean,fetype)<140)
 					{
 						fault_chan++;
-						printf("\nWARNING - %s - VMM %i - %i low baseline = <<%f mV>>, probably needs to be masked\n", fe_name.c_str(), vmm_id, channel_id, cm.sample_to_mV(mean));
+						printf("\nWARNING - %s - VMM %i - %i low baseline = <<%f mV>>, probably needs to be masked\n", fe_name.c_str(), vmm_id, channel_id, cm.sample_to_mV(mean, fetype));
 					}
 				}
 //-------------- searching for max and min deviation in samples -----------------------------------------------------------	   
@@ -1416,7 +1442,7 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 
 	   	  if(conn_check)
 				{
-					std::cout<<"INFO - "<<fe_name<<" VMM_"<<vmm_id<<" CH:"<<channel_id<<" - BL: "<<cm.sample_to_mV(median)<<" - RMS: "<<cm.sample_to_mV(rms)<<", spread: "<<cm.sample_to_mV(sample_dev)<<std::endl;
+					std::cout<<"INFO - "<<fe_name<<" VMM_"<<vmm_id<<" CH:"<<channel_id<<" - BL: "<<cm.sample_to_mV(median, fetype)<<" - RMS: "<<cm.sample_to_mV(rms, fetype)<<", spread: "<<cm.sample_to_mV(sample_dev, fetype)<<std::endl;
 				//	if(cm.sample_to_mV(sample_dev)>60)
 				//	{
 				//		printf("this channel %i sample deviation above 60mV (masking...?)\n",channel_id);
@@ -1490,7 +1516,9 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 	int VmmSize = VMMS.size();
 
 	int n_vmms = VmmSize;
- //-------------------------------------------------------------
+	std::string FebName = feb.getAddress(); 
+	bool fetype = FebName.find("MMFE")!=std::string::npos; 
+//-------------------------------------------------------------
     std::ofstream tp_file(tp_path2+fe_name+"_tp_sample_data.txt");
     std::ofstream tp_var_file(tp_path+fe_name+"tp_data.txt");
  
@@ -1510,10 +1538,12 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
  
            float sample_sum = std::accumulate(results.begin(), results.end(), 0.0);
            float sample_mean = sample_sum/results.size();
-           float sample_mean_mV = sample_mean*1000.*1.5/4095.0;
+           float sample_mean_mV;
+           if(fetype){sample_mean_mV = sample_mean*1000.*1.5/4095.0;}
+           else{sample_mean_mV = sample_mean*1000./4095.0;}
  	
 					 for(auto & res: results){
-						tp_file<<fe_name<<"\t"<<vmm_id<<"\t"<<tp_dac_points[i]<<"\t"<<res<<"\t"<<cm.sample_to_mV(res)<<std::endl;
+						tp_file<<fe_name<<"\t"<<vmm_id<<"\t"<<tp_dac_points[i]<<"\t"<<res<<"\t"<<cm.sample_to_mV(res, fetype)<<std::endl;
 					 }
 			
            sample_mean_v.push_back(sample_mean);
@@ -1751,4 +1781,52 @@ if(split_config){
 }
 //------------here`s the end-------------
 
+}
+
+void nsw::CalibrationSca::send_pulses(std::vector<nsw::FEBConfig> frontend_configs,
+																			int fe_name_sorted,
+																			int thdac,
+																			int tpdac_i,
+																			bool debug
+																			)
+{
+  nsw::ConfigSender cs;
+
+  auto feb = frontend_configs.at(fe_name_sorted); 
+//--------- what board am i? ---------------------------------- 
+	auto VMMS = feb.getVmms();
+	int VmmSize = VMMS.size();
+
+	int n_vmms = VmmSize;
+ //-------------------------------------------------------------
+
+		for (int vmm_id = 0; vmm_id < n_vmms; vmm_id++) 
+		{
+			if(debug){std::cout<<"\nINFO - "<<feb.getAddress()<< " VMM_"<<vmm_id<<"\t-> setting pulser DAC at ["<<tpdac_i<<"]"<<std::endl;}
+      feb.getVmm(vmm_id).setGlobalThreshold((size_t)(thdac));
+			feb.getVmm(vmm_id).setTestPulseDAC((size_t)(tpdac_i));
+      feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_st", 1);    //lets start with all of channels
+      feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_sm", 0);    
+		}		
+}
+
+void nsw::CalibrationSca::turn_off_pulser(std::vector<nsw::FEBConfig> frontend_configs, int fe_name_sorted, bool debug)
+{
+  nsw::ConfigSender cs;
+
+  auto feb = frontend_configs.at(fe_name_sorted); 
+
+//--------- what board am i? ---------------------------------- 
+	auto VMMS = feb.getVmms();
+	int VmmSize = VMMS.size();
+
+	int n_vmms = VmmSize;
+ //-------------------------------------------------------------
+
+		for (int vmm_id = 0; vmm_id < n_vmms; vmm_id++) 
+		{
+			if(debug){std::cout<<"\nINFO - "<<feb.getAddress()<< " VMM_"<<vmm_id<<"\t-> pulser diabled"<<std::endl;}
+      feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_st", 0);    
+      feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_sm", 1);    
+		}		
 }

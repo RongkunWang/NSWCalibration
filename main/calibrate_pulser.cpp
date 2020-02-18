@@ -40,11 +40,11 @@ int main(int ac, const char* av[]){
 //--------------------------------------------------------------
 	namespace pt = boost::property_tree;
 	pt::ptree input_data;
-//	std::string io_config_path = "../../NSWCalibration/lxplus_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
+	std::string io_config_path = "../../NSWCalibration/lxplus_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
 //	std::string io_config_path = "../../NSWCalibration/bb5_sectA14_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
 //	std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/lxplus_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
 	//std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/bb5_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
-	std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/vs_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
+//	std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/vs_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
 	pt::read_json(io_config_path, input_data);
 //-------------------------------------------------------------------
 	std::string	def_config = input_data.get<std::string>("configuration_json");
@@ -125,7 +125,7 @@ int main(int ac, const char* av[]){
 	bool full_set = true;
 
 		unsigned int nfebs=0;
-		calibrep<<"\n\t\t_____Calibrating Pulser DAC_____"<<std::endl;
+		calibrep<<"\n\t\t_____Pulsing_Channels_____"<<std::endl;
 		if(dw_layer.length()>0)
 		{	
 			try{
@@ -144,28 +144,28 @@ int main(int ac, const char* av[]){
 					}
 					else{continue;}
 				}
-				std::cout<<"\n"<<nfebs<<"FEB(s) will be calibrated"<<std::endl;
+				std::cout<<"\n"<<nfebs<<"FEB(s) will be pulsed"<<std::endl;
 				std::thread conf_threads[nfebs];
-					
+
 				if(debug){std::cout<<"| FEB | VMM | DAC | SAMPLE | SAMPLE(mV) |"<<std::endl;}
-				for(unsigned int l=0; l<fe_names_v.size(); l++)
-				{
-					if(fe_names_v[l].find(dw_layer)!=std::string::npos)
-					{
-						nsw::CalibrationSca * calib_ptr = new nsw::CalibrationSca;
-						conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::calib_pulserDAC, calib_ptr, frontend_configs, io_config_path, fe_names_v.at(l), n_samples, l, debug);
-						ifeb++;
-					}
-					else{continue;}
-				}
-				for(unsigned int l=0; l<nfebs; l++)
-				{
-					if(conf_threads[l].joinable())
-					{
-						conf_threads[l].join();
-					}
-				}
-				std::cout<<"Pulser DAC done!"<<std::endl;
+ 				for(unsigned int l=0; l<fe_names_v.size(); l++)
+ 				{
+ 					if(fe_names_v[l].find(dw_layer)!=std::string::npos)
+ 					{
+ 						nsw::CalibrationSca * calib_ptr = new nsw::CalibrationSca;
+ 						conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::calib_pulserDAC, calib_ptr, frontend_configs, io_config_path, fe_names_v.at(l), n_samples, l, debug);
+ 						ifeb++;
+ 					}
+ 					else{continue;}
+ 				}
+ 				for(unsigned int l=0; l<nfebs; l++)
+ 				{
+ 					if(conf_threads[l].joinable())
+ 					{
+ 						conf_threads[l].join();
+ 					}
+ 				}
+ 				std::cout<<"Pulser DAC done!"<<std::endl;
 			}catch(std::exception &e)
 			{
 				std::cout<<"Error on thread: ["<<e.what()<<"]"<<std::endl;

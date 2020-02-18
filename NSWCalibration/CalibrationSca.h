@@ -51,6 +51,7 @@ int calculate_thdac_value(nsw::ConfigSender & cs,
                           int thdac_central_guess,
 													std::tuple<std::string, float, float> &thdac_constants,
                           std::vector<int> & thdac_guess_variations,
+													bool stgc,
 													bool debug);
 
 std::pair<float,int> find_linear_region_slope(nsw::ConfigSender & cs,
@@ -85,6 +86,7 @@ std::vector<float> read_baseline(nsw::ConfigSender &cs,
 												         std::map< std::pair< std::string,int>, float> & channel_baseline_med,
 												         std::map< std::pair< std::string,int>, float> & channel_baseline_rms,
 												         bool debug,
+																 bool stgc,
 												         int RMS_CUTOFF);
 
 std::vector<float> vmm_averages(nsw::ConfigSender &cs,
@@ -119,6 +121,7 @@ std::map< std::pair< std::string,int>, int>  analyse_trimmers(nsw::ConfigSender 
 																												       std::map< std::pair< std::string,int>, int> & best_channel_trim,
 																												     //  std::vector<float> & trim_perf,
 																												       bool recalc,
+																												       bool stgc,
 																												       bool debug
 																															);
 
@@ -164,6 +167,10 @@ void calib_pulserDAC( std::vector<nsw::FEBConfig> frontend_configs,
                        bool debug);
 
 void merge_json(std::string &mod_json, std::string io_config_path, std::string config_filename, int rms, bool split_config);
+
+void send_pulses(std::vector<nsw::FEBConfig>, int fe_name_sorted, int thdac, int tpdac_i, bool debug);
+
+void turn_off_pulser(std::vector<nsw::FEBConfig>, int fe_name_sorted, bool debug);
 
 	};
 }
