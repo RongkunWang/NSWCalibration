@@ -87,6 +87,7 @@ std::vector<float> read_baseline(nsw::ConfigSender &cs,
 												         std::map< std::pair< std::string,int>, float> & channel_baseline_rms,
 												         bool debug,
 																 bool stgc,
+																 std::vector<float> &n_over_cut,
 												         int RMS_CUTOFF);
 
 std::vector<float> vmm_averages(nsw::ConfigSender &cs,

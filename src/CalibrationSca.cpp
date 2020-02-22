@@ -26,6 +26,9 @@
 nsw::CalibrationSca::CalibrationSca(){
 }
 
+//###################################################################################################################################################
+//#################################### Old configuration method - should not be used before data acquisiiton ########################################
+//###################################################################################################################################################
 //------------- function for the particular processes -----------------------------------
 void nsw::CalibrationSca::read_config(std::string  config_filename, 
 													 std::string fe_name,
@@ -78,11 +81,6 @@ void nsw::CalibrationSca::read_config(std::string  config_filename,
      }
 		}	 
 //---------------------------------------------------------------------------------------------------  
-//	for(auto feb : frontend_configs)
-//	{
-//		auto vmm_vect = feb.getVmms();
-//		std::cout<<feb.getAddress()<<" has "<<vmm_vect.size()<<" VMMs"<<std::endl;
-//	}
 
 } 
 
@@ -98,6 +96,8 @@ void nsw::CalibrationSca::configure_feb(std::vector<nsw::FEBConfig>  frontend_co
 	}
 
 
+//###################################################################################################################################################
+//###################################################################################################################################################
 
 std::vector<float> nsw::CalibrationSca::read_baseline(
 				nsw::ConfigSender &cs,
@@ -111,6 +111,7 @@ std::vector<float> nsw::CalibrationSca::read_baseline(
 				std::map< std::pair< std::string,int>, float> & channel_baseline_rms,
 				bool debug,
 				bool stgc,
+				std::vector<float> &n_over_cut,
 				int RMS_CUTOFF
 				)
 	{
@@ -132,18 +133,24 @@ std::vector<float> nsw::CalibrationSca::read_baseline(
     // add medians, baseline to (MMFE8, CH) map
     channel_baseline_med[feb_ch] = median;
     channel_baseline_rms[feb_ch] = stdev;
-    if (debug){
-    	  std::cout << "INFO - "      << feb.getAddress()
-                << " VMM_"       << i_vmm
-                << ", CH " << channel_id
-                << " : [mean = "  << cm.sample_to_mV(mean, stgc)
-                << "], [stdev = " << cm.sample_to_mV(stdev, stgc)
-                << "]"	<<std::endl;
-	  }
+//    if (debug){
+//    	  std::cout << "INFO - "      << feb.getAddress()
+//                << " VMM_"       << i_vmm
+//                << ", CH " << channel_id
+//                << " : [mean = "  << cm.sample_to_mV(mean, stgc)
+//                << "], [stdev = " << cm.sample_to_mV(stdev, stgc)
+//                << "]"	<<std::endl;
+//	  }
+		float far_outliers = 0;
 		for (unsigned int i = 0; i < results.size(); i++)
 		{
+			if((results[i]+RMS_CUTOFF > RMS_CUTOFF) or (results[i]-RMS_CUTOFF < RMS_CUTOFF)){far_outliers++;}
 			fe_samples_tmp.push_back(results[i]);
 		} //if gives crap data revert back to just filling all stuff inside!
+//		float n_outliers = far_outliers/n_samples;
+		//n_over_cut.push_back(n_outliers);
+		n_over_cut.push_back(far_outliers);
+	  if (debug){std::cout << "INFO - "<< feb.getAddress()<< " VMM_"<< i_vmm<< ", CH "<<channel_id<<" : [mean = "<< cm.sample_to_mV(mean, stgc)<< "], [stdev = "<<cm.sample_to_mV(stdev, stgc)<<"] samples outside RMS cutoff [ "<<n_outliers<<" ]"<<std::endl;}
 		break;// <<<<<<<<<<<<<<<<without break will read 5 time same channel!!!!!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ATENTION IMPORTANT NOTE TO CHECK!!!!!!!!!!!
  		}catch(std::exception &e)
 		{
@@ -325,7 +332,7 @@ std::pair<float,int> nsw::CalibrationSca::find_linear_region_slope(nsw::ConfigSe
       tmp_mid_eff_threshold = mid;
       tmp_max_eff_threshold = max;
 
-			if(debug){std::cout<<"slope calc params -> | "<<min<<" | "<<mid<<" | "<<max<<" | "<<trim_hi<<" | "<<trim_mid<<" | "<<trim_lo<<" | "<<std::endl;}
+			if(debug){std::cout<<"slope calc params -> ( Min|Mid|Max thr: "<<min<<" | "<<mid<<" | "<<max<<")(Hi|Mid|Lo trims: "<<trim_hi<<" | "<<trim_mid<<" | "<<trim_lo<<" )"<<std::endl;}
       //std::pair<float,float> slopes = cm.get_slopes(min,mid,max,trim_hi,trim_mid,trim_lo);
       std::pair<float,float> slopes = cm.get_slopes(min,mid,max,31,14,0);
 
@@ -435,7 +442,6 @@ std::map< std::pair< std::string,int>, int>  nsw::CalibrationSca::analyse_trimme
 			std::vector<int> & channel_mask,
 			std::map<std::pair<std::string,int>,int> & DAC_to_add,
 			std::map< std::pair< std::string,int>, int> & best_channel_trim,
-//			std::vector<float> & trim_perf,
 			bool recalc,
 			bool stgc,
 			bool debug
@@ -536,7 +542,6 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 								std::string io_config_path,
 								int fe_name_sorted,
 								int n_samples,
-//								bool pFEB,
 								bool debug,
 								int rms_factor)
 {
@@ -546,7 +551,8 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 
 	int NCH_PER_VMM = nsw::ref_val::NchPerVmm;
 	int BASELINE_CUTOFF = nsw::ref_val::BaselineCutoff;
-	int RMS_CUTOFF = nsw::ref_val::RmsCutoff;
+//	int RMS_CUTOFF = nsw::ref_val::RmsCutoff;
+	int RMS_CUTOFF = 30;//mV
 	int TRIM_LO = nsw::ref_val::TrimLo;
 	int TRIM_MID = nsw::ref_val::TrimMid;
 	int TRIM_HI = nsw::ref_val::TrimHi;
@@ -632,11 +638,15 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 	pt::ptree single_mask;
 	pt::ptree single_trim;
 
+
+
 	for(int i_vmm=0; i_vmm<n_vmms; i_vmm++)
 		{
     //////////////////////////////////
 	    // VMM-level calculations
 	auto b0 = std::chrono::high_resolution_clock::now();
+	std::vector<float> n_over_cut;
+
 		std::cout<<"\n =============== Reading "<<fe_name<<" VMM "<<i_vmm<<" baseline ======================\n"<<std::endl;;
 			
 	    fe_samples_tmp.clear();
@@ -654,6 +664,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 							channel_baseline_rms,
 							debug,
 							stgc,
+							n_over_cut,
 							RMS_CUTOFF
 							);
 			 }
@@ -671,6 +682,11 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 			int noisy_chan = 0, hot_chan = 0, dead_chan = 0;			
 			float sum_rms = 0, ch_noise = 0;
 
+			float mean_bad_bl_samples = std::accumulate(n_over_cut.begin(), n_over_cut.end(),0.0)/n_over_cut.size();
+			float median_bad_bl_samples = cm.take_median(n_over_cut);
+
+			std::cout<<"\n"<<fe_name<<" VMM_"<<i_vmm<<" samples over RMS cutoff ->| MEAN:"<<mean_bad_bl_samples<<" | MEDIAN "<<median_bad_bl_samples<<" |"<<std::endl;
+
 			for(int channel_id=0; channel_id<NCH_PER_VMM; channel_id++)
 			{
 				std::pair<std::string,int> feb_ch(fe_name,channel_id);	
@@ -678,7 +694,10 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 				ch_med_dev = cm.sample_to_mV(channel_baseline_med[feb_ch], stgc) - cm.sample_to_mV(tmp_median, stgc);//vmm_baseline_med[feb.getAddress()]);
 				ch_noise = cm.sample_to_mV(channel_baseline_rms[feb_ch], stgc); //checking the noise
 				sum_rms += ch_noise; 
-				if(ch_noise > RMS_CUTOFF){noisy_chan++;}
+				if(ch_noise > RMS_CUTOFF){
+					noisy_chan++;
+					std::cout<<"\n"<<fe_name<<" VMM_"<<i_vmm<<" channel "<<channel_id<<" noise ["<<ch_noise<<"]	"<<std::endl;
+				}
 				if(ch_med_dev > BASELINE_CUTOFF)//cutoff)
 				{
 					std::cout<<"\n"<<fe_name<<" VMM_"<<i_vmm<<" channel "<<channel_id<<" has large offset above vmm median ["<<ch_med_dev<<"]	-> ENABLING MASK\n"<<std::endl;
@@ -998,7 +1017,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 		        good_chs++;
 		        if (debug) std::cout << "INFO :) channel " << channel_id << " is okay!" << std::endl;
 		      }
-				std::cout<<"\n"<<std::endl;	
+				if(debug){std::cout<<"\n"<<std::endl;}	
 		    } // end of channel loop
 		
 	auto lr1 = std::chrono::high_resolution_clock::now();
