@@ -150,7 +150,7 @@ std::vector<float> nsw::CalibrationSca::read_baseline(
 //		float n_outliers = far_outliers/n_samples;
 		//n_over_cut.push_back(n_outliers);
 		n_over_cut.push_back(far_outliers);
-	  if (debug){std::cout << "INFO - "<< feb.getAddress()<< " VMM_"<< i_vmm<< ", CH "<<channel_id<<" : [mean = "<< cm.sample_to_mV(mean, stgc)<< "], [stdev = "<<cm.sample_to_mV(stdev, stgc)<<"] samples outside RMS cutoff [ "<<n_outliers<<" ]"<<std::endl;}
+	  if (debug){std::cout << "INFO - "<< feb.getAddress()<< " VMM_"<< i_vmm<< ", CH "<<channel_id<<" : [mean = "<< cm.sample_to_mV(mean, stgc)<< "], [stdev = "<<cm.sample_to_mV(stdev, stgc)<<"] samples outside RMS cutoff [ "<<far_outliers<<" ]"<<std::endl;}
 		break;// <<<<<<<<<<<<<<<<without break will read 5 time same channel!!!!!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ATENTION IMPORTANT NOTE TO CHECK!!!!!!!!!!!
  		}catch(std::exception &e)
 		{
