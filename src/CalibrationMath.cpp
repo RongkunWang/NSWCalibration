@@ -49,6 +49,71 @@ float nsw::CalibrationMath::sample_to_mV(float sample, bool stgc){
   else{val = sample * 1000. / 4095.0;} //1,5 is due to a resistor
 	return val;
 }
+//############################################################################
+float nsw::CalibrationMath::take_mode(std::vector<short unsigned int> &v) {
+
+	std::sort(v.begin(),v.end());
+//	std::vector<short unsigned int> n_modes;
+	int counter = 0;
+	int mode_count_max = 0;
+	short unsigned int mode = 0;
+	for(short unsigned int i = 0; i< v.size(); i++)
+	{
+		counter++;
+///		std::cout<<v[i]<<" - "<<counter<<std::endl;
+		if(i==0){continue;}
+		if(v[i]!=v[i+1]){
+			if(mode_count_max < counter){
+//				std::cout<<"max count"<<mode_count_max<<std::endl;
+				mode_count_max = counter;
+				mode=v[i];
+//				std::cout<<"max count"<<mode_count_max<<" - "<<counter<<" - "<<std::endl;
+//				if(i==v.size()-1){n_modes.push_back(mode);}
+				counter=0;
+			}
+			else if(mode_count_max == counter){
+				mode = v[i];//prev_sample_val;
+//				n_modes.push_back(mode);
+				
+//				std::cout<<"max count"<<mode_count_max<<" - "<<counter<<" - "<<std::endl;
+				counter=0;
+			}
+			else{counter=0;continue;}
+		}
+		else{continue;}			
+	}
+//	int nr_of_modes = n_modes.size();
+//	if(nr_of_modes>1){
+//		std::cout<<" found few modes ["<<nr_of_modes<<"]"<<std::endl;
+//		for(auto &m: n_modes){std::cout<<"-"<<m<<"-";}
+//	}
+//	std::cout<<" << MODE is"<<mode<<" >> with <<"<<mode_count_max<<" counts >>"<<std::endl;
+
+////--------------------------------------------------------------------------
+//	int nr = v[0];
+//  float mode = nr;
+//  short unsigned int n = v.size() / 2;
+//	std::sort(v.begin(),v.end());
+//	int count = 1;
+//	int mode_count = 1;
+//	for(int i=0; i<n; i++)
+//	{
+//		if(v[i]==nr){count++;}
+//		else
+//		{
+//			if(count>mode_count)
+//			{
+//				mode_count = count;
+//				mode = nr;
+//			}
+//			count=1;
+//			nr = v[i];
+//		}	
+//	}
+////-----------------------------------------------------------------------------
+  return mode;
+}
+//############################################################################
 
 float nsw::CalibrationMath::sample_to_mV(short unsigned int sample, bool stgc){
 	float val;

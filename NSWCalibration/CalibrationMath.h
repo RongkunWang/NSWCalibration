@@ -29,6 +29,8 @@ CalibrationMath();
 
 float take_median(std::vector<short unsigned int> &v);
 
+float take_mode(std::vector<short unsigned int> &v);
+
 float take_median(std::vector<float> &v);
 
 float take_rms(std::vector<short unsigned int> &v, float mean);

@@ -15,6 +15,7 @@
 #include <dirent.h>
 #include <ctime>
 #include <mutex>
+#include <math.h>
 
 #include "NSWConfiguration/ConfigReader.h"
 #include "NSWConfiguration/ConfigSender.h"
@@ -90,6 +91,7 @@ void nsw::CalibrationSca::configure_feb(std::vector<nsw::FEBConfig>  frontend_co
 		try{
 			nsw::ConfigSender cs;
 			auto feb = frontend_configs.at(fe_name_sorted);
+			std::cout<<"Configuring FEBs on host << "<<feb.getOpcServerIp()<<" >>"<<std::endl;
 			cs.sendRocConfig(feb); //configure roc
 			cs.sendVmmConfig(feb); //configure vmm
 		}catch(std::exception & e){std::cout<<"ERROR on thread: ["<<e.what()<<"]"<<std::endl;}
@@ -144,7 +146,7 @@ std::vector<float> nsw::CalibrationSca::read_baseline(
 		float far_outliers = 0;
 		for (unsigned int i = 0; i < results.size(); i++)
 		{
-			if((results[i]+RMS_CUTOFF > RMS_CUTOFF) or (results[i]-RMS_CUTOFF < RMS_CUTOFF)){far_outliers++;}
+			if(fabs(cm.sample_to_mV(results[i]-median,stgc)) > RMS_CUTOFF){far_outliers++;std::cout<<"CH: "<<channel_id<<" <"<<i<<"> sample out:"<<cm.sample_to_mV(results[i],stgc)<<" mV | "<<results[i]<<" ADC"<<std::endl;}
 			fe_samples_tmp.push_back(results[i]);
 		} //if gives crap data revert back to just filling all stuff inside!
 //		float n_outliers = far_outliers/n_samples;
@@ -192,7 +194,7 @@ int nsw::CalibrationSca::calculate_thdac_value(nsw::ConfigSender & cs,
 				thdac_diff = fabs(thdac_med - r);
 				if(thdac_diff > 50)//approx 15-20 mV
 				{
-					if(debug){std::cout<<"sample strongly deviates from THDAC median value "<< thdac_med<<std::endl;}
+					if(debug){std::cout<<"sample --"<<r<<"-- strongly deviates from THDAC median value "<< thdac_med <<std::endl;}
 					continue;
 				}
 				else{results.push_back(r);}			
@@ -297,6 +299,13 @@ std::pair<float,int> nsw::CalibrationSca::find_linear_region_slope(nsw::ConfigSe
 //        float stdev = take_rms(results,mean);
         float median = cm.take_median(results);
 
+				int dev_sam = 0;
+				for(auto &sam : results)
+				{
+					if(fabs(sam-median)>50){dev_sam++;}
+					else{continue;}
+				}
+				if(dev_sam>1){std::cout<<feb.getAddress()<<"VMM_"<<vmm_id<<" CH:"<<channel_id<<" - ["<<dev_sam<<"/"<<n_samples*factor<<"] samples strongly deviate"<<std::endl;}
         // calculate "signal" --> threshold - channel
         float eff_thresh = median - ch_baseline_med;
 
@@ -550,9 +559,10 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 	int tpdac =-1;
 
 	int NCH_PER_VMM = nsw::ref_val::NchPerVmm;
-	int BASELINE_CUTOFF = nsw::ref_val::BaselineCutoff;
+	//int BASELINE_CUTOFF = nsw::ref_val::BaselineCutoff //10mV - default;
+	int BASELINE_CUTOFF = 20;
 //	int RMS_CUTOFF = nsw::ref_val::RmsCutoff;
-	int RMS_CUTOFF = 30;//mV
+	int RMS_CUTOFF = 20;//mV
 	int TRIM_LO = nsw::ref_val::TrimLo;
 	int TRIM_MID = nsw::ref_val::TrimMid;
 	int TRIM_HI = nsw::ref_val::TrimHi;
@@ -744,7 +754,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 				continue;
 			}
 
-	    fe_samples_pruned.clear();																																																																	//--- this part needs adjustment ----
+	    fe_samples_pruned.clear();																																																																//--- this part needs adjustment ----
 			int CH = 0, counter = 0;
 	    for (auto sample: fe_samples_tmp)
 				{
@@ -1039,7 +1049,20 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 			std::map<std::pair<std::string, int>, float> channel_trimmed_thr;
 			std::map<std::pair<std::string,int>,int> DAC_to_add;// value to add to THDAC is one of the channels with neg. thr. is unmasked
 		//--------- check for trimmer performance vector of effective thr. --------		
-	
+			int short_trim=0;
+			for(auto &trim_max : channel_trimmer_max)
+			{
+				if(trim_max.second <= 14){short_trim++;}
+				else{continue;}
+			}
+	if(short_trim >= 8)
+	{
+		mtx.lock();
+//		calibrep<<fe_name<<" VMM_"<<i_vmm<<": Large effective threshold RMS - ["<<trim_rms<<"], OR many badly trimmed CH - ["<<bad_trim<<"/64](try 1)"<<std::endl;
+		calibrep<<fe_name<<" VMM_"<<i_vmm<<": trimmers with half of defined operation range - ["<<short_trim<<"/64]"<<std::endl;
+		mtx.unlock();
+	}
+
 	auto e0 = std::chrono::high_resolution_clock::now();
 			bool recalc = false;
 			int thdac_i = thdacs[feb.getAddress()];
@@ -1428,7 +1451,8 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
      	  float mean   = sum / results.size();	
 				float median = cm.take_median(results); 
 				float rms = cm.take_rms(results,mean); 
-	
+				float mode = cm.take_mode(results);			
+		
 				for(auto & result :results)
 				{
 				//	full_bl<<fe_name<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(result)<<std::endl;  
@@ -1458,10 +1482,20 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 			 	max_dev = results.at(n_samples-1);
 			 	min_dev = results.at(0);
 				float sample_dev = max_dev - min_dev;
-
+			
+				if(remainder(channel_id,2)!=0){
+				std::cout<<"-----------------------------------------------------------------------------------------------------------------------------------"<<std::endl;
+					std::sort(results.begin(),results.end());
+					for(int r=0;r<results.size();r++){
+						if(results[r]==results[r-1]){std::cout<<results[r]<<" ";}
+						else{std::cout<<"\n"<<results[r]<<" ";}
+					}
+				std::cout<<"\n\n-----------------------------------------------------------------------------------------------------------------------------------"<<std::endl;
+				std::cout<<"{mode"<<mode<<"}"<<std::endl;
+				}	
 	   	  if(conn_check)
 				{
-					std::cout<<"INFO - "<<fe_name<<" VMM_"<<vmm_id<<" CH:"<<channel_id<<" - BL: "<<cm.sample_to_mV(median, fetype)<<" - RMS: "<<cm.sample_to_mV(rms, fetype)<<", spread: "<<cm.sample_to_mV(sample_dev, fetype)<<std::endl;
+					std::cout<<"INFO - "<<fe_name<<" VMM_"<<vmm_id<<" CH:"<<channel_id<<" - |BL(median) "<<cm.sample_to_mV(median, fetype)<<" |BL(mean) "<<cm.sample_to_mV(mean,fetype)<<" |BL(mode) "<<cm.sample_to_mV(mode,fetype)<<" - RMS: "<<cm.sample_to_mV(rms, fetype)<<", spread: "<<cm.sample_to_mV(sample_dev, fetype)<<std::endl;
 				//	if(cm.sample_to_mV(sample_dev)>60)
 				//	{
 				//		printf("this channel %i sample deviation above 60mV (masking...?)\n",channel_id);
@@ -1827,6 +1861,7 @@ void nsw::CalibrationSca::send_pulses(std::vector<nsw::FEBConfig> frontend_confi
       feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_st", 1);    //lets start with all of channels
       feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_sm", 0);    
 		}		
+	cs.sendVmmConfig(feb);
 }
 
 void nsw::CalibrationSca::turn_off_pulser(std::vector<nsw::FEBConfig> frontend_configs, int fe_name_sorted, bool debug)
@@ -1848,4 +1883,6 @@ void nsw::CalibrationSca::turn_off_pulser(std::vector<nsw::FEBConfig> frontend_c
       feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_st", 0);    
       feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_sm", 1);    
 		}		
+	cs.sendVmmConfig(feb);
 }
+
