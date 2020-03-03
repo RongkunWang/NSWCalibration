@@ -67,7 +67,7 @@ int main(int ac, const char* av[]){
     desc.add_options()
     ("help,h", "produce help message")
     ("config,c", po::value<std::string>(&config_filename)->default_value(base_folder+def_config),"Configuration .json file. If not specified choses from input_data.json - [configuration_json] ")
-    ("expect,e", po::value<std::string>(&expect_file)->default_value("afs/cern.ch/user/n/nswdaq/public/alti/ALTI_oneshot_pattern.expect"),"ALTI .expect file with appropriate tigger pattern ")
+    ("expect,e", po::value<std::string>(&expect_file)->default_value("/afs/cern.ch/user/n/nswdaq/public/alti/ALTI_oneshot_pattern.expect"),"ALTI .expect file with appropriate tigger pattern ")
     ("alti_chan,a", po::value<int>(&alti_chan)->default_value(11),"slot in VME crate where ALTI sits")
     ("thdac, t", po::value<int>(&thdac)->default_value(180),"Threshold DAC to set for pulsing - default 180")
     ("layer_dw,L", po::value<std::string>(&dw_layer)->default_value(""),"Select febs by their naming - type in -> L1/L2/L3/L4 to pulse FEBs in these layers or HO/IP to pulse whole side of DW or be more specific by entering i.e. MMFE8_L1P1_HOL and pulse only on FEB")
@@ -91,6 +91,22 @@ int main(int ac, const char* av[]){
         return 1;
 	}
 
+	const char* host = std::getenv("HOSTNAME");
+	std::string this_host = host;
+
+	if(this_host.find("sbcnsw-ttc-01")!=std::string::npos){
+		std::cout<<"\n Using VS SBC & ALTI - VME channel 9"<<std::endl;
+		alti_chan = 9;
+	}
+	if(this_host.find("sbcatlnswb1")!=std::string::npos){
+		std::cout<<"\n Using BB5 SBC & ALTI - VME channel 11"<<std::endl;
+		alti_chan = 11;
+	}
+	if(this_host.find("sbcl1ct-191")!=std::string::npos){
+		std::cout<<"\n Using 191 SBC & ALTI - VME channel 11"<<std::endl;
+		alti_chan = 11;
+	}
+	else{std::cout<<"Running on unknown SBC or without it"<<std::endl;}
 //---------- thing to see available core number -----------------
 	{
 	   unsigned int c = std::thread::hardware_concurrency();
@@ -147,7 +163,9 @@ int main(int ac, const char* av[]){
 //					Here two system calls should be made for the ttc sr and ecr commands
 //-----------------------------------------------------------------------------------
 			 if(!task){system("echo sr 11 executes && echo ecr 11 executes");}
-			 if(task){system("sr 11 && ecr 11");}
+			 std::string ttc_com = "sr "+std::to_string(alti_chan)+" && ecr "+std::to_string(alti_chan)+" && sleep 1";
+	//		 if(task){system("sr 11 && sleep 2 && ecr 11");}
+			 if(task){system(ttc_com.c_str());}
 
 			 for(unsigned int i = 0; i < tpdacs.size(); i++)
 			 {

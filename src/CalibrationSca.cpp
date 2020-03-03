@@ -1860,8 +1860,11 @@ void nsw::CalibrationSca::send_pulses(std::vector<nsw::FEBConfig> frontend_confi
 			feb.getVmm(vmm_id).setTestPulseDAC((size_t)(tpdac_i));
       feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_st", 1);    //lets start with all of channels
       feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_sm", 0);    
+			
+			cs.sendVmmConfigSingle(feb,vmm_id);
 		}		
-	cs.sendVmmConfig(feb);
+//	cs.sendVmmConfig(feb);
+//	cs.sendVmmConfigSingle(feb,vmm_id);
 }
 
 void nsw::CalibrationSca::turn_off_pulser(std::vector<nsw::FEBConfig> frontend_configs, int fe_name_sorted, bool debug)
@@ -1882,7 +1885,10 @@ void nsw::CalibrationSca::turn_off_pulser(std::vector<nsw::FEBConfig> frontend_c
 			if(debug){std::cout<<"\nINFO - "<<feb.getAddress()<< " VMM_"<<vmm_id<<"\t-> pulser diabled"<<std::endl;}
       feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_st", 0);    
       feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_sm", 1);    
+
+			cs.sendVmmConfigSingle(feb,vmm_id);
 		}		
-	cs.sendVmmConfig(feb);
+//	cs.sendVmmConfig(feb);
+//	cs.sendVmmConfigSingle(feb,vmm_id);
 }
 
