@@ -1420,8 +1420,8 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 
 	bool fetype = fe_name.find("MMFE")!=std::string::npos;
 	
-	if(conn_check and fetype){std::cout<<" I AM GROOOOT!"<<std::endl;}
-	if(conn_check and !fetype){std::cout<<" I AM ..... something else!"<<std::endl;}
+	if(conn_check and fetype){std::cout<<" I AM GROOOOT! - MMFE8"<<std::endl;}
+	if(conn_check and !fetype){std::cout<<" I AM s/pFEB"<<std::endl;}
 //	std::cout<<fe_name<<" - SCA ID: "<<cs.readSCAID(feb)<<std::endl;
 //	std::cout<<fe_name<<" - SCA address: "<<cs.readSCAAddress(feb)<<std::endl;
 //	std::cout<<fe_name<<" - SCA online: "<<cs.readSCAOnline(feb)<<std::endl;
@@ -1483,16 +1483,16 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 			 	min_dev = results.at(0);
 				float sample_dev = max_dev - min_dev;
 			
-				if(remainder(channel_id,2)!=0){
-				std::cout<<"-----------------------------------------------------------------------------------------------------------------------------------"<<std::endl;
-					std::sort(results.begin(),results.end());
-					for(int r=0;r<results.size();r++){
-						if(results[r]==results[r-1]){std::cout<<results[r]<<" ";}
-						else{std::cout<<"\n"<<results[r]<<" ";}
-					}
-				std::cout<<"\n\n-----------------------------------------------------------------------------------------------------------------------------------"<<std::endl;
-				std::cout<<"{mode"<<mode<<"}"<<std::endl;
-				}	
+//				if(remainder(channel_id,2)!=0){
+//				std::cout<<"-----------------------------------------------------------------------------------------------------------------------------------"<<std::endl;
+//					std::sort(results.begin(),results.end());
+//					for(int r=0;r<results.size();r++){
+//						if(results[r]==results[r-1]){std::cout<<results[r]<<" ";}
+//						else{std::cout<<"\n"<<results[r]<<" ";}
+//					}
+//				std::cout<<"\n\n-----------------------------------------------------------------------------------------------------------------------------------"<<std::endl;
+//				std::cout<<"{mode"<<mode<<"}"<<std::endl;
+//				}	
 	   	  if(conn_check)
 				{
 					std::cout<<"INFO - "<<fe_name<<" VMM_"<<vmm_id<<" CH:"<<channel_id<<" - |BL(median) "<<cm.sample_to_mV(median, fetype)<<" |BL(mean) "<<cm.sample_to_mV(mean,fetype)<<" |BL(mode) "<<cm.sample_to_mV(mode,fetype)<<" - RMS: "<<cm.sample_to_mV(rms, fetype)<<", spread: "<<cm.sample_to_mV(sample_dev, fetype)<<std::endl;
