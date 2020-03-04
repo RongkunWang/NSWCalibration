@@ -162,10 +162,10 @@ int main(int ac, const char* av[]){
 //----------------------------------------------------------------------------------
 //					Here two system calls should be made for the ttc sr and ecr commands
 //-----------------------------------------------------------------------------------
-			 if(!task){system("echo sr 11 executes && echo ecr 11 executes");}
+//			 if(!task){system("echo sr 11 executes && echo ecr 11 executes");}
 			 std::string ttc_com = "sr "+std::to_string(alti_chan)+" && ecr "+std::to_string(alti_chan);
 	//		 if(task){system("sr 11 && sleep 2 && ecr 11");}
-			 if(task){system(ttc_com.c_str());}
+//			 if(task){system(ttc_com.c_str());}
 			 sleep(2);
 
 			 for(unsigned int i = 0; i < tpdacs.size(); i++)

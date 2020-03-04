@@ -93,7 +93,20 @@ void nsw::CalibrationSca::configure_feb(std::vector<nsw::FEBConfig>  frontend_co
 			auto feb = frontend_configs.at(fe_name_sorted);
 			std::cout<<"Configuring FEBs on host << "<<feb.getOpcServerIp()<<" >>"<<std::endl;
 			cs.sendRocConfig(feb); //configure roc
+			//----- vmm reset charade ---------------
+			auto &vmms = feb.getVmms();
+			std::vector<unsigned> reset_orig;
+			for(auto & vmm : vmms){
+				reset_orig.push_back(vmm.getGlobalRegister("reset"));
+				vmm.setGlobalRegister("reset",3);
+			}
 			cs.sendVmmConfig(feb); //configure vmm
+			size_t i = 0;	
+			for(auto & vmm : vmms){
+				vmm.setGlobalRegister("reset",reset_orig[i++]);
+			}
+			//---------------------------------------	
+			cs.sendVmmConfig(feb); //configure vmm with oiginal reset register settings
 		}catch(std::exception & e){std::cout<<"ERROR on thread: ["<<e.what()<<"]"<<std::endl;}
 	}
 
