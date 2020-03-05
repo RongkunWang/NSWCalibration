@@ -167,7 +167,26 @@ int main(int ac, const char* av[]){
 	//		 if(task){system("sr 11 && sleep 2 && ecr 11");}
 //			 if(task){system(ttc_com.c_str());}
 			 sleep(2);
-
+//------------------ sending intial config ----------------------------------------------
+					int ifeb=0;
+					for(long unsigned int b=0; b<fe_names_v.size(); b++)
+					{
+						if(fe_names_v.at(b).find(dw_layer)!= std::string::npos)
+						{
+							nsw::CalibrationSca * calib_ptr = new nsw::CalibrationSca;
+							conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::configure_feb, calib_ptr, frontend_configs, b);
+							ifeb++;
+						}
+						else{continue;}
+					}
+					std::cout<<" threads launched"<<std::endl;
+					for(unsigned int j=0; j<nfebs; j++)
+					{
+						conf_threads[j].join();
+					}
+					
+					std::cout<<" threads joined"<<std::endl;
+//----------------------------------------------------------------------------------------------------------
 			 for(unsigned int i = 0; i < tpdacs.size(); i++)
 			 {
 //--------------CONFIGURING FEBS TO SEND TEST PULSES-------------------------------------------------------------------------			
@@ -224,6 +243,9 @@ int main(int ac, const char* av[]){
 				calibrep<<"ERROR interupt: ["<<e.what()<<"]"<<std::endl;
 			}
 		}
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+ /////////////////////////////  later need to adjust lower part ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //----------------------------further is executed if no specific board set is specified-----------------------------------------------------------------------------------------
 		else
 		{

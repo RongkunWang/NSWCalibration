@@ -35,6 +35,7 @@ int main(int argc, const char *argv[])
     std::string system_cmd0;
     std::string system_cmd1;
     std::string system_cmd2;
+    int tpdac;
     int max_threads;
     bool dry_run;
     bool mask_all;
@@ -48,6 +49,8 @@ int main(int argc, const char *argv[])
          "Configuration file path")
 //        ("addc_file,a", po::value<std::string>(&addc_filename)->
  //        default_value(""), "ADDC config file path")
+        ("tpdac", po::value<int>(&tpdac)->
+         default_value(400), "Test pulse DAC value")
         ("dry_run", po::bool_switch()->
          default_value(false), "Option to NOT send configurations")
         ("mask_all", po::bool_switch()->
@@ -101,8 +104,8 @@ int main(int argc, const char *argv[])
 //        senders->insert( {addc.getAddress(), new nsw::ConfigSender()} );
 
 		//std::vector<int> tpdacs = {100,200,300,400,500,600,700,800,900,1000};
-		std::vector<int> tpdacs = {300,400,500};
-
+//		std::vector<int> tpdacs = {300,400,500};
+		
 
     // mask everything
     if (mask_all) {
@@ -120,13 +123,14 @@ int main(int argc, const char *argv[])
     }
 
 ////////////// loop over patterns //////////////////////
-for(long unsigned int i=0; i<tpdacs.size(); i++){
+//for(long unsigned int i=0; i<tpdacs.size(); i++){
 
     for (auto & feb: febs) {
             for (int vmm_id = 0; vmm_id < (int)(feb.getVmms().size()); vmm_id++) {
-                feb.getVmm(vmm_id).setTestPulseDAC(tpdacs[i]);
-               // feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_st", 0);
-               // feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_sm", 1);
+                feb.getVmm(vmm_id).setTestPulseDAC(tpdac);
+                //feb.getVmm(vmm_id).setTestPulseDAC(tpdacs[i]);
+                feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_st", 0);
+                feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_sm", 1);
             }
             wait_until_fewer(threads, max_threads);
             if(!dry_run)
@@ -142,7 +146,7 @@ for(long unsigned int i=0; i<tpdacs.size(); i++){
 
         ipatt++;
         // std::cout << "\r > " << ipatt << " / " << patts.size() << " :: ";
-        std::cout << "> " << ipatt << " / " << patts.size() << " :: ";
+        std::cout << "patterns > " << ipatt << " / " << patts.size() << " :: ";
 
         // enable test pulse
         // dont limit threads - only 8 layers
@@ -152,7 +156,7 @@ for(long unsigned int i=0; i<tpdacs.size(); i++){
             for (auto & feb: febs) {
                 if (fename != feb.getAddress())
                     continue;
-                std::cout << " " << feb.getAddress() << ", VMM" << vmmid << ", CH" << chan;
+                std::cout << "\n " << feb.getAddress() << ", VMM" << vmmid << ", CH" << chan;
                 feb.getVmm(vmmid).setChannelRegisterOneChannel("channel_st", 1, chan);
                 feb.getVmm(vmmid).setChannelRegisterOneChannel("channel_sm", 0, chan);
                 if(!dry_run)
@@ -165,22 +169,28 @@ for(long unsigned int i=0; i<tpdacs.size(); i++){
         // run the TTC system commands
 //       if (addcs.size() == 0) {
             if(!dry_run) {
-                std::cout << "System commands running...";
-                system(system_cmd0.c_str()); usleep(100000); //<--- microseconds
-                system(system_cmd1.c_str()); usleep(100000);
-                system(system_cmd2.c_str()); usleep(100000);
+                std::cout << "\nSystem commands running...\n";
+                system(system_cmd0.c_str()); 
+                usleep(100000); //<--- microseconds
+								std::cout<<"cmd0 - done!"<<std::endl;
+                system(system_cmd1.c_str());
+                usleep(100000);
+								std::cout<<"cmd1 - done!"<<std::endl;
+                system(system_cmd2.c_str()); 
+                usleep(100000);
+								std::cout<<"cmd2 - done!"<<std::endl;
                 std::cout << " finished. ";
             }
 //        }
 
         // disable test pulse
-        std::cout << "Disabled";
+        std::cout << "\nDisabled";
         for (auto feb_vmm_chan: pattern) {
             std::tie(fename, vmmid, chan) = feb_vmm_chan;
             for (auto & feb: febs) {
                 if (fename != feb.getAddress())
                     continue;
-                std::cout << " " << feb.getAddress() << ", VMM" << vmmid << ", CH" << chan;
+                std::cout << "\n " << feb.getAddress() << ", VMM" << vmmid << ", CH" << chan;
                 feb.getVmm(vmmid).setChannelRegisterOneChannel("channel_st", 0, chan);
                 feb.getVmm(vmmid).setChannelRegisterOneChannel("channel_sm", 1, chan);
                 if(!dry_run)
@@ -192,8 +202,8 @@ for(long unsigned int i=0; i<tpdacs.size(); i++){
         std::cout << std::endl;
         wait_until_done(threads);
     }
-	std::this_thread::sleep_for(std::chrono::seconds(1));
-}
+//	std::this_thread::sleep_for(std::chrono::seconds(1));
+//}
     std::cout << std::endl;
     return 0;
 }
@@ -247,208 +257,16 @@ std::vector< std::vector< std::tuple<std::string, int, int> > > patterns() {
     //
     std::vector< std::vector< std::tuple<std::string, int, int> > > patts = {};
 
-    // connectivity example: channel 7
-    // only 1 feb per pattern
-    // for (auto fename: {
-
-    // "MMFE8_L1P1_HOL",
-    // "MMFE8_L1P2_HOL",
-    // "MMFE8_L1P3_HOL",
-    // "MMFE8_L1P4_HOL",
-    // "MMFE8_L1P5_HOL",
-    // "MMFE8_L1P6_HOL",
-    // "MMFE8_L1P7_HOL",
-    // "MMFE8_L1P8_HOL",
-    // "MMFE8_L1P1_HOR",
-    // "MMFE8_L1P2_HOR",
-    // "MMFE8_L1P3_HOR",
-    // "MMFE8_L1P4_HOR",
-    // "MMFE8_L1P5_HOR",
-    // "MMFE8_L1P6_HOR",
-    // "MMFE8_L1P7_HOR",
-    // "MMFE8_L1P8_HOR",
-    // "MMFE8_L2P1_HOL",
-    // "MMFE8_L2P2_HOL",
-    // "MMFE8_L2P3_HOL",
-    // "MMFE8_L2P4_HOL",
-    // "MMFE8_L2P5_HOL",
-    // "MMFE8_L2P6_HOL",
-    // "MMFE8_L2P7_HOL",
-    // "MMFE8_L2P8_HOL",
-    // "MMFE8_L2P1_HOR",
-    // "MMFE8_L2P2_HOR",
-    // "MMFE8_L2P3_HOR",
-    // "MMFE8_L2P4_HOR",
-    // "MMFE8_L2P5_HOR",
-    // "MMFE8_L2P6_HOR",
-    // "MMFE8_L2P7_HOR",
-    // "MMFE8_L2P8_HOR",
-    // "MMFE8_L3P1_HOL",
-    // "MMFE8_L3P2_HOL",
-    // "MMFE8_L3P3_HOL",
-    // "MMFE8_L3P4_HOL",
-    // "MMFE8_L3P5_HOL",
-    // "MMFE8_L3P6_HOL",
-    // "MMFE8_L3P7_HOL",
-    // "MMFE8_L3P8_HOL",
-    // "MMFE8_L3P1_HOR",
-    // "MMFE8_L3P2_HOR",
-    // "MMFE8_L3P3_HOR",
-    // "MMFE8_L3P4_HOR",
-    // "MMFE8_L3P5_HOR",
-    // "MMFE8_L3P6_HOR",
-    // "MMFE8_L3P7_HOR",
-    // "MMFE8_L3P8_HOR",
-    // "MMFE8_L4P1_HOL",
-    // "MMFE8_L4P2_HOL",
-    // "MMFE8_L4P3_HOL",
-    // "MMFE8_L4P4_HOL",
-    // "MMFE8_L4P5_HOL",
-    // "MMFE8_L4P6_HOL",
-    // "MMFE8_L4P7_HOL",
-    // "MMFE8_L4P8_HOL",
-    // "MMFE8_L4P1_HOR",
-    // "MMFE8_L4P2_HOR",
-    // "MMFE8_L4P3_HOR",
-    // "MMFE8_L4P4_HOR",
-    // "MMFE8_L4P5_HOR",
-    // "MMFE8_L4P6_HOR",
-    // "MMFE8_L4P7_HOR",
-    // "MMFE8_L4P8_HOR",
-
-    // "MMFE8_L1P1_IPL",
-    // "MMFE8_L1P2_IPL",
-    // "MMFE8_L1P3_IPL",
-    // "MMFE8_L1P4_IPL",
-    // "MMFE8_L1P5_IPL",
-    // "MMFE8_L1P6_IPL",
-    // "MMFE8_L1P7_IPL",
-    // "MMFE8_L1P8_IPL",
-    // "MMFE8_L1P1_IPR",
-    // "MMFE8_L1P2_IPR",
-    // "MMFE8_L1P3_IPR",
-    // "MMFE8_L1P4_IPR",
-    // "MMFE8_L1P5_IPR",
-    // "MMFE8_L1P6_IPR",
-    // "MMFE8_L1P7_IPR",
-    // "MMFE8_L1P8_IPR",
-    // "MMFE8_L2P1_IPL",
-    // "MMFE8_L2P2_IPL",
-    // "MMFE8_L2P3_IPL",
-    // "MMFE8_L2P4_IPL",
-    // "MMFE8_L2P5_IPL",
-    // "MMFE8_L2P6_IPL",
-    // "MMFE8_L2P7_IPL",
-    // "MMFE8_L2P8_IPL",
-    // "MMFE8_L2P1_IPR",
-    // "MMFE8_L2P2_IPR",
-    // "MMFE8_L2P3_IPR",
-    // "MMFE8_L2P4_IPR",
-    // "MMFE8_L2P5_IPR",
-    // "MMFE8_L2P6_IPR",
-    // "MMFE8_L2P7_IPR",
-    // "MMFE8_L2P8_IPR",
-
-
-    // "MMFE8_L3P1_IPL",
-    // "MMFE8_L3P2_IPL",
-    // "MMFE8_L3P3_IPL",
-    // "MMFE8_L3P4_IPL",
-    // "MMFE8_L3P5_IPL",
-    // "MMFE8_L3P6_IPL",
-    // "MMFE8_L3P7_IPL",
-    // "MMFE8_L3P8_IPL",
-    // "MMFE8_L3P1_IPR",
-    // "MMFE8_L3P2_IPR",
-    // "MMFE8_L3P3_IPR",
-    // "MMFE8_L3P4_IPR",
-    // "MMFE8_L3P5_IPR",
-    // "MMFE8_L3P6_IPR",
-    // "MMFE8_L3P7_IPR",
-    // "MMFE8_L3P8_IPR",
-    // "MMFE8_L4P1_IPL",
-    // "MMFE8_L4P2_IPL",
-    // "MMFE8_L4P3_IPL",
-    // "MMFE8_L4P4_IPL",
-    // "MMFE8_L4P5_IPL",
-    // "MMFE8_L4P6_IPL",
-    // "MMFE8_L4P7_IPL",
-    // "MMFE8_L4P8_IPL",
-    // "MMFE8_L4P1_IPR",
-    // "MMFE8_L4P2_IPR",
-    // "MMFE8_L4P3_IPR",
-    // "MMFE8_L4P4_IPR",
-    // "MMFE8_L4P5_IPR",
-    // "MMFE8_L4P6_IPR",
-    // "MMFE8_L4P7_IPR",
-    // "MMFE8_L4P8_IPR"
-
-    // }) {
-    //     for (int vmmid = 0; vmmid < 8; vmmid++) {
-    //         std::vector< std::tuple<std::string, int, int> > patt = {};
-    //         patt.push_back(std::make_tuple(fename, vmmid, 7));
-    //         patts.push_back(patt);
-    //     }
-    // }
-
-    // // track-like example
-    // for (int vmmid = 6; vmmid >= 0; vmmid--) {
-    //     for (int chan = 63; chan >= 0; chan--) {
-    //         std::vector< std::tuple<std::string, int, int> > patt = {};
-    //         patt.push_back(std::make_tuple("MMFE8_L1P1_HOR", vmmid, chan));
-    //         patt.push_back(std::make_tuple("MMFE8_L2P1_HOL", vmmid, chan));
-    //         patt.push_back(std::make_tuple("MMFE8_L3P1_HOR", vmmid, chan));
-    //         patt.push_back(std::make_tuple("MMFE8_L4P1_HOL", vmmid, chan));
-    //         patt.push_back(std::make_tuple("MMFE8_L4P1_IPR", vmmid, chan));
-    //         patt.push_back(std::make_tuple("MMFE8_L3P1_IPL", vmmid, chan));
-    //         patt.push_back(std::make_tuple("MMFE8_L2P1_IPR", vmmid, chan));
-    //         patt.push_back(std::make_tuple("MMFE8_L1P1_IPL", vmmid, chan));
-    //         patts.push_back(patt);
-    //         break; // only one channel for now!
-    //     }
-    //     break; // only one VMM for now!
-    // }
-
-//////////////////////////////////////////////////////////
-//					Originally used pattern loop               ///
-//////////////////////////////////////////////////////////
-    // track-like loop
-//    bool even;
-//    int nvmm = 8;
-//    int nchan = 64;
-//    int pcb, this_vmm, this_chan;
-//    for (int pos = 0; pos < 16; pos++) {
-//        for (int vmmid = 0; vmmid < nvmm; vmmid++) {
-//            for (int chan = 0; chan < nchan; chan++) {
-//                even = pos % 2 == 0;
-//                pcb  = pos / 2 + 1;
-//                auto pcbstr = std::to_string(pcb);
-//                this_vmm  = even ? nvmm-1-vmmid : vmmid;
-//                this_chan = 7; // even ? nchan-1-chan : chan;
-//                std::vector< std::tuple<std::string, int, int> > patt = {};
-//                patt.push_back(std::make_tuple("MMFE8_L1P" + pcbstr + "_HO" + (even ? "R" : "L"), this_vmm, this_chan));
-//                patt.push_back(std::make_tuple("MMFE8_L2P" + pcbstr + "_HO" + (even ? "L" : "R"), this_vmm, this_chan));
-//                patt.push_back(std::make_tuple("MMFE8_L3P" + pcbstr + "_HO" + (even ? "R" : "L"), this_vmm, this_chan));
-//                patt.push_back(std::make_tuple("MMFE8_L4P" + pcbstr + "_HO" + (even ? "L" : "R"), this_vmm, this_chan));
-//                patt.push_back(std::make_tuple("MMFE8_L4P" + pcbstr + "_IP" + (even ? "R" : "L"), this_vmm, this_chan));
-//                patt.push_back(std::make_tuple("MMFE8_L3P" + pcbstr + "_IP" + (even ? "L" : "R"), this_vmm, this_chan));
-//                patt.push_back(std::make_tuple("MMFE8_L2P" + pcbstr + "_IP" + (even ? "R" : "L"), this_vmm, this_chan));
-//                patt.push_back(std::make_tuple("MMFE8_L1P" + pcbstr + "_IP" + (even ? "L" : "R"), this_vmm, this_chan));
-//                patts.push_back(patt);
-//                break; // only one channel for now!
-//            }
-//            // break; // only one VMM for now!
-//        }
-//    }
-//
+ 
     // extremely simple example:
      std::vector< std::tuple<std::string, int, int> > patt0 = {};
 		 for(int ch=0; ch<64; ch++){
-	     patt0.push_back(std::make_tuple("MMFE8_L1P1_HOR", 2, ch));
+	 //    patt0.push_back(std::make_tuple("MMFE8_L1P1_HOR", 2, ch));
 		// }
-  //	   patt0.push_back(std::make_tuple("MMFE8-0001", 2, 10));
-  //	   patt0.push_back(std::make_tuple("MMFE8-0002", 2, 10));
-  //	   patt0.push_back(std::make_tuple("MMFE8-0003", 2, 10));
+  	   patt0.push_back(std::make_tuple("MMFE8-0000", 2, 10));
+  	   patt0.push_back(std::make_tuple("MMFE8-0001", 2, 10));
+  	   patt0.push_back(std::make_tuple("MMFE8-0002", 2, 10));
+  	   patt0.push_back(std::make_tuple("MMFE8-0003", 2, 10));
   //	   patt0.push_back(std::make_tuple("MMFE8-0005", 2, 10));
   //	   patt0.push_back(std::make_tuple("MMFE8-0006", 2, 10));
   //	   patt0.push_back(std::make_tuple("MMFE8-0007", 2, 10));
