@@ -54,10 +54,11 @@ int main(int ac, const char* av[]){
     std::string description = "\tProgram executes VMM internal pulser loop going from pulser DAC 200 to 1000 in steps of 100 with global threshold set at 180(default)\n";
 
 		bool debug;
-		bool task;
+		bool task, configure, no_disable;
     int N_FEB;
     int thdac;
     int alti_chan;
+    int t_wait;
 		std::string expect_file;
 
     std::string config_filename;
@@ -69,9 +70,12 @@ int main(int ac, const char* av[]){
     ("config,c", po::value<std::string>(&config_filename)->default_value(base_folder+def_config),"Configuration .json file. If not specified choses from input_data.json - [configuration_json] ")
     ("expect,e", po::value<std::string>(&expect_file)->default_value("/afs/cern.ch/user/n/nswdaq/public/alti/ALTI_oneshot_pattern.expect"),"ALTI .expect file with appropriate tigger pattern ")
     ("alti_chan,a", po::value<int>(&alti_chan)->default_value(11),"slot in VME crate where ALTI sits")
+    ("t_wait,t", po::value<int>(&t_wait)->default_value(100),"time to execute ttc commantds in [ms]")
     ("thdac, t", po::value<int>(&thdac)->default_value(180),"Threshold DAC to set for pulsing - default 180")
     ("layer_dw,L", po::value<std::string>(&dw_layer)->default_value(""),"Select febs by their naming - type in -> L1/L2/L3/L4 to pulse FEBs in these layers or HO/IP to pulse whole side of DW or be more specific by entering i.e. MMFE8_L1P1_HOL and pulse only on FEB")
 		("task", po::bool_switch()->default_value(false), "Enable TTC commands =>> default value - false")
+		("configure", po::bool_switch()->default_value(false), "Enable TTC commands =>> default value - false")
+		("no_disable", po::bool_switch()->default_value(false), "Enable TTC commands =>> default value - false")
 		("debug", po::bool_switch()->default_value(false), "Enable detailed <<cout<<  debug output (((Preferably to be used for single board calibration)))\n"" =>> default value - false")
      ;
 //------------ input of the board names ------------------------
@@ -85,6 +89,8 @@ int main(int ac, const char* av[]){
 
 	debug   			 = vm["debug"]    		.as<bool>();
 	task   			 = vm["task"]    		.as<bool>();
+	configure   			 = vm["configure"]    		.as<bool>();
+	no_disable   			 = vm["no_disable"]    		.as<bool>();
 
     if (vm.count("help")) {
         std::cout << desc << "\n";
@@ -164,11 +170,13 @@ int main(int ac, const char* av[]){
 //-----------------------------------------------------------------------------------
 //			 if(!task){system("echo sr 11 executes && echo ecr 11 executes");}
 			 std::string ttc_com = "sr "+std::to_string(alti_chan)+" && ecr "+std::to_string(alti_chan);
+ 			 std::string full_command = ttc_com+" && "+expect_file;
 	//		 if(task){system("sr 11 && sleep 2 && ecr 11");}
 //			 if(task){system(ttc_com.c_str());}
-			 sleep(2);
+//			 sleep(2);
 //------------------ sending intial config ----------------------------------------------
-					int ifeb=0;
+		if(!configure){
+			int ifeb=0;
 					for(long unsigned int b=0; b<fe_names_v.size(); b++)
 					{
 						if(fe_names_v.at(b).find(dw_layer)!= std::string::npos)
@@ -186,6 +194,9 @@ int main(int ac, const char* av[]){
 					}
 					
 					std::cout<<" threads joined"<<std::endl;
+				}
+				if(task){ttc_com.c_str();}
+				std::this_thread::sleep_for(std::chrono::milliseconds(t_wait));
 //----------------------------------------------------------------------------------------------------------
 			 for(unsigned int i = 0; i < tpdacs.size(); i++)
 			 {
@@ -211,11 +222,14 @@ int main(int ac, const char* av[]){
 					}
 //---------EXECUTING TTC COMMANDS--------------------------------------------------------------------------------
 				if(!task){system("echo ttc0");}
-				if(task){system(expect_file.c_str());}
-				std::this_thread::sleep_for(std::chrono::milliseconds(100));
+				//if(task){system(expect_file.c_str());}
+				if(task){system(full_command.c_str()); if(debug){std::cout<<"Executing->"<<full_command<<std::endl;}}
+				std::this_thread::sleep_for(std::chrono::milliseconds(t_wait));
+				//std::this_thread::sleep_for(std::chrono::milliseconds(100));
 				if(debug){std::cout<<"TTC command happens here for <<"<<i+1<<">> time"<<std::endl;}
 //----------DISABLING PUSLES-----------------------------------------------------------------------------			
-				int ifeb_off = 0;
+			if(!no_disable){
+					int ifeb_off = 0;
 					for(unsigned int l=0; l<fe_names_v.size(); l++)
 					{
 						if(fe_names_v[l].find(dw_layer)!=std::string::npos)
@@ -233,6 +247,7 @@ int main(int ac, const char* av[]){
 							conf_threads[l].join();
 						}
 					}
+				}
 //------------REPEATING FOR ENXT PULSE DAC VALUE-----------------------------------------------------------------------------
 			}
 
