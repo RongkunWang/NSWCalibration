@@ -1,5 +1,7 @@
 """
 And lo, if death is for us, who can be against us?
+
+Recommendation: python3, and any ROOT version.
 """
 import argparse
 import collections
@@ -7,6 +9,8 @@ import json
 import os
 import sys
 import time
+NOW = time.strftime("%Y_%m_%d_%Hh%Mm%Ss")
+PY3 = sys.version_info >= (3,)
 
 import ROOT
 ROOT.gROOT.SetBatch()
@@ -16,31 +20,26 @@ ROOT.gErrorIgnoreLevel = ROOT.kWarning
 DEFAULT_PHASE = 4
 
 def options():
-    now = time.strftime("%Y_%m_%d_%Hh%Mm%Ss")
     parser = argparse.ArgumentParser(usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-t", help="Input ROOT TTree name", default="decodedData")
-    parser.add_argument("-i", help="Input ROOT file",     default="A10.6_tree.root")
-    parser.add_argument("-o", help="Output ROOT file",    default="art_phase_%s.root" % (now))
-    parser.add_argument("-c", help="Config JSON file",    default="config_json_BB5_A10_ADDC_TP.json")
-    parser.add_argument("-j", help="Pattern JSON file",   default="trigger_loop_mm_2020_03_04_22h44m27s.json")
-    parser.add_argument("-m", help="Max threads allowed", default=4)
+    parser.add_argument("-i", help="Input ROOT file",       default="A10.6_tree.root")
+    parser.add_argument("-o", help="Output ROOT file",      default="art_phase_%s.root" % (NOW))
+    parser.add_argument("-c", help="Config JSON file",      default="config_json_BB5_A10_ADDC_TP.json")
+    parser.add_argument("-j", help="Pattern JSON file",     default="trigger_loop_mm_2020_03_04_22h44m27s.json")
+    parser.add_argument("--debug", help="Enable debug output", action="store_true")
     return parser.parse_args()
 
 def main():
 
     rootlogon()
-    # dataman = load_data()
-    # dataman = measure_efficiency(dataman)
-    # best_phase = plot_efficiency(dataman, "out.root")
-
-    i = 0
-    best_phase = {}
-    for layer in range(8):
-        for vmmpos in range(128):
-            best_phase[layer, vmmpos] = i
-            i += 1
-
+    ops = options()
+    outrfile = ROOT.TFile(ops.o, "recreate")
+    dataman = load_data()
+    dataman = measure_efficiency(dataman, outrfile)
+    best_phase = plot_efficiency(dataman, outrfile)
     make_new_json(best_phase)
+    print("Done! ^.^")
+    print("")
 
 def load_data():
 
@@ -63,8 +62,6 @@ def load_data():
         _ = ttree.GetEntry(ent)
         if ent % 5000 == 0:
             progress(time.time()-start, ent, ents)
-        #if ent >= 4000:
-        #    break
 
         # DELIMITER
         # `tup` is the expected layer, vmm, channel, phase
@@ -82,25 +79,18 @@ def load_data():
         layers    = list(ttree.v_artHit_octupletLayer)
         vmmposs   = list(ttree.v_artHit_vmmPosition)
         ch_obss   = list(ttree.v_artHit_ch)
-        #fibers    = list(ttree.v_artHit_fiber)
-        #pipelines = list(ttree.v_artHit_pipeline)
         hits_n  = len(layers)
         for ih in range(hits_n):
             layer    = layers[ih]
             vmmpos   = vmmposs[ih]
             ch_obs   = ch_obss[ih]
-            #fiber    = fibers[ih]
-            #pipeline = pipelines[ih]
-            #tup = (layer, vmmpos, now_ch, now_ph, fiber, pipeline)
             tup = (layer, vmmpos, now_ch, now_ph)
             dataman.add(tup, ch_obs)
 
-    #for tup in dataman.hits:
-    #    print(tup, dataman.hits[tup])
     print("")
     return dataman
 
-def measure_efficiency(dataman):
+def measure_efficiency(dataman, outrfile):
 
     print("Analyzing observed hits vs expected hits per VMM...")
     rootlogon("2d")
@@ -117,24 +107,15 @@ def measure_efficiency(dataman):
     phases    = sorted(list(set(phases)))
     chs_exp   = sorted(list(set(chs_exp)))
 
-    # plots: ch_exp vs ch_obs. one plot per VMM.
-    # xmin, xmax   = -0.5, 100*(max(phases)+1)-0.5
-    # ymin, ymax   = -0.5, 63.5
-    # xmin, xmax   = -0.5, len(phases)*len(chs_exp)-0.5
-    # ymin, ymax   = -0.5, 63.5
+    # plot: ch_exp vs ch_obs. one plot per VMM.
     xmin, xmax   = -0.5, len(phases)*64-0.5
-    # ymin, ymax   = -0.5, len(phases)*64-0.5
-    # ymin, ymax   = -24.5, 4.5
     ymin, ymax   = -64.5, 63.5
     xbins, ybins = int(xmax-xmin), int(ymax-ymin)
     start = time.time()
     for ilv, lv in enumerate(layer_vmm):
         if ilv % 10 == 0:
             progress(time.time()-start, ilv, len(layer_vmm))
-        name = "hits_%i_%04i" % (lv)
-        # hist = ROOT.TH2F(name, ";Expected channel + ART phase*100;Observed channel", xbins, xmin, xmax, ybins, ymin, ymax)
-        # hist = ROOT.TH2F(name, ";Expected channel, with phase offset;Observed channel", xbins, xmin, xmax, ybins, ymin, ymax)
-        # hist = ROOT.TH2F(name, ";Expected channel + 64*Phase;Observed channel + 64*Phase", xbins, xmin, xmax, ybins, ymin, ymax)
+        name = "hits_Layer%i_VMM%04i" % (lv)
         hist = ROOT.TH2F(name, ";Expected channel + 64*ART phase;Observed #minus expected channel", xbins, xmin, xmax, ybins, ymin, ymax)
         for tup in dataman.hits.keys():
             (layer, vmm, ch_exp, ph) = tup
@@ -142,10 +123,6 @@ def measure_efficiency(dataman):
                 continue
             chs_obs = dataman.hits[tup]
             for ch_obs in chs_obs:
-                # xbin = hist.GetXaxis().FindBin(chs_exp.index(ch_exp) + len(chs_exp)+phases.index(ph))
-                # xval = chs_exp.index(ch_exp) + len(chs_exp)*phases.index(ph)
-                # hist.Fill(xval, ch_obs)
-                # hist.Fill(ch_exp + ph*64, ch_obs + ph*64)
                 hist.Fill(ch_exp + ph*64, ch_obs-ch_exp)
             if (layer, vmm, ph) not in dataman.numer:
                 dataman.numer[layer, vmm, ph] = 0.0
@@ -159,7 +136,6 @@ def measure_efficiency(dataman):
         ROOT.gStyle.SetPalette(ROOT.kPastel)
         lines, texts = [], []
         style(hist)
-        # hist.GetXaxis().SetLabelSize(0.001)
         canv = ROOT.TCanvas(name, name, 800, 800)
         canv.Draw()
         hist.Draw("colzsame")
@@ -167,29 +143,42 @@ def measure_efficiency(dataman):
             if ph==0:
                 texts.append(ROOT.TLatex(0, ymax+4, "ART phase"))
                 texts[-1].SetTextSize(0.020)
-            # texts.append(ROOT.TLatex((ph+0.5)*len(chs_exp), 64.5, str(ph)))
             texts.append(ROOT.TLatex((ph+0.5)*64, ymax+2, str(ph)))
             texts[-1].SetTextAlign(22)
             texts[-1].SetTextSize(0.020)
-            # texts.append(ROOT.TLatex((ph+0.5)*len(chs_exp), -3, str(chs_exp[0])))
-            # texts[-1].SetTextAlign(31)
-            # texts[-1].SetTextSize(0.040)
             if ph==0:
                 continue
-            # lines.append(ROOT.TLine(ph*len(chs_exp)-0.5, 0, ph*len(chs_exp)-0.5, ymax))
             lines.append(ROOT.TLine(ph*64-0.5, ymin, ph*64-0.5, ymax))
             lines[-1].SetLineColor(19)
         for text in texts:
             text.Draw()
         for line in lines:
             line.Draw()
-        canv.SaveAs(canv.GetName()+".pdf")
+
+        # save
+        (layer, vmm) = lv
+        outrfile.cd()
+        pos = int(int(vmm) / 8)
+        str_lay = "Layer_%i" % (layer)
+        str_pos = "Position_%02i" % (pos)
+        laydir = outrfile.Get(str_lay)
+        if not laydir:
+            laydir = outrfile.mkdir(str_lay)
+        posdir = laydir.Get(str_pos)
+        if not posdir:
+            posdir = laydir.mkdir(str_pos)
+        posdir.cd()
+        canv.Write()
+        # canv.SaveAs(canv.GetName()+".pdf")
         # print(lv)
 
+    print("")
     dataman.calculate_efficiency()
     return dataman
 
-def plot_efficiency(dataman, outfilename):
+def plot_efficiency(dataman, outrfile):
+
+    ops = options()
 
     # extract expectations
     layers, vmms = [], []
@@ -252,7 +241,8 @@ def plot_efficiency(dataman, outfilename):
             if best_phase[layer, vmm] >= 0:
                 best_texts.append(ROOT.TLatex(vmm, layer*len(phases) + phases[best_phase[layer, vmm]], "."))
             postscript = "!!!!" if (best_phase[layer, vmm] == -1 or best_phase[layer, vmm] > 7) else ""
-            print("Layer, VMM = %i, %03i: Best phase = %s %s" % (layer, vmm, phases[best_phase[layer, vmm]] if best_phase[layer, vmm] >= 0 else -1, postscript))
+            if ops.debug:
+                print("Layer, VMM = %i, %03i: Best phase = %s %s" % (layer, vmm, phases[best_phase[layer, vmm]] if best_phase[layer, vmm] >= 0 else -1, postscript))
 
     # style
     for hist in [hgood, heffi]:
@@ -267,9 +257,6 @@ def plot_efficiency(dataman, outfilename):
     heffi.GetZaxis().SetTitle("Efficiency")
     heffi.GetZaxis().SetTitleOffset(1.6)
 
-    # output
-    outfile = ROOT.TFile(outfilename, "recreate")
-
     # draw good
     ROOT.gStyle.SetPalette(ROOT.kGreyScale)
     canv = ROOT.TCanvas("good_phases", "good_phases", 800, 800)
@@ -277,7 +264,7 @@ def plot_efficiency(dataman, outfilename):
     hgood.Draw("colsame")
 
     # save good
-    outfile.cd()
+    outrfile.cd()
     canv.Write()
     canv.SaveAs(canv.GetName()+".pdf")
     canv.SaveAs(canv.GetName()+".png")
@@ -296,7 +283,7 @@ def plot_efficiency(dataman, outfilename):
         text.Draw()
 
     # save effi, no numbers
-    outfile.cd()
+    outrfile.cd()
     canv.Write()
     canv.SaveAs(canv.GetName()+".pdf")
     canv.SaveAs(canv.GetName()+".png")
@@ -312,7 +299,7 @@ def plot_efficiency(dataman, outfilename):
     heffi.Draw("textcolzsame")
 
     # save effi, with numbers
-    outfile.cd()
+    outrfile.cd()
     canv.Write()
     canv.SaveAs(canv.GetName()+".pdf")
     canv.SaveAs(canv.GetName()+".png")
@@ -328,7 +315,8 @@ def make_new_json(best_phase):
     ops = options()
 
     geoman = GeoManager(ops.c, ops.i, ops.t)
-    geoman.dump(False)
+    if ops.debug:
+        geoman.dump()
 
     # new json!
     with open(ops.c) as json_file:
@@ -358,8 +346,12 @@ def make_new_json(best_phase):
                     newconf[addc][art]["art_core"] = {reg: regs[reg]}
 
     # write to file
-    with open('result.json', 'w') as json_file:
+    outfilename = ops.o.replace(".root", ".json")
+    with open(outfilename, 'w') as json_file:
         json.dump(newconf, json_file, indent=4)
+    print("")
+    print("Wrote config file with phases: %s" % (outfilename))
+    print("")
 
 def convert2regs(connvmm2phase):
     ret = {}
@@ -420,9 +412,9 @@ class GeoManager:
         self.read_json()
         self.read_root()
         self.map_layervmm_to_art()
-        # self.map_vmm_to_artchannel()
     def read_json(self):
         bitkey = "TP_GBTxAlignmentBit"
+        print("Reading JSON file to map ART ASIC to TP fiber...")
         with open(self.jname) as json_file:
             conf = json.load(json_file, object_pairs_hook=collections.OrderedDict)
         for addc in conf:
@@ -437,7 +429,7 @@ class GeoManager:
         ttree = rfile.Get(self.tname)
         ents  = ttree.GetEntries()
         start = time.time()
-        print("Reading...")
+        print("Reading ROOT file to map VMM position to TP fiber...")
         for ent in range(ents):
             if ent % 5000 == 0:
                 progress(time.time()-start, ent, ents)
@@ -474,19 +466,19 @@ class GeoManager:
                     iconn += 1
                 print("%s: Conn = %s, VMMPos = %s" % (art, iconn, vmmpos))
             break
-    def dump(self, debug):
+    def dump(self, debug=False):
         if debug:
             for key in self.art2fiber:
                 print("%s => %s" % (key, self.art2fiber[key]))
             for key in self.layervmmpos2fiber:
                 print("%s => %s" % (key, self.layervmmpos2fiber[key]))
         for key in self.art2layervmmpos:
-            print("%s (%s):: " % (key, "flipped" if addc_flipped(key) else "normalx"), end="")
+            print("%s (%s):: " % (key, "flipped" if addc_flipped(key) else "normalx"), eval('end=""' if PY3 else ""))
             for i,layervmm in enumerate(self.art2layervmmpos[key]):
                 layer, vmm = layervmm
                 if i == 0:
-                    print(" Layer %s," % (layer), end="")
-                print(" %03i" % (vmm), end="")
+                    print(" Layer %s," % (layer), eval('end=""' if PY3 else ""))
+                print(" %03i" % (vmm), eval('end=""' if PY3 else ""))
             print("")
 
 class Patterns:
