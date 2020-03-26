@@ -1,5 +1,4 @@
 #include <iostream> 
-#include <thread> 
 #include <sys/types.h>
 #include <chrono>
 #include <string>
@@ -53,7 +52,7 @@ int main(int ac, const char* av[]){
 
     std::string description = "\tProgram executes VMM internal pulser loop going from pulser DAC 200 to 1000 in steps of 100 with global threshold set at 180(default)\n";
 
-		bool debug;
+		bool debug, remote;
 		bool task, configure, no_disable;
     int N_FEB;
     int thdac;
@@ -68,15 +67,17 @@ int main(int ac, const char* av[]){
     desc.add_options()
     ("help,h", "produce help message")
     ("config,c", po::value<std::string>(&config_filename)->default_value(base_folder+def_config),"Configuration .json file. If not specified choses from input_data.json - [configuration_json] ")
-    ("expect,e", po::value<std::string>(&expect_file)->default_value("/afs/cern.ch/user/n/nswdaq/public/alti/ALTI_oneshot_pattern.expect"),"ALTI .expect file with appropriate tigger pattern ")
+    //("expect,e", po::value<std::string>(&expect_file)->default_value("/afs/cern.ch/user/n/nswdaq/public/alti/ALTI_oneshot_pattern.expect"),"ALTI .expect file with appropriate tigger pattern ")
+    ("expect,e", po::value<std::string>(&expect_file)->default_value("ALTI_oneshot_pattern.expect"),"ALTI .expect file with appropriate tigger pattern ")
     ("alti_chan,a", po::value<int>(&alti_chan)->default_value(11),"slot in VME crate where ALTI sits")
     ("t_wait,t", po::value<int>(&t_wait)->default_value(100),"time to execute ttc commantds in [ms]")
     ("thdac, t", po::value<int>(&thdac)->default_value(180),"Threshold DAC to set for pulsing - default 180")
     ("layer_dw,L", po::value<std::string>(&dw_layer)->default_value(""),"Select febs by their naming - type in -> L1/L2/L3/L4 to pulse FEBs in these layers or HO/IP to pulse whole side of DW or be more specific by entering i.e. MMFE8_L1P1_HOL and pulse only on FEB")
+		("remote", po::bool_switch()->default_value(false), "Enable if not woking on SBC =>> default value - false")
 		("task", po::bool_switch()->default_value(false), "Enable TTC commands =>> default value - false")
-		("configure", po::bool_switch()->default_value(false), "Enable TTC commands =>> default value - false")
-		("no_disable", po::bool_switch()->default_value(false), "Enable TTC commands =>> default value - false")
-		("debug", po::bool_switch()->default_value(false), "Enable detailed <<cout<<  debug output (((Preferably to be used for single board calibration)))\n"" =>> default value - false")
+		("configure", po::bool_switch()->default_value(false), "Configure FEBs before pulser loop =>> default value - false")
+		("no_disable", po::bool_switch()->default_value(false), "Skip pulser disabling =>> default value - false")
+		("debug", po::bool_switch()->default_value(false), "Enable debug output (((Preferably to be used for single board calibration)))\n"" =>> default value - false")
      ;
 //------------ input of the board names ------------------------
 		po::parsed_options parsed_options = po::command_line_parser(ac,av)
@@ -88,6 +89,7 @@ int main(int ac, const char* av[]){
     po::notify(vm);
 
 	debug   			 = vm["debug"]    		.as<bool>();
+	remote   			 = vm["remote"]    		.as<bool>();
 	task   			 = vm["task"]    		.as<bool>();
 	configure   			 = vm["configure"]    		.as<bool>();
 	no_disable   			 = vm["no_disable"]    		.as<bool>();
@@ -102,17 +104,19 @@ int main(int ac, const char* av[]){
 
 	if(this_host.find("sbcnsw-ttc-01")!=std::string::npos){
 		std::cout<<"\n Using VS SBC & ALTI - VME channel 9"<<std::endl;
-		alti_chan = 9;
+//		alti_chan = 9;
 	}
 	if(this_host.find("sbcatlnswb1")!=std::string::npos){
 		std::cout<<"\n Using BB5 SBC & ALTI - VME channel 11"<<std::endl;
-		alti_chan = 11;
+//		alti_chan = 11;
 	}
 	if(this_host.find("sbcl1ct-191")!=std::string::npos){
 		std::cout<<"\n Using 191 SBC & ALTI - VME channel 11"<<std::endl;
-		alti_chan = 11;
+//		alti_chan = 11;
 	}
 	else{std::cout<<"Running on unknown SBC or without it"<<std::endl;}
+
+	std::string remote_host = "ssh nswdaq@sbcnsw-ttc-01.cern.ch ";
 //---------- thing to see available core number -----------------
 	{
 	   unsigned int c = std::thread::hardware_concurrency();
@@ -120,7 +124,9 @@ int main(int ac, const char* av[]){
 	}
 	
 	std::string vme_chan = std::to_string(alti_chan);
+	std::string expect_path = "/afs/cern.ch/user/n/nswdaq/public/alti/";
 	expect_file += " "+vme_chan;
+	std::string expect_call = expect_path+expect_file;
 
 	std::cout<<"Expect file to be used - << "<<expect_file<<" >>"<<std::endl;
 	std::time_t run_start = std::chrono::system_clock::to_time_t(start);
@@ -169,8 +175,10 @@ int main(int ac, const char* av[]){
 //					Here two system calls should be made for the ttc sr and ecr commands
 //-----------------------------------------------------------------------------------
 //			 if(!task){system("echo sr 11 executes && echo ecr 11 executes");}
-			 std::string ttc_com = "sr "+std::to_string(alti_chan)+" && ecr "+std::to_string(alti_chan);
- 			 std::string full_command = ttc_com+" && "+expect_file;
+			 //std::string ttc_com = "sr "+std::to_string(alti_chan)+" && ecr "+std::to_string(alti_chan);
+			 std::string ttc_com = "sr 9 && ecr 9";
+			 std::string remote_ttc_com = remote_host+" sr 9 && ecr 9";
+ 			 std::string remote_command = remote_host+expect_call;
 	//		 if(task){system("sr 11 && sleep 2 && ecr 11");}
 //			 if(task){system(ttc_com.c_str());}
 //			 sleep(2);
@@ -196,6 +204,7 @@ int main(int ac, const char* av[]){
 					std::cout<<" threads joined"<<std::endl;
 				}
 				if(task){ttc_com.c_str();}
+				if(remote){remote_ttc_com.c_str();}
 				std::this_thread::sleep_for(std::chrono::milliseconds(t_wait));
 //----------------------------------------------------------------------------------------------------------
 			 for(unsigned int i = 0; i < tpdacs.size(); i++)
@@ -223,7 +232,8 @@ int main(int ac, const char* av[]){
 //---------EXECUTING TTC COMMANDS--------------------------------------------------------------------------------
 				if(!task){system("echo ttc0");}
 				//if(task){system(expect_file.c_str());}
-				if(task){system(full_command.c_str()); if(debug){std::cout<<"Executing->"<<full_command<<std::endl;}}
+				if(task){system(expect_call.c_str()); if(debug){std::cout<<"Executing->"<<expect_call<<std::endl;}}
+				if(remote){system(remote_command.c_str()); if(debug){std::cout<<"Executing->"<<remote_command<<std::endl;}}
 				std::this_thread::sleep_for(std::chrono::milliseconds(t_wait));
 				//std::this_thread::sleep_for(std::chrono::milliseconds(100));
 				if(debug){std::cout<<"TTC command happens here for <<"<<i+1<<">> time"<<std::endl;}
