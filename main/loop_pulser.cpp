@@ -70,7 +70,7 @@ int main(int ac, const char* av[]){
     //("expect,e", po::value<std::string>(&expect_file)->default_value("/afs/cern.ch/user/n/nswdaq/public/alti/ALTI_oneshot_pattern.expect"),"ALTI .expect file with appropriate tigger pattern ")
     ("expect,e", po::value<std::string>(&expect_file)->default_value("ALTI_oneshot_pattern.expect"),"ALTI .expect file with appropriate tigger pattern ")
     ("alti_chan,a", po::value<int>(&alti_chan)->default_value(11),"slot in VME crate where ALTI sits")
-    ("t_wait,t", po::value<int>(&t_wait)->default_value(100),"time to execute ttc commantds in [ms]")
+    ("t_wait,t", po::value<int>(&t_wait)->default_value(500),"time to execute ttc commantds in [ms]")
     ("thdac, t", po::value<int>(&thdac)->default_value(180),"Threshold DAC to set for pulsing - default 180")
     ("layer_dw,L", po::value<std::string>(&dw_layer)->default_value(""),"Select febs by their naming - type in -> L1/L2/L3/L4 to pulse FEBs in these layers or HO/IP to pulse whole side of DW or be more specific by entering i.e. MMFE8_L1P1_HOL and pulse only on FEB")
 		("remote", po::bool_switch()->default_value(false), "Enable if not woking on SBC =>> default value - false")
@@ -176,8 +176,9 @@ int main(int ac, const char* av[]){
 //-----------------------------------------------------------------------------------
 //			 if(!task){system("echo sr 11 executes && echo ecr 11 executes");}
 			 //std::string ttc_com = "sr "+std::to_string(alti_chan)+" && ecr "+std::to_string(alti_chan);
-			 std::string ttc_com = "sr 9 && ecr 9";
-			 std::string remote_ttc_com = remote_host+" sr 9 && ecr 9";
+			 std::string ttc_com = "sr 9 && sleep 2 && bcr 9 && sleep 2 && ecr 9 ";
+			 std::string remote_ttc_com = remote_host+ttc_com;
+			 //std::string remote_ttc_com = remote_host+" sr 9 && ecr 9";
  			 std::string remote_command = remote_host+expect_call;
 	//		 if(task){system("sr 11 && sleep 2 && ecr 11");}
 //			 if(task){system(ttc_com.c_str());}
@@ -229,6 +230,11 @@ int main(int ac, const char* av[]){
 							conf_threads[l].join();
 						}
 					}
+//-----------RESETTING EVENT AND BC COUNTERS ON ALTI-----------------------------------------------------------------------------
+				if(task){ttc_com.c_str();}
+				if(remote){remote_ttc_com.c_str();}
+				std::this_thread::sleep_for(std::chrono::milliseconds(1000)); //1 sec
+
 //---------EXECUTING TTC COMMANDS--------------------------------------------------------------------------------
 				if(!task){system("echo ttc0");}
 				//if(task){system(expect_file.c_str());}
