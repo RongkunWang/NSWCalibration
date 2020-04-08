@@ -15,8 +15,6 @@
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/ConfigReader.h"
 
-// TTC Control via ALTI
-#include "ALTI/AltiModule.h"
 
 using boost::property_tree::ptree;
 
@@ -66,9 +64,6 @@ class NSWCalibRc: public daq::rc::Controllable {
 
     std::unique_ptr<nsw::ConfigReader> m_reader;
     std::unique_ptr<nsw::ConfigSender> m_sender;
-
-    // ALTI object for TTC control
-    LVL1::AltiModule* m_alti;
 
 
     // Run the program in simulation mode, don't send any configuration

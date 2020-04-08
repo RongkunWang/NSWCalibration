@@ -20,10 +20,6 @@ nsw::NSWCalibRc::NSWCalibRc(bool simulation):m_simulation {simulation} {
 void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     ERS_INFO("Start");
 
-    // Open ALTI only once
-    int slot = -1; // make configurable
-    ERS_LOG("NSWCalibRc: Open ALTI in slot " << slot);
-    m_alti = new LVL1::AltiModule(slot);
 
     ERS_LOG("End");
 }
