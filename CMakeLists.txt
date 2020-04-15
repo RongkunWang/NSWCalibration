@@ -20,7 +20,7 @@ tdaq_add_library(nswcalib
         src/CalibrationSca.cpp
         src/NSWCalibRc.cpp
     INCLUDE_DIRECTORIES PRIVATE ${OPC_GENERATED_CLIENT_SRCS}
-    LINK_LIBRARIES nswconfig
+    LINK_LIBRARIES nswconfig NSWConfig
         nswopcclient
         Boost::boost
         rt

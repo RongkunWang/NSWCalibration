@@ -19,13 +19,30 @@ nsw::NSWCalibRc::NSWCalibRc(bool simulation):m_simulation {simulation} {
 
 void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     ERS_INFO("Start");
+  
+    //Retrieve the ipc partition
+    m_ipcpartition = daq::rc::OnlineServices::instance().getIPCPartition();
+    // Get the IS dictionary for the current partition
+    is_dictionary = new ISInfoDictionary (m_ipcpartition);
 
 
+    m_NSWConfig = std::make_unique<NSWConfig>(m_simulation);
+    m_NSWConfig->readConf();
+    
+    //Retrieving the ptree configuration to be modified
+    ptree conf = m_NSWConfig->getConf();
+
+    //Sending the new configuration to be used for this run
+    m_NSWConfig->substituteConf(conf);
+
+    //Sending the configuration to the HW
+    m_NSWConfig->configureRc();
     ERS_LOG("End");
 }
 
 void nsw::NSWCalibRc::unconfigure(const daq::rc::TransitionCmd& cmd) {
     ERS_INFO("Start");
+    m_NSWConfig->unconfigureRc();
     ERS_INFO("End");
 }
 
@@ -63,22 +80,4 @@ void nsw::NSWCalibRc::subTransition(const daq::rc::SubTransitionCmd& cmd) {
     }*/
 }
 
-size_t nsw::NSWCalibRc::active_threads() {
-    size_t nfinished = 0;
-    for (auto& thread: *m_threads)
-        if (thread.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
-            nfinished++;
-    return m_threads->size() - nfinished;
-}
 
-bool nsw::NSWCalibRc::too_many_threads() {
-    size_t nthreads = active_threads();
-    bool decision = (nthreads >= m_max_threads);
-    if(decision){
-        std::cout << "Too many active threads ("
-                  << nthreads
-                  << "), waiting for fewer than "
-                  << m_max_threads << std::endl;
-    }
-    return decision;
-}

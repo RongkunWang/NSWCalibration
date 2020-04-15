@@ -9,11 +9,16 @@
 
 #include "ers/ers.h"
 
+#include "ipc/partition.h"
+#include "ipc/core.h"
+#include "is/info.h"
+#include "is/infodictionary.h"
+
+
 #include "RunControl/RunControl.h"
 #include "RunControl/Common/RunControlCommands.h"
 
-#include "NSWConfiguration/ConfigSender.h"
-#include "NSWConfiguration/ConfigReader.h"
+#include "NSWConfiguration/NSWConfig.h"
 
 
 using boost::property_tree::ptree;
@@ -55,24 +60,14 @@ class NSWCalibRc: public daq::rc::Controllable {
 
  private:
 
-    //! Count how many threads are running
-    size_t active_threads();
-    bool too_many_threads();
-
     //! Calibration functions
     // void calibrateARTPhase(); // or something
 
-    std::unique_ptr<nsw::ConfigReader> m_reader;
-    std::unique_ptr<nsw::ConfigSender> m_sender;
-
-
     // Run the program in simulation mode, don't send any configuration
-    bool m_simulation;
-
-
-    // thread management
-    size_t m_max_threads;
-    std::unique_ptr< std::vector< std::future<void> > > m_threads;
+    bool                        m_simulation;
+    std::unique_ptr<NSWConfig>  m_NSWConfig;
+    IPCPartition                m_ipcpartition;
+    ISInfoDictionary*           is_dictionary;
 
 };
 }  // namespace nsw
