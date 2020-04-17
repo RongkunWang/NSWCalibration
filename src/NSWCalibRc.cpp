@@ -7,7 +7,7 @@
 
 #include "NSWCalibration/NSWCalibRc.h"
 #include "NSWCalibrationDal/NSWCalibApplication.h"
-
+using boost::property_tree::ptree;
 
 nsw::NSWCalibRc::NSWCalibRc(bool simulation):m_simulation {simulation} {
     ERS_LOG("Constructing NSWCalibRc instance");
@@ -22,15 +22,26 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
   
     //Retrieve the ipc partition
     m_ipcpartition = daq::rc::OnlineServices::instance().getIPCPartition();
+
     // Get the IS dictionary for the current partition
     is_dictionary = new ISInfoDictionary (m_ipcpartition);
-
+    std::string g_calibration_type="";
+    std::string g_info_server_name="";
+    const std::string stateInfoName = g_info_server_name + ".CurrentCalibState";
+    const std::string calibInfoName = g_info_server_name + "." + g_calibration_type + "CalibInfo";
 
     m_NSWConfig = std::make_unique<NSWConfig>(m_simulation);
     m_NSWConfig->readConf();
     
+    ERS_LOG("End");
+}
+
+void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd& cmd) {
+    ERS_INFO("Start");
+
     //Retrieving the ptree configuration to be modified
     ptree conf = m_NSWConfig->getConf();
+    write_xml(std::cout, conf);
 
     //Sending the new configuration to be used for this run
     m_NSWConfig->substituteConf(conf);
@@ -40,18 +51,21 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     ERS_LOG("End");
 }
 
-void nsw::NSWCalibRc::unconfigure(const daq::rc::TransitionCmd& cmd) {
-    ERS_INFO("Start");
-    m_NSWConfig->unconfigureRc();
-    ERS_INFO("End");
-}
-
-
 void nsw::NSWCalibRc::prepareForRun(const daq::rc::TransitionCmd& cmd) {
     ERS_LOG("Start");
     ERS_LOG("End");
 }
 
+void nsw::NSWCalibRc::disconnect(const daq::rc::TransitionCmd& cmd) {
+    ERS_INFO("Start");
+    m_NSWConfig->unconfigureRc();
+    ERS_INFO("End");
+}
+
+void nsw::NSWCalibRc::unconfigure(const daq::rc::TransitionCmd& cmd) {
+    ERS_INFO("Start");
+    ERS_INFO("End");
+}
 void nsw::NSWCalibRc::stopRecording(const daq::rc::TransitionCmd& cmd) {
     ERS_LOG("Start");
     ERS_LOG("End");

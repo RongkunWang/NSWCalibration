@@ -44,10 +44,14 @@ class NSWCalibRc: public daq::rc::Controllable {
     //! Reads the names of front ends that should be configured and constructs
     //! FEBConfig objects in the map m_frontends
     void configure(const daq::rc::TransitionCmd& cmd) override;
+  
+    void connect(const daq::rc::TransitionCmd& cmd) override;
 
     void prepareForRun(const daq::rc::TransitionCmd& cmd) override;
 
     void stopRecording(const daq::rc::TransitionCmd& cmd) override;
+
+    void disconnect(const daq::rc::TransitionCmd& cmd) override;
 
     void unconfigure(const daq::rc::TransitionCmd& cmd) override;
 
