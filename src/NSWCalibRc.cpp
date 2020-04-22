@@ -19,12 +19,6 @@ nsw::NSWCalibRc::NSWCalibRc(bool simulation):m_simulation {simulation} {
 
 void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     ERS_INFO("Start");
-
-    // Open ALTI only once
-    int slot = -1; // make configurable
-    ERS_LOG("NSWCalibRc: Open ALTI in slot " << slot);
-    m_alti = new LVL1::AltiModule(slot);
-
     ERS_LOG("End");
 }
 
@@ -46,25 +40,6 @@ void nsw::NSWCalibRc::stopRecording(const daq::rc::TransitionCmd& cmd) {
 
 void nsw::NSWCalibRc::user(const daq::rc::UserCmd& usrCmd) {
   ERS_LOG("User command received: " << usrCmd.commandName());
-}
-
-void nsw::NSWCalibRc::subTransition(const daq::rc::SubTransitionCmd& cmd) {
-    auto main_transition = cmd.mainTransitionCmd();
-    auto sub_transition = cmd.subTransition();
-
-    ERS_LOG("Sub transition received: " << sub_transition << " (mainTransition: " << main_transition << ")");
-
-    // This part should be in sync with NSWTTCConfig application. Some of this steps can also be a regular
-    // state transition instead of a subTransition. SubTransitions are called before the main transition
-    // This is not used in current software version, it may be used if one requires to configure different
-    // boards at different times, instead of configuring everything at "configure" step.
-    /*if (sub_transition == "CONFIGURE_ROC") {
-      // configureROCs();
-    } else if (sub_transition == "CONFIGURE_VMM") {
-      // configureVMMs();
-    } else {
-      ERS_LOG("Nothing to do for subTransition" << sub_transition);
-    }*/
 }
 
 size_t nsw::NSWCalibRc::active_threads() {

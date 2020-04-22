@@ -15,9 +15,6 @@
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/ConfigReader.h"
 
-// TTC Control via ALTI
-#include "ALTI/AltiModule.h"
-
 using boost::property_tree::ptree;
 
 ERS_DECLARE_ISSUE(nsw,
@@ -52,9 +49,6 @@ class NSWCalibRc: public daq::rc::Controllable {
 
     // void onExit(daq::rc::FSM_STATE) noexcept override;
 
-    //! Used to syncronize ROC/VMM configuration
-    void subTransition(const daq::rc::SubTransitionCmd&) override;
-
  private:
 
     //! Count how many threads are running
@@ -66,10 +60,6 @@ class NSWCalibRc: public daq::rc::Controllable {
 
     std::unique_ptr<nsw::ConfigReader> m_reader;
     std::unique_ptr<nsw::ConfigSender> m_sender;
-
-    // ALTI object for TTC control
-    LVL1::AltiModule* m_alti;
-
 
     // Run the program in simulation mode, don't send any configuration
     bool m_simulation;

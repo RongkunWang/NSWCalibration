@@ -10,7 +10,7 @@ tdaq_generate_dal(schema/NSWCalib.schema.xml
 # Build a C++ library out of the generated files
 tdaq_add_library(nswcalibdal DAL
     ${dal_cpp_srcs}
-    LINK_LIBRARIES tdaq::config tdaq::daq-core-dal tdaq::daq-df-dal
+    LINK_LIBRARIES tdaq::config tdaq::daq-core-dal tdaq::daq-df-dal nswconfig
 )
 
 
@@ -25,8 +25,10 @@ tdaq_add_library(nswcalib
         Boost::boost
         rt
         Protobuf
-        tdaq::AltiModule
+        tdaq::rc_ItemCtrl
+        tdaq-common::ers
 )
+
 
 ##----- opc client lib ------------------------------
 set(OPC_OPEN62541_PATH $ENV{OPC_OPEN62541_PATH})
@@ -57,8 +59,7 @@ tdaq_add_executable(pulse app/small_pulsing_test.cpp
 
 tdaq_add_executable(NSWCalibRc_main app/NSWCalibRc_main.cpp src/NSWCalibRc.cpp
     LINK_LIBRARIES nswcalib tdaq::daq-df-dal tdaq::rc_ItemCtrl
-        tdaq-common::ers Boost::program_options nswcalibdal
-        tdaq::AltiModule
+        tdaq-common::ers Boost::program_options nswcalibdal nswconfig
 )
 
 tdaq_add_schema(schema/NSWCalib.schema.xml)
