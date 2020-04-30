@@ -12,6 +12,7 @@
 #include "ipc/partition.h"
 #include "ipc/core.h"
 #include "is/info.h"
+#include "is/infoT.h"
 #include "is/infodictionary.h"
 
 
