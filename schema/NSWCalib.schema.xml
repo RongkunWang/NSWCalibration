@@ -87,6 +87,8 @@
 
  <class name="NSWCalibApplication" description="NSW Calibration Application that configures FE for multiple swROD">
   <superclass name="RunControlApplication"/>
+    <attribute name="resetVMM" description="Will reset vmm right before configuring it. A fail-safe mechanism." type="bool" init-value="false" is-not-null="yes"/>
+   <attribute name="resetTDS" description="Will reset TDS SER, logic, ePLL after configuring normally." type="bool" init-value="false" is-not-null="yes"/>
    <attribute name="maxThreads" description="Maximum number of threads for parallel FEB configuring." type="u32" init-value="99" is-not-null="yes"/>
    <attribute name="dbConnection" description="Database connection string, depending on the starting word(json, xml, oracle), different ConfigReader APIs are used" type="string" init-value="json:///afs/cern.ch/user/c/cyildiz/public/nsw-work/work/NSWConfiguration/data/integration_config.json" is-not-null="yes"/>
   <relationship name="SwROD" description="Link to swROD applications" class-type="Application" low-cc="zero" high-cc="many" is-composite="no" is-exclusive="no" is-dependent="no"/>

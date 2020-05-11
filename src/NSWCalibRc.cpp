@@ -7,6 +7,8 @@
 
 #include "NSWCalibration/NSWCalibRc.h"
 #include "NSWCalibrationDal/NSWCalibApplication.h"
+#include "NSWConfiguration/NSWConfig.h"
+
 using boost::property_tree::ptree;
 
 nsw::NSWCalibRc::NSWCalibRc(bool simulation):m_simulation {simulation} {
@@ -19,9 +21,15 @@ nsw::NSWCalibRc::NSWCalibRc(bool simulation):m_simulation {simulation} {
 
 void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     ERS_INFO("Start");
-  
+    
+    //Retrieving the configuration db
+    daq::rc::OnlineServices& rcSvc = daq::rc::OnlineServices::instance();
+    const daq::core::RunControlApplicationBase& rcBase = rcSvc.getApplication();
+    const nsw::dal::NSWCalibApplication* nswApp = rcBase.cast<nsw::dal::NSWCalibApplication>();  
+    auto dbcon = nswApp->get_dbConnection();
+
     //Retrieve the ipc partition
-    m_ipcpartition = daq::rc::OnlineServices::instance().getIPCPartition();
+    m_ipcpartition = rcSvc.getIPCPartition();
 
     // Get the IS dictionary for the current partition
     is_dictionary = new ISInfoDictionary (m_ipcpartition);
@@ -31,7 +39,7 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     const std::string calibInfoName = g_info_server_name + "." + g_calibration_type + "CalibInfo";
 
     m_NSWConfig = std::make_unique<NSWConfig>(m_simulation);
-    m_NSWConfig->readConf();
+    m_NSWConfig->readConf(nswApp);
     
     ERS_LOG("End");
 }

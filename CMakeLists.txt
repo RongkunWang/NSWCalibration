@@ -20,7 +20,7 @@ tdaq_add_library(nswcalib
         src/CalibrationSca.cpp
         src/NSWCalibRc.cpp
     INCLUDE_DIRECTORIES PRIVATE ${OPC_GENERATED_CLIENT_SRCS}
-    LINK_LIBRARIES nswconfig NSWConfig
+    LINK_LIBRARIES nswconfig NSWConfig nswcalibdal
         nswopcclient
         Boost::boost
         rt
@@ -41,7 +41,7 @@ file(GLOB OPC_GENERATED_CLIENT_SRCS UaoClientForOpcUaSca/src/*.cpp)
 
 #--------- calibration exe --------------------------
 tdaq_add_executable(calibrate app/Calibrate.cpp
-    LINK_LIBRARIES nswcalib
+    LINK_LIBRARIES nswcalib 
         nswconfig
         nswopcclient
         Boost::program_options
