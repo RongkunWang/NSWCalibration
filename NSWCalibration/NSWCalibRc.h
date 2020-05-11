@@ -63,6 +63,12 @@ class NSWCalibRc: public daq::rc::Controllable {
     //! Used to syncronize ROC/VMM configuration
     void subTransition(const daq::rc::SubTransitionCmd&) override;
 
+    //! Handle configuration and ALTI PG
+    std::atomic<bool> end_of_run;
+    std::future<void> handler_thread;
+    void handler();
+    void alti_toggle_pattern();
+
  private:
 
     //! Calibration functions

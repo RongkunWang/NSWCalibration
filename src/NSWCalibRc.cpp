@@ -7,6 +7,9 @@
 
 #include "NSWCalibration/NSWCalibRc.h"
 #include "NSWCalibrationDal/NSWCalibApplication.h"
+#include "NSWCalibration/NSWCalibAlg.h"
+#include "NSWCalibration/NSWCalibArtInputPhase.h"
+
 using boost::property_tree::ptree;
 
 nsw::NSWCalibRc::NSWCalibRc(bool simulation):m_simulation {simulation} {
@@ -43,6 +46,8 @@ void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd& cmd) {
     ptree conf = m_NSWConfig->getConf();
     write_xml(std::cout, conf);
 
+    return;
+
     //Sending the new configuration to be used for this run
     m_NSWConfig->substituteConf(conf);
 
@@ -53,6 +58,8 @@ void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd& cmd) {
 
 void nsw::NSWCalibRc::prepareForRun(const daq::rc::TransitionCmd& cmd) {
     ERS_LOG("Start");
+    end_of_run = 0;
+    handler_thread = std::async(std::launch::async, &nsw::NSWCalibRc::handler, this);
     ERS_LOG("End");
 }
 
@@ -66,8 +73,10 @@ void nsw::NSWCalibRc::unconfigure(const daq::rc::TransitionCmd& cmd) {
     ERS_INFO("Start");
     ERS_INFO("End");
 }
+
 void nsw::NSWCalibRc::stopRecording(const daq::rc::TransitionCmd& cmd) {
     ERS_LOG("Start");
+    end_of_run = 1;
     ERS_LOG("End");
 }
 
@@ -94,4 +103,47 @@ void nsw::NSWCalibRc::subTransition(const daq::rc::SubTransitionCmd& cmd) {
     }*/
 }
 
+void nsw::NSWCalibRc::handler() {
+
+  sleep(1);
+  //
+  // Im a sad hardcode for now
+  //
+  std::string fname = "json:///afs/cern.ch/user/n/nswdaq/public/sw/config-ttc/config-files/config_json/BB5/A10/full_small_sector_a10_bb5_ADDC_TP.json";
+
+  // create calib object
+  std::unique_ptr<NSWCalibAlg> calib = 0;
+  if (true)
+    calib = std::make_unique<NSWCalibArtInputPhase>();
+  else
+    throw std::runtime_error("Unknown calibration request");
+
+  // setup
+  calib->setup(fname);
+  ERS_INFO("calib counter: " << calib->counter());
+  ERS_INFO("calib total:   " << calib->total());
+
+  // calib loop
+  while (calib->next()) {
+    if (end_of_run)
+      break;
+    ERS_INFO("Iteration " << calib->counter()+1 << " / " << calib->total());
+    calib->configure();
+    alti_toggle_pattern();
+    calib->unconfigure();
+  }
+
+  // fin
+  ERS_INFO("NSWCalibRc::handler::End of handler, exiting.");
+}
+
+void nsw::NSWCalibRc::alti_toggle_pattern() {
+    ERS_INFO("alti_toggle_pattern()");
+    std::string app_name = "Alti_RCD";
+    std::string cmd_name = "toggle";
+    daq::rc::UserCmd cmd(cmd_name, std::vector<std::string>());
+    daq::rc::CommandSender sendr(m_ipcpartition.name(), "NSWCalibRcSender");
+    // sendr.sendCommand(app_name, cmd);
+    usleep(100e3);
+}
 
