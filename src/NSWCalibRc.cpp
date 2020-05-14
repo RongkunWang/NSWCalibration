@@ -7,6 +7,8 @@
 
 #include "NSWCalibration/NSWCalibRc.h"
 #include "NSWCalibrationDal/NSWCalibApplication.h"
+#include "NSWCalibration/NSWCalibAlg.h"
+#include "NSWCalibration/NSWCalibArtInputPhase.h"
 #include "NSWConfiguration/NSWConfig.h"
 
 using boost::property_tree::ptree;
