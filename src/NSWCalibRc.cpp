@@ -53,8 +53,6 @@ void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd& cmd) {
     ptree conf = m_NSWConfig->getConf();
     write_xml(std::cout, conf);
 
-    return;
-
     //Sending the new configuration to be used for this run
     m_NSWConfig->substituteConf(conf);
 
@@ -116,7 +114,7 @@ void nsw::NSWCalibRc::handler() {
   //
   // Im a sad hardcode for now
   //
-  std::string fname = "json:///afs/cern.ch/user/n/nswdaq/public/sw/config-ttc/config-files/config_json/BB5/A10/full_small_sector_a10_bb5_ADDC_TP.json";
+  std::string fname = "json:///afs/cern.ch/user/n/nswdaq/public/sw/config-ttc/config-files/config_json/BB5/A16/full_small_sector_a16_bb5_internalPulser_ADDC_TP.json";
 
   // create calib object
   std::unique_ptr<NSWCalibAlg> calib = 0;
@@ -150,7 +148,7 @@ void nsw::NSWCalibRc::alti_toggle_pattern() {
     std::string cmd_name = "toggle";
     daq::rc::UserCmd cmd(cmd_name, std::vector<std::string>());
     daq::rc::CommandSender sendr(m_ipcpartition.name(), "NSWCalibRcSender");
-    // sendr.sendCommand(app_name, cmd);
+    sendr.sendCommand(app_name, cmd);
     usleep(100e3);
 }
 

@@ -9,14 +9,14 @@ nsw::NSWCalibArtInputPhase::NSWCalibArtInputPhase() {
 void nsw::NSWCalibArtInputPhase::setup(std::string db) {
   ERS_INFO("setup " << db);
 
-  m_dry_run   = 1;
+  m_dry_run   = 0;
   m_reset_vmm = 0;
   m_threads = std::make_unique< std::vector< std::future<int> > >();
   m_threads->clear();
 
-  m_phases = {-1};
+  // m_phases = {-1};
   // m_phases = {0, 1, 2, 3};
-  // m_phases = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+  m_phases = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
   m_tracks = 0;
   m_patterns = patterns();
   write_json("test.json", m_patterns);
@@ -45,6 +45,8 @@ void nsw::NSWCalibArtInputPhase::configure() {
       continue;
     auto tr = toppattkv.second;
 
+    ERS_INFO("Configure " << toppattkv.first << " with ART phase = " << tr.get<int>("art_input_phase"));
+
     // enable test pulse
     configure_febs_from_ptree(tr, true);
 
@@ -62,6 +64,8 @@ void nsw::NSWCalibArtInputPhase::unconfigure() {
     if (ipatt != counter())
       continue;
     auto tr = toppattkv.second;
+
+    ERS_INFO("Un-configure " << toppattkv.first);
 
     // disable test pulse
     configure_febs_from_ptree(tr, false);
