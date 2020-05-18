@@ -45,8 +45,8 @@ float nsw::CalibrationMath::take_median(std::vector<short unsigned int> &v) {
 
 float nsw::CalibrationMath::sample_to_mV(float sample, bool stgc){
 	float val;
-  if(stgc){val = sample * 1000. * 1.5 / 4095.0;} //stgc doesn`t have input resistor
-  else{val = sample * 1000. / 4095.0;} //1,5 is due to a resistor
+  if(stgc){val = sample * 1000. / 4095.0;} //stgc doesn`t have input resistor
+  else{val = sample * 1000. *1.5/ 4095.0;} //1,5 is due to a resistor
 	return val;
 }
 //############################################################################
@@ -117,15 +117,15 @@ float nsw::CalibrationMath::take_mode(std::vector<short unsigned int> &v) {
 
 float nsw::CalibrationMath::sample_to_mV(short unsigned int sample, bool stgc){
 	float val;
-  if(stgc){val = sample * 1000. * 1.5/ 4095.0;} //no resistor
-  else{val = sample * 1000. / 4095.0;} //1.5 is due to a resistor
+  if(stgc){val = sample * 1000. / 4095.0;} //no resistor
+  else{val = sample * 1000. *1.5 / 4095.0;} //1.5 is due to a resistor
 	return val;
 }
 
 float nsw::CalibrationMath::mV_to_sample(float mV_read, bool stgc){
 	float val;
-  if(stgc){val = mV_read / 1000./1.5 * 4095.0;} //1.5 is due to a resistor
-  else{val = mV_read / 1000. * 4095.0;} //1.5 is due to a resistor
+  if(stgc){val = mV_read / 1000. * 4095.0;} //1.5 is due to a resistor
+  else{val = mV_read / 1000. /1.5 * 4095.0;} //1.5 is due to a resistor
 	return val;
 }
 

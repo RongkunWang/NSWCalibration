@@ -116,17 +116,22 @@ int main(int ac, const char* av[]){
 	}
 	else{std::cout<<"Running on unknown SBC or without it"<<std::endl;}
 
-	std::string remote_host = "ssh nswdaq@sbcnsw-ttc-01.cern.ch ";
+	std::string remote_host = "ssh -X nswdaq@sbcnsw-ttc-01.cern.ch ";
 //---------- thing to see available core number -----------------
 	{
 	   unsigned int c = std::thread::hardware_concurrency();
 	   std::cout << "\n Available number of cores: " << c <<"\n"<< std::endl;;
 	}
 	
+	std::string alti_sr = "/afs/cern.ch/user/n/nswdaq/public/alti/ALTI_sr.expect 9";
+	std::string alti_bcr = "/afs/cern.ch/user/n/nswdaq/public/alti/ALTI_bcr.expect 9";
+	std::string alti_ecr = "/afs/cern.ch/user/n/nswdaq/public/alti/ALTI_ecr.expect 9";
+	
 	std::string vme_chan = std::to_string(alti_chan);
 	std::string expect_path = "/afs/cern.ch/user/n/nswdaq/public/alti/";
 	expect_file += " "+vme_chan;
 	std::string expect_call = expect_path+expect_file;
+	std::string remote_expect_call = remote_host+"setupSBC; /afs/cern.ch/user/n/nswdaq/public/alti/ALTI_tenshot_pattern_vs.expect";
 
 	std::cout<<"Expect file to be used - << "<<expect_file<<" >>"<<std::endl;
 	std::time_t run_start = std::chrono::system_clock::to_time_t(start);
@@ -177,14 +182,15 @@ int main(int ac, const char* av[]){
 //			 if(!task){system("echo sr 11 executes && echo ecr 11 executes");}
 			 //std::string ttc_com = "sr "+std::to_string(alti_chan)+" && ecr "+std::to_string(alti_chan);
 			 std::string ttc_com = "sr 9 && sleep 2 && bcr 9 && sleep 2 && ecr 9 ";
-			 std::string remote_ttc_com = remote_host+ttc_com;
+			 //std::string remote_ttc_com = remote_host+ttc_com;
+			 std::string remote_ttc_com = remote_host+alti_sr+"; sleep 2; "+alti_bcr+"; sleep 2; "+alti_ecr;
 			 //std::string remote_ttc_com = remote_host+" sr 9 && ecr 9";
  			 std::string remote_command = remote_host+expect_call;
 	//		 if(task){system("sr 11 && sleep 2 && ecr 11");}
 //			 if(task){system(ttc_com.c_str());}
 //			 sleep(2);
 //------------------ sending intial config ----------------------------------------------
-		if(!configure){
+		if(configure){
 			int ifeb=0;
 					for(long unsigned int b=0; b<fe_names_v.size(); b++)
 					{
@@ -204,13 +210,15 @@ int main(int ac, const char* av[]){
 					
 					std::cout<<" threads joined"<<std::endl;
 				}
-				if(task){ttc_com.c_str();}
-				if(remote){remote_ttc_com.c_str();}
+//				if(task){ttc_com.c_str();}
+//				if(remote){remote_ttc_com.c_str();}
 				std::this_thread::sleep_for(std::chrono::milliseconds(t_wait));
 //----------------------------------------------------------------------------------------------------------
 			 for(unsigned int i = 0; i < tpdacs.size(); i++)
 			 {
 //--------------CONFIGURING FEBS TO SEND TEST PULSES-------------------------------------------------------------------------			
+	
+				std::this_thread::sleep_for(std::chrono::milliseconds(t_wait/2));
 				int ifeb_on = 0;
 					for(unsigned int l=0; l<fe_names_v.size(); l++)
 					{
@@ -232,17 +240,21 @@ int main(int ac, const char* av[]){
 					}
 //-----------RESETTING EVENT AND BC COUNTERS ON ALTI-----------------------------------------------------------------------------
 				if(task){ttc_com.c_str();}
+				//if(remote){remote_ttc_com.c_str();}
 				if(remote){remote_ttc_com.c_str();}
 				std::this_thread::sleep_for(std::chrono::milliseconds(1000)); //1 sec
 
 //---------EXECUTING TTC COMMANDS--------------------------------------------------------------------------------
 				if(!task){system("echo ttc0");}
-				//if(task){system(expect_file.c_str());}
-				if(task){system(expect_call.c_str()); if(debug){std::cout<<"Executing->"<<expect_call<<std::endl;}}
-				if(remote){system(remote_command.c_str()); if(debug){std::cout<<"Executing->"<<remote_command<<std::endl;}}
-				std::this_thread::sleep_for(std::chrono::milliseconds(t_wait));
+			for(int i=0; i<10; i++){
+					//if(task){system(expect_file.c_str());}
+					if(task){system(expect_call.c_str()); if(debug){std::cout<<"Executing->"<<expect_call<<std::endl;}}
+					//if(remote){system(remote_command.c_str()); if(debug){std::cout<<"Executing->"<<remote_command<<std::endl;}}
+					if(remote){system(remote_expect_call.c_str()); if(debug){std::cout<<"Executing->"<<remote_expect_call<<std::endl;}}
+					std::this_thread::sleep_for(std::chrono::milliseconds(t_wait));
 				//std::this_thread::sleep_for(std::chrono::milliseconds(100));
-				if(debug){std::cout<<"TTC command happens here for <<"<<i+1<<">> time"<<std::endl;}
+			}
+			if(debug){std::cout<<"TTC command happens here for <<"<<i+1<<">> time"<<std::endl;}
 //----------DISABLING PUSLES-----------------------------------------------------------------------------			
 			if(!no_disable){
 					int ifeb_off = 0;

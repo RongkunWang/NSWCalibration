@@ -40,7 +40,8 @@ int main(int ac, const char* av[]){
 //--------------------------------------------------------------
 	namespace pt = boost::property_tree;
 	pt::ptree input_data;
-	std::string io_config_path = "../../NSWCalibration/lxplus_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
+	//std::string io_config_path = "../../NSWCalibration/lxplus_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
+	std::string io_config_path = "../../NSWCalibration/vs_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
 //	std::string io_config_path = "../../NSWCalibration/bb5_sectA14_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
 //	std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/lxplus_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
 	//std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/bb5_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
@@ -51,7 +52,7 @@ int main(int ac, const char* av[]){
  	std::string base_folder = input_data.get<std::string>("config_dir");
 	std::string cl_file = input_data.get<std::string>("report_log");
 
-    std::string description = "\tProgramm allows to configure/calibrate MM FEBs\n\t declare what you want to do, type:\n\t --init_conf - to load inital VMM configuration or final configuration with resulting json file\n\t --threshold - to read thresholds of the particular VMM\n\t --cal_thresholds - to calibrate threshold and trimmer DAC on FEB scale\n\t --merge_config - to merge separate board .json files into one\t default name -> generated_config.json (name changing option -j)\n\n\t!!!\n\tIMPORTANT: programm requires existance of the input configuration .json file with necessary output file location paths, OPC server name and associated communication port\n\t!!!";
+    std::string description = "\tProgramm allows to calibrate VMM internal pulser DAC. Options are listed below. \n\tIMPORTANT: programm requires existance of the input configuration .json file with necessary output file location paths, OPC server name and associated communication port\n\t!!!";
 
 		bool debug;
     int N_FEB;
