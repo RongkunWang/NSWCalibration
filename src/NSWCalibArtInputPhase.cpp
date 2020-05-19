@@ -15,7 +15,6 @@ void nsw::NSWCalibArtInputPhase::setup(std::string db) {
   m_threads->clear();
 
   // m_phases = {-1};
-  // m_phases = {0, 1, 2, 3};
   m_phases = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
   m_tracks = 0;
   m_patterns = patterns();
