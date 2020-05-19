@@ -1,8 +1,8 @@
 diff --git src/AltiController.cpp src/AltiController.cpp
-index ffe3f2a..e961a7e 100644
+index e8a204b..371e0ca 100644
 --- src/AltiController.cpp
 +++ src/AltiController.cpp
-@@ -1261,6 +1261,11 @@ void AltiController::clearInfo() {
+@@ -1279,6 +1279,11 @@ void AltiController::clearInfo() {
  
  void AltiController::user(const daq::rc::UserCmd& usrCmd) {
   
