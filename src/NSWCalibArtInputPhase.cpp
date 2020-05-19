@@ -234,8 +234,7 @@ ptree nsw::NSWCalibArtInputPhase::patterns() {
     int nvmm = 8;
     int nchan = 64;
     int pcb = 0;
-    // for (int pos = 0; pos < 16; pos++) {
-    for (int pos = 0; pos < 2; pos++) {
+    for (int pos = 0; pos < 16; pos++) {
       even = pos % 2 == 0;
       pcb  = pos / 2 + 1;
       auto pcbstr = std::to_string(pcb);
