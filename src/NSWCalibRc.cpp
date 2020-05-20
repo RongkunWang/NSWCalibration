@@ -7,8 +7,8 @@
 
 #include "NSWCalibration/NSWCalibRc.h"
 #include "NSWCalibrationDal/NSWCalibApplication.h"
-#include "NSWCalibration/NSWCalibAlg.h"
-#include "NSWCalibration/NSWCalibArtInputPhase.h"
+#include "NSWCalibration/CalibAlg.h"
+#include "NSWCalibration/MMTriggerCalib.h"
 #include "NSWConfiguration/NSWConfig.h"
 
 using boost::property_tree::ptree;
@@ -117,9 +117,9 @@ void nsw::NSWCalibRc::handler() {
   std::string fname = "json:///afs/cern.ch/user/n/nswdaq/public/sw/config-ttc/config-files/config_json/BB5/A16/full_small_sector_a16_bb5_internalPulser_ADDC_TP.json";
 
   // create calib object
-  std::unique_ptr<NSWCalibAlg> calib = 0;
+  std::unique_ptr<CalibAlg> calib = 0;
   if (true)
-    calib = std::make_unique<NSWCalibArtInputPhase>();
+    calib = std::make_unique<MMTriggerCalib>();
   else
     throw std::runtime_error("Unknown calibration request");
 

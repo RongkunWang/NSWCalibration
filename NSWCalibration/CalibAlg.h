@@ -1,5 +1,5 @@
-#ifndef NSWCALIBALG_H_
-#define NSWCALIBALG_H_
+#ifndef CALIBALG_H_
+#define CALIBALG_H_
 
 //
 // Base class for NSW calib algs
@@ -19,11 +19,11 @@ using boost::property_tree::ptree;
 
 namespace nsw {
 
-  class NSWCalibAlg {
+  class CalibAlg {
 
   public:
-    NSWCalibAlg();
-    ~NSWCalibAlg() {};
+    CalibAlg();
+    ~CalibAlg() {};
     virtual void setup(std::string db);
     virtual void configure();
     virtual void unconfigure();

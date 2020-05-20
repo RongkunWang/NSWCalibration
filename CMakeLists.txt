@@ -18,8 +18,8 @@ tdaq_add_library(nswcalibdal DAL
 tdaq_add_library(nswcalib
         src/CalibrationMath.cpp
         src/CalibrationSca.cpp
-        src/NSWCalibAlg.cpp
-        src/NSWCalibArtInputPhase.cpp
+        src/CalibAlg.cpp
+        src/MMTriggerCalib.cpp
         src/NSWCalibRc.cpp
     INCLUDE_DIRECTORIES PRIVATE ${OPC_GENERATED_CLIENT_SRCS}
     LINK_LIBRARIES nswconfig NSWConfig nswcalibdal

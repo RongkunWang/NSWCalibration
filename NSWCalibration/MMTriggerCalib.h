@@ -1,22 +1,22 @@
-#ifndef NSWCALIBARTINPUTPHASE_H_
-#define NSWCALIBARTINPUTPHASE_H_
+#ifndef MMTRIGGERCALIB_H_
+#define MMTRIGGERCALIB_H_
 
 //
 // Derived class for NSW ART input phase calib
 //
 
-#include "NSWCalibration/NSWCalibAlg.h"
+#include "NSWCalibration/CalibAlg.h"
 #include "NSWConfiguration/FEBConfig.h"
 #include "NSWConfiguration/ADDCConfig.h"
 using boost::property_tree::ptree;
 
 namespace nsw {
 
-  class NSWCalibArtInputPhase: public NSWCalibAlg {
+  class MMTriggerCalib: public CalibAlg {
 
   public:
-    NSWCalibArtInputPhase();
-    ~NSWCalibArtInputPhase() {};
+    MMTriggerCalib();
+    ~MMTriggerCalib() {};
     void setup(std::string db);
     void configure();
     void unconfigure();

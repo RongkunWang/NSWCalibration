@@ -1,12 +1,12 @@
-#include "NSWCalibration/NSWCalibArtInputPhase.h"
+#include "NSWCalibration/MMTriggerCalib.h"
 using boost::property_tree::ptree;
 
-nsw::NSWCalibArtInputPhase::NSWCalibArtInputPhase() {
+nsw::MMTriggerCalib::MMTriggerCalib() {
   setCounter(-1);
   setTotal(0);
 }
 
-void nsw::NSWCalibArtInputPhase::setup(std::string db) {
+void nsw::MMTriggerCalib::setup(std::string db) {
   ERS_INFO("setup " << db);
 
   m_dry_run   = 0;
@@ -35,7 +35,7 @@ void nsw::NSWCalibArtInputPhase::setup(std::string db) {
     m_senders.insert( {addc.getAddress(), std::make_unique<nsw::ConfigSender>()} );
 }
 
-void nsw::NSWCalibArtInputPhase::configure() {
+void nsw::MMTriggerCalib::configure() {
 
   for (auto toppattkv : m_patterns) {
 
@@ -55,7 +55,7 @@ void nsw::NSWCalibArtInputPhase::configure() {
 
 }
 
-void nsw::NSWCalibArtInputPhase::unconfigure() {
+void nsw::MMTriggerCalib::unconfigure() {
 
   for (auto toppattkv : m_patterns) {
 
@@ -72,18 +72,18 @@ void nsw::NSWCalibArtInputPhase::unconfigure() {
 
 }
 
-int nsw::NSWCalibArtInputPhase::wait_until_done() {
+int nsw::MMTriggerCalib::wait_until_done() {
   for (auto& thread : *m_threads)
     thread.get();
   m_threads->clear();
   return 0;
 }
 
-int nsw::NSWCalibArtInputPhase::pattern_number(std::string name) {
+int nsw::MMTriggerCalib::pattern_number(std::string name) {
   return std::stoi( std::regex_replace(name, std::regex("pattern_"), "") );
 }
 
-int nsw::NSWCalibArtInputPhase::configure_febs_from_ptree(ptree tr, bool unmask) {
+int nsw::MMTriggerCalib::configure_febs_from_ptree(ptree tr, bool unmask) {
   //
   // if unmask and first art phase: send configuration
   // if   mask and  last art phase: send configuration
@@ -110,7 +110,7 @@ int nsw::NSWCalibArtInputPhase::configure_febs_from_ptree(ptree tr, bool unmask)
         if (febkv.first != feb.getAddress())
           continue;
         m_threads->push_back(std::async(std::launch::async, 
-                                        &nsw::NSWCalibArtInputPhase::configure_vmms, this,
+                                        &nsw::MMTriggerCalib::configure_vmms, this,
                                         feb, febkv.second, unmask));
         break;
       }
@@ -120,7 +120,7 @@ int nsw::NSWCalibArtInputPhase::configure_febs_from_ptree(ptree tr, bool unmask)
   return 0;
 }
 
-int nsw::NSWCalibArtInputPhase::configure_addcs_from_ptree(ptree tr) {
+int nsw::MMTriggerCalib::configure_addcs_from_ptree(ptree tr) {
   auto phase = tr.get<int>("art_input_phase");
   if (phase != -1) {
     if (phase == m_phases.front())
@@ -130,14 +130,14 @@ int nsw::NSWCalibArtInputPhase::configure_addcs_from_ptree(ptree tr) {
       std::cout << std::endl;
     for (auto & addc : m_addcs)
       m_threads->push_back(std::async(std::launch::async,
-                                      &nsw::NSWCalibArtInputPhase::configure_art_input_phase, this,
+                                      &nsw::MMTriggerCalib::configure_art_input_phase, this,
                                       addc, phase));
     wait_until_done();
   }
   return 0;
 }
 
-int nsw::NSWCalibArtInputPhase::announce(std::string name, ptree tr, bool unmask) {
+int nsw::MMTriggerCalib::announce(std::string name, ptree tr, bool unmask) {
   std::cout << " Configure MMFE8s (" << (unmask ? "unmask" : "mask") << ") with " << name << std::endl << std::flush;
   for (auto febkv : tr) {
     std::cout << "  " << febkv.first;
@@ -151,7 +151,7 @@ int nsw::NSWCalibArtInputPhase::announce(std::string name, ptree tr, bool unmask
   return 0;
 }
 
-int nsw::NSWCalibArtInputPhase::configure_vmms(nsw::FEBConfig feb, ptree febpatt, bool unmask) {
+int nsw::MMTriggerCalib::configure_vmms(nsw::FEBConfig feb, ptree febpatt, bool unmask) {
   //
   // Example febpatt ptree:
   // {
@@ -193,7 +193,7 @@ int nsw::NSWCalibArtInputPhase::configure_vmms(nsw::FEBConfig feb, ptree febpatt
   return 0;
 }
 
-int nsw::NSWCalibArtInputPhase::configure_art_input_phase(nsw::ADDCConfig addc, uint phase) {
+int nsw::MMTriggerCalib::configure_art_input_phase(nsw::ADDCConfig addc, uint phase) {
   auto & cs = m_senders[addc.getAddress()];
   if (phase > std::pow(2, 4))
     throw std::runtime_error("Gave bad phase to configure_art_input_phase: " + std::to_string(phase));
@@ -220,7 +220,7 @@ int nsw::NSWCalibArtInputPhase::configure_art_input_phase(nsw::ADDCConfig addc, 
   return 0;
 }
 
-ptree nsw::NSWCalibArtInputPhase::patterns() {
+ptree nsw::MMTriggerCalib::patterns() {
   ptree patts;
   int ipatts   = 0;
   int ifebpatt = 0;
@@ -284,7 +284,7 @@ ptree nsw::NSWCalibArtInputPhase::patterns() {
 
 
 template <class T>
-std::vector<T> nsw::NSWCalibArtInputPhase::make_objects(std::string cfg, std::string element_type, std::string name) {
+std::vector<T> nsw::MMTriggerCalib::make_objects(std::string cfg, std::string element_type, std::string name) {
 
   // create config reader
   nsw::ConfigReader reader1(cfg);
