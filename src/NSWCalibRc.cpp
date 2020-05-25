@@ -56,7 +56,8 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
       ERS_INFO("Calibration type from IS: " << m_calibType);
     } else {
       m_calibType = "MMARTConnectivityTest";
-      ERS_INFO("Calibration type not found in IS. Defaulting to: " << m_calibType);
+      nsw::NSWConfigIssue issue(ERS_HERE, "Calibration type not found in IS. Defaulting to: " + m_calibType);
+      ers::warning(issue);
     }
 
     m_NSWConfig = std::make_unique<NSWConfig>(m_simulation);
