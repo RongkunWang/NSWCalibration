@@ -13,6 +13,7 @@
 #include "ipc/core.h"
 #include "is/info.h"
 #include "is/infoT.h"
+#include "is/infodynany.h"
 #include "is/infodictionary.h"
 
 

@@ -39,11 +39,25 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     const std::string stateInfoName = g_info_server_name + ".CurrentCalibState";
     const std::string calibInfoName = g_info_server_name + "." + g_calibration_type + "CalibInfo";
 
-    // To be pulled from IS later. Currently supported options are:
+    // Currently supported options are:
     //    MMARTConnectivityTest
     //    MMTrackPulserTest
     //    MMARTPhase
-    m_calibType = "MMARTPhase";
+
+    // Going to attempt to grab the calibration type string from IS
+    // Can manually write to this variable from the command line:
+    // > is_write -p part-BB5-Calib -n Setup.NSW.calibType -t String  -v MMARTPhase -i 0
+    // > is_ls -p part-BB5-Calib -R ".*NSW.cali.*" -v
+
+    ISInfoDynAny calibTypeFromIS;
+    if(is_dictionary->contains("Setup.NSW.calibType") ){
+      is_dictionary->getValue("Setup.NSW.calibType", calibTypeFromIS);
+      m_calibType = calibTypeFromIS.getAttributeValue<std::string>(0);
+      ERS_INFO("Calibration type from IS: " << m_calibType);
+    } else {
+      m_calibType = "MMARTConnectivityTest";
+      ERS_INFO("Calibration type not found in IS. Defaulting to: " << m_calibType);
+    }
 
     m_NSWConfig = std::make_unique<NSWConfig>(m_simulation);
     m_NSWConfig->readConf(nswApp);
