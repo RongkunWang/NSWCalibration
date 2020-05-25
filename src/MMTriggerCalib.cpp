@@ -1,9 +1,10 @@
 #include "NSWCalibration/MMTriggerCalib.h"
 using boost::property_tree::ptree;
 
-nsw::MMTriggerCalib::MMTriggerCalib() {
+nsw::MMTriggerCalib::MMTriggerCalib(std::string calibType) {
   setCounter(-1);
   setTotal(0);
+  m_calibType = calibType;
 }
 
 void nsw::MMTriggerCalib::setup(std::string db) {
@@ -14,9 +15,19 @@ void nsw::MMTriggerCalib::setup(std::string db) {
   m_threads = std::make_unique< std::vector< std::future<int> > >();
   m_threads->clear();
 
-  // m_phases = {-1};
-  m_phases = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-  m_tracks = 0;
+  if (m_calibType=="MMARTConnectivityTest"){
+    m_phases = {-1};
+    m_tracks = false;
+  } else if (m_calibType=="MMTrackPulserTest"){
+    m_phases = {-1};
+    m_tracks = true;
+  } else if (m_calibType=="MMARTPhase"){
+    m_phases = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+    m_tracks = false;
+  } else {
+    throw std::runtime_error("Unknown calibration request. Can't set up MMTriggerCalib.");
+  }
+
   m_patterns = patterns();
   write_json("test.json", m_patterns);
   setTotal((int)(m_patterns.size()));
@@ -109,7 +120,7 @@ int nsw::MMTriggerCalib::configure_febs_from_ptree(ptree tr, bool unmask) {
       for (auto & feb : m_febs) {
         if (febkv.first != feb.getAddress())
           continue;
-        m_threads->push_back(std::async(std::launch::async, 
+        m_threads->push_back(std::async(std::launch::async,
                                         &nsw::MMTriggerCalib::configure_vmms, this,
                                         feb, febkv.second, unmask));
         break;
@@ -251,7 +262,7 @@ ptree nsw::MMTriggerCalib::patterns() {
                           "MMFE8_L1P" + pcbstr + "_IP" + (even ? "L" : "R")}) {
           ptree febtree;
           for (int vmmid = 0; vmmid < nvmm; vmmid++) {
-            
+
             //if (vmm_of_interest >= 0 && vmmid != vmm_of_interest)
             //  continue;
 
@@ -277,7 +288,50 @@ ptree nsw::MMTriggerCalib::patterns() {
         ifebpatt++;
       }
     }
-  }
+  } else {
+        //
+        // track-like loop
+        //
+        bool even;
+        int nvmm = 8;
+        int nchan = 64;
+        int pcb = 0;
+        for (int pos = 0; pos < 16; pos++) {
+            even = pos % 2 == 0;
+            pcb  = pos / 2 + 1;
+            auto pcbstr = std::to_string(pcb);
+            for (int chan = 0; chan < nchan; chan++) {
+                if (chan % 10 != 0)
+                    continue;
+                for (int vmmid = 0; vmmid < nvmm; vmmid++) {
+                    // if (vmm_of_interest >= 0 && vmmid != vmm_of_interest)
+                    //     continue;
+                    ptree patt;
+                    for (auto name : {"MMFE8_L1P" + pcbstr + "_HO" + (even ? "R" : "L"),
+                                "MMFE8_L2P" + pcbstr + "_HO" + (even ? "L" : "R"),
+                                "MMFE8_L3P" + pcbstr + "_HO" + (even ? "R" : "L"),
+                                "MMFE8_L4P" + pcbstr + "_HO" + (even ? "L" : "R"),
+                                "MMFE8_L4P" + pcbstr + "_IP" + (even ? "R" : "L"),
+                                "MMFE8_L3P" + pcbstr + "_IP" + (even ? "L" : "R"),
+                                "MMFE8_L2P" + pcbstr + "_IP" + (even ? "R" : "L"),
+                                "MMFE8_L1P" + pcbstr + "_IP" + (even ? "L" : "R")}) {
+                        ptree febtree;
+                        // this might seem stupid, and it is, but
+                        //   it allows to write a vector of channels per VMM
+                        ptree vmmtree;
+                        ptree chantree;
+                        chantree.put("", chan);
+                        vmmtree.push_back(std::make_pair("", chantree));
+                        febtree.add_child(std::to_string(vmmid), vmmtree);
+                        patt.add_child(name, febtree);
+                    }
+                    patts.add_child("febpattern_" + std::to_string(ipatts), patt);
+                    ipatts++;
+                }
+            }
+        }
+    }
+
 
   return patts;
 }
@@ -336,6 +390,6 @@ std::vector<T> nsw::MMTriggerCalib::make_objects(std::string cfg, std::string el
   std::cout << std::endl;
 
   return configs;
-  
+
 }
 

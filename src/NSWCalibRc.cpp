@@ -18,16 +18,15 @@ nsw::NSWCalibRc::NSWCalibRc(bool simulation):m_simulation {simulation} {
     if (m_simulation) {
         ERS_INFO("Running in simulation mode, no configuration will be sent");
     }
-
 }
 
 void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     ERS_INFO("Start");
-    
+
     //Retrieving the configuration db
     daq::rc::OnlineServices& rcSvc = daq::rc::OnlineServices::instance();
     const daq::core::RunControlApplicationBase& rcBase = rcSvc.getApplication();
-    const nsw::dal::NSWCalibApplication* nswApp = rcBase.cast<nsw::dal::NSWCalibApplication>();  
+    const nsw::dal::NSWCalibApplication* nswApp = rcBase.cast<nsw::dal::NSWCalibApplication>();
     auto dbcon = nswApp->get_dbConnection();
 
     //Retrieve the ipc partition
@@ -40,9 +39,15 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     const std::string stateInfoName = g_info_server_name + ".CurrentCalibState";
     const std::string calibInfoName = g_info_server_name + "." + g_calibration_type + "CalibInfo";
 
+    // To be pulled from IS later. Currently supported options are:
+    //    MMARTConnectivityTest
+    //    MMTrackPulserTest
+    //    MMARTPhase
+    m_calibType = "MMARTPhase";
+
     m_NSWConfig = std::make_unique<NSWConfig>(m_simulation);
     m_NSWConfig->readConf(nswApp);
-    
+
     ERS_LOG("End");
 }
 
@@ -118,10 +123,14 @@ void nsw::NSWCalibRc::handler() {
 
   // create calib object
   std::unique_ptr<CalibAlg> calib = 0;
-  if (true)
-    calib = std::make_unique<MMTriggerCalib>();
-  else
+  ERS_INFO("Calibration Type: " << m_calibType);
+  if (m_calibType=="MMARTConnectivityTest" ||
+      m_calibType=="MMTrackPulserTest" ||
+      m_calibType=="MMARTPhase"){
+    calib = std::make_unique<MMTriggerCalib>(m_calibType);
+  } else {
     throw std::runtime_error("Unknown calibration request");
+  }
 
   // setup
   calib->setup(fname);

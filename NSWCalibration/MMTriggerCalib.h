@@ -15,7 +15,7 @@ namespace nsw {
   class MMTriggerCalib: public CalibAlg {
 
   public:
-    MMTriggerCalib();
+    MMTriggerCalib(std::string calibType);
     ~MMTriggerCalib() {};
     void setup(std::string db);
     void configure();
@@ -34,6 +34,8 @@ namespace nsw {
     int announce(std::string name, ptree tr, bool unmask);
 
   private:
+    std::string                    m_calibType = "";
+
     std::vector<nsw::FEBConfig>    m_febs   = {};
     std::vector<nsw::ADDCConfig>   m_addcs  = {};
     std::vector<int>               m_phases = {};
