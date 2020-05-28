@@ -74,15 +74,12 @@ class NSWCalibRc: public daq::rc::Controllable {
 
     std::string                 m_calibType = "";
 
-    //! Calibration functions
-    // void calibrateARTPhase(); // or something
-
     // Run the program in simulation mode, don't send any configuration
     bool                        m_simulation;
     std::unique_ptr<NSWConfig>  m_NSWConfig;
+    std::string                 m_dbcon;
     IPCPartition                m_ipcpartition;
     ISInfoDictionary*           is_dictionary;
-
 };
 }  // namespace nsw
 #endif  // NSWCALIBRATION_NSWCALIBRC_H_

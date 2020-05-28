@@ -27,7 +27,8 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     daq::rc::OnlineServices& rcSvc = daq::rc::OnlineServices::instance();
     const daq::core::RunControlApplicationBase& rcBase = rcSvc.getApplication();
     const nsw::dal::NSWCalibApplication* nswApp = rcBase.cast<nsw::dal::NSWCalibApplication>();
-    auto dbcon = nswApp->get_dbConnection();
+    m_dbcon = nswApp->get_dbConnection();
+    ERS_INFO("DB Configuration: " << m_dbcon);
 
     //Retrieve the ipc partition
     m_ipcpartition = rcSvc.getIPCPartition();
@@ -131,10 +132,6 @@ void nsw::NSWCalibRc::subTransition(const daq::rc::SubTransitionCmd& cmd) {
 void nsw::NSWCalibRc::handler() {
 
   sleep(1);
-  //
-  // Im a sad hardcode for now
-  //
-  std::string fname = "json:///afs/cern.ch/user/n/nswdaq/public/sw/config-ttc/config-files/config_json/BB5/A16/full_small_sector_a16_bb5_internalPulser_ADDC_TP.json";
 
   // create calib object
   std::unique_ptr<CalibAlg> calib = 0;
@@ -148,7 +145,7 @@ void nsw::NSWCalibRc::handler() {
   }
 
   // setup
-  calib->setup(fname);
+  calib->setup(m_dbcon);
   ERS_INFO("calib counter: " << calib->counter());
   ERS_INFO("calib total:   " << calib->total());
 
