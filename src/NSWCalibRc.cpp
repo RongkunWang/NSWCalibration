@@ -160,7 +160,7 @@ void nsw::NSWCalibRc::handler() {
   }
 
   // fin
-  ERS_INFO("NSWCalibRc::handler::End of handler, exiting.");
+  ERS_INFO("NSWCalibRc::handler::End of handler");
 }
 
 void nsw::NSWCalibRc::alti_toggle_pattern() {
