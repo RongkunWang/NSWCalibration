@@ -1,0 +1,16 @@
+diff --git src/AltiController.cpp src/AltiController.cpp
+index e8a204b..371e0ca 100644
+--- src/AltiController.cpp
++++ src/AltiController.cpp
+@@ -1279,6 +1279,11 @@ void AltiController::clearInfo() {
+ 
+ void AltiController::user(const daq::rc::UserCmd& usrCmd) {
+  
++  if (usrCmd.commandName() == "toggle") {
++    ERS_INFO(m_name << " AltiController::user " << usrCmd.commandName());
++    m_alti->PATGenerationEnableWrite(false);
++    m_alti->PATGenerationEnableWrite(true);
++  }
+ }
+ 
+  

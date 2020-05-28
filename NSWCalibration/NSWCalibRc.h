@@ -13,6 +13,7 @@
 #include "ipc/core.h"
 #include "is/info.h"
 #include "is/infoT.h"
+#include "is/infodynany.h"
 #include "is/infodictionary.h"
 
 
@@ -45,7 +46,7 @@ class NSWCalibRc: public daq::rc::Controllable {
     //! Reads the names of front ends that should be configured and constructs
     //! FEBConfig objects in the map m_frontends
     void configure(const daq::rc::TransitionCmd& cmd) override;
-  
+
     void connect(const daq::rc::TransitionCmd& cmd) override;
 
     void prepareForRun(const daq::rc::TransitionCmd& cmd) override;
@@ -63,17 +64,22 @@ class NSWCalibRc: public daq::rc::Controllable {
     //! Used to syncronize ROC/VMM configuration
     void subTransition(const daq::rc::SubTransitionCmd&) override;
 
+    //! Handle configuration and ALTI PG
+    std::atomic<bool> end_of_run;
+    std::future<void> handler_thread;
+    void handler();
+    void alti_toggle_pattern();
+
  private:
 
-    //! Calibration functions
-    // void calibrateARTPhase(); // or something
+    std::string                 m_calibType = "";
 
     // Run the program in simulation mode, don't send any configuration
     bool                        m_simulation;
     std::unique_ptr<NSWConfig>  m_NSWConfig;
+    std::string                 m_dbcon;
     IPCPartition                m_ipcpartition;
     ISInfoDictionary*           is_dictionary;
-
 };
 }  // namespace nsw
 #endif  // NSWCALIBRATION_NSWCALIBRC_H_

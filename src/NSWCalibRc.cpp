@@ -7,6 +7,8 @@
 
 #include "NSWCalibration/NSWCalibRc.h"
 #include "NSWCalibrationDal/NSWCalibApplication.h"
+#include "NSWCalibration/CalibAlg.h"
+#include "NSWCalibration/MMTriggerCalib.h"
 #include "NSWConfiguration/NSWConfig.h"
 
 using boost::property_tree::ptree;
@@ -16,17 +18,17 @@ nsw::NSWCalibRc::NSWCalibRc(bool simulation):m_simulation {simulation} {
     if (m_simulation) {
         ERS_INFO("Running in simulation mode, no configuration will be sent");
     }
-
 }
 
 void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     ERS_INFO("Start");
-    
+
     //Retrieving the configuration db
     daq::rc::OnlineServices& rcSvc = daq::rc::OnlineServices::instance();
     const daq::core::RunControlApplicationBase& rcBase = rcSvc.getApplication();
-    const nsw::dal::NSWCalibApplication* nswApp = rcBase.cast<nsw::dal::NSWCalibApplication>();  
-    auto dbcon = nswApp->get_dbConnection();
+    const nsw::dal::NSWCalibApplication* nswApp = rcBase.cast<nsw::dal::NSWCalibApplication>();
+    m_dbcon = nswApp->get_dbConnection();
+    ERS_INFO("DB Configuration: " << m_dbcon);
 
     //Retrieve the ipc partition
     m_ipcpartition = rcSvc.getIPCPartition();
@@ -38,9 +40,30 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     const std::string stateInfoName = g_info_server_name + ".CurrentCalibState";
     const std::string calibInfoName = g_info_server_name + "." + g_calibration_type + "CalibInfo";
 
+    // Currently supported options are:
+    //    MMARTConnectivityTest
+    //    MMTrackPulserTest
+    //    MMARTPhase
+
+    // Going to attempt to grab the calibration type string from IS
+    // Can manually write to this variable from the command line:
+    // > is_write -p part-BB5-Calib -n Setup.NSW.calibType -t String  -v MMARTPhase -i 0
+    // > is_ls -p part-BB5-Calib -R ".*NSW.cali.*" -v
+
+    ISInfoDynAny calibTypeFromIS;
+    if(is_dictionary->contains("Setup.NSW.calibType") ){
+      is_dictionary->getValue("Setup.NSW.calibType", calibTypeFromIS);
+      m_calibType = calibTypeFromIS.getAttributeValue<std::string>(0);
+      ERS_INFO("Calibration type from IS: " << m_calibType);
+    } else {
+      m_calibType = "MMARTConnectivityTest";
+      nsw::NSWConfigIssue issue(ERS_HERE, "Calibration type not found in IS. Defaulting to: " + m_calibType);
+      ers::warning(issue);
+    }
+
     m_NSWConfig = std::make_unique<NSWConfig>(m_simulation);
     m_NSWConfig->readConf(nswApp);
-    
+
     ERS_LOG("End");
 }
 
@@ -61,6 +84,8 @@ void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd& cmd) {
 
 void nsw::NSWCalibRc::prepareForRun(const daq::rc::TransitionCmd& cmd) {
     ERS_LOG("Start");
+    end_of_run = 0;
+    handler_thread = std::async(std::launch::async, &nsw::NSWCalibRc::handler, this);
     ERS_LOG("End");
 }
 
@@ -74,8 +99,10 @@ void nsw::NSWCalibRc::unconfigure(const daq::rc::TransitionCmd& cmd) {
     ERS_INFO("Start");
     ERS_INFO("End");
 }
+
 void nsw::NSWCalibRc::stopRecording(const daq::rc::TransitionCmd& cmd) {
     ERS_LOG("Start");
+    end_of_run = 1;
     ERS_LOG("End");
 }
 
@@ -102,4 +129,47 @@ void nsw::NSWCalibRc::subTransition(const daq::rc::SubTransitionCmd& cmd) {
     }*/
 }
 
+void nsw::NSWCalibRc::handler() {
+
+  sleep(1);
+
+  // create calib object
+  std::unique_ptr<CalibAlg> calib = 0;
+  ERS_INFO("Calibration Type: " << m_calibType);
+  if (m_calibType=="MMARTConnectivityTest" ||
+      m_calibType=="MMTrackPulserTest" ||
+      m_calibType=="MMARTPhase"){
+    calib = std::make_unique<MMTriggerCalib>(m_calibType);
+  } else {
+    throw std::runtime_error("Unknown calibration request");
+  }
+
+  // setup
+  calib->setup(m_dbcon);
+  ERS_INFO("calib counter: " << calib->counter());
+  ERS_INFO("calib total:   " << calib->total());
+
+  // calib loop
+  while (calib->next()) {
+    if (end_of_run)
+      break;
+    ERS_INFO("Iteration " << calib->counter()+1 << " / " << calib->total());
+    calib->configure();
+    alti_toggle_pattern();
+    calib->unconfigure();
+  }
+
+  // fin
+  ERS_INFO("NSWCalibRc::handler::End of handler");
+}
+
+void nsw::NSWCalibRc::alti_toggle_pattern() {
+    ERS_INFO("alti_toggle_pattern()");
+    std::string app_name = "Alti_RCD";
+    std::string cmd_name = "toggle";
+    daq::rc::UserCmd cmd(cmd_name, std::vector<std::string>());
+    daq::rc::CommandSender sendr(m_ipcpartition.name(), "NSWCalibRcSender");
+    sendr.sendCommand(app_name, cmd);
+    usleep(100e3);
+}
 
