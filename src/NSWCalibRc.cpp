@@ -164,9 +164,15 @@ void nsw::NSWCalibRc::handler() {
 }
 
 void nsw::NSWCalibRc::alti_toggle_pattern() {
+    //
+    // NB: the StartPatternGenerator logic is:
+    //   if pg enabled
+    //     stop it
+    //   start it
+    //
     ERS_INFO("alti_toggle_pattern()");
     std::string app_name = "Alti_RCD";
-    std::string cmd_name = "toggle";
+    std::string cmd_name = "StartPatternGenerator";
     daq::rc::UserCmd cmd(cmd_name, std::vector<std::string>());
     daq::rc::CommandSender sendr(m_ipcpartition.name(), "NSWCalibRcSender");
     sendr.sendCommand(app_name, cmd);
