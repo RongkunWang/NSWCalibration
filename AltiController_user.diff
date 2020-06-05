@@ -1,0 +1,68 @@
+diff --git src/AltiController.cpp src/AltiController.cpp
+index e8a204b..73932df 100644
+--- src/AltiController.cpp
++++ src/AltiController.cpp
+@@ -1278,7 +1278,62 @@ void AltiController::clearInfo() {
+ //========================================================================================================================
+ 
+ void AltiController::user(const daq::rc::UserCmd& usrCmd) {
+- 
++  ERS_LOG(m_name << " Entered");
++  ERS_INFO(m_name << " Executing command " << usrCmd.toString() << " in state " << usrCmd.currentFSMState());
++
++  int status = 0;
++
++  // User command name and arguments
++  const std::string& command_name = usrCmd.commandName();
++  const auto& params = usrCmd.commandParameters();
++
++  ERS_LOG(m_name << " Command name is: " << command_name);
++  ERS_LOG(m_name << " Here are the command parameters: ");
++  std::string argument;
++  for(const auto& p : params) {
++    ERS_LOG(p);
++    argument += p + " ";
++  }
++
++  if (command_name == "StartPatternGenerator") {
++    ERS_LOG(m_name << " Message \"StartPatternGenerator\" received");
++    bool enabled = false;
++    if ((status |= m_alti->PATGenerationEnableRead(enabled)) != AltiModule::SUCCESS) {
++      string reason = " during PATGenerationEnableRead with code = " + to_string(status);
++      ers::error(ALTI::AltiController::VmeError(ERS_HERE, ROS::IOMPlugin::m_uid, reason));
++    }
++    if(enabled) {
++      ERS_INFO(m_name << " pattern generator already enabled, stop it");
++      if ((status |= m_alti->PATGenerationEnableWrite(false)) != AltiModule::SUCCESS) {
++	string reason = " during PATGenerationEnableWrite with code = " + to_string(status);
++	ers::error(ALTI::AltiController::VmeError(ERS_HERE, ROS::IOMPlugin::m_uid, reason));
++      }
++    }
++    ERS_INFO(m_name << " start pattern generator");
++    if ((status |= m_alti->PATGenerationEnableWrite(true)) != AltiModule::SUCCESS) {
++      string reason = " during PATGenerationEnableWrite with code = " + to_string(status);
++      ers::error(ALTI::AltiController::VmeError(ERS_HERE, ROS::IOMPlugin::m_uid, reason));
++    }
++  }
++
++  else if (command_name == "StopPatternGenerator") {
++    ERS_LOG(m_name << " Message \"StopPatternGenerator\" received");
++    bool enabled = false;
++    if ((status |= m_alti->PATGenerationEnableRead(enabled)) != AltiModule::SUCCESS) {
++      string reason = " during PATGenerationEnableRead with code = " + to_string(status);
++      ers::error(ALTI::AltiController::VmeError(ERS_HERE, ROS::IOMPlugin::m_uid, reason));
++    }
++    if(enabled) {
++      ERS_LOG(m_name << " stop pattern generator");
++      if ((status |= m_alti->PATGenerationEnableWrite(false)) != AltiModule::SUCCESS) {
++	string reason = " during PATGenerationEnableWrite with code = " + to_string(status);
++	ers::error(ALTI::AltiController::VmeError(ERS_HERE, ROS::IOMPlugin::m_uid, reason));
++      }
++      else ERS_LOG(m_name << " pattern generator already stopped, do nothing");
++    }
++  }
++
++  ERS_LOG(m_name << " Done");
+ }
+ 
+  
