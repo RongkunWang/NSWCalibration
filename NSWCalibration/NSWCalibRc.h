@@ -78,6 +78,8 @@ class NSWCalibRc: public daq::rc::Controllable {
     bool                        m_simulation;
     std::unique_ptr<NSWConfig>  m_NSWConfig;
     std::string                 m_dbcon;
+    bool                        m_resetVMM;
+    bool                        m_resetTDS;
     IPCPartition                m_ipcpartition;
     ISInfoDictionary*           is_dictionary;
 };

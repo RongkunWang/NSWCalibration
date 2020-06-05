@@ -28,8 +28,11 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     const daq::core::RunControlApplicationBase& rcBase = rcSvc.getApplication();
     const nsw::dal::NSWCalibApplication* nswApp = rcBase.cast<nsw::dal::NSWCalibApplication>();
     m_dbcon = nswApp->get_dbConnection();
+    m_resetVMM = nswApp->get_resetVMM();
+    m_resetTDS = nswApp->get_resetTDS();
     ERS_INFO("DB Configuration: " << m_dbcon);
-
+    ERS_INFO("reset VMM: " << m_resetVMM);
+    ERS_INFO("reset TDS: " << m_resetTDS);
     //Retrieve the ipc partition
     m_ipcpartition = rcSvc.getIPCPartition();
 
