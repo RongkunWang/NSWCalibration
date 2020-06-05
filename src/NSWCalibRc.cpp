@@ -141,6 +141,7 @@ void nsw::NSWCalibRc::handler() {
   ERS_INFO("Calibration Type: " << m_calibType);
   if (m_calibType=="MMARTConnectivityTest" ||
       m_calibType=="MMTrackPulserTest" ||
+      m_calibType=="MMCableNoise" ||
       m_calibType=="MMARTPhase"){
     calib = std::make_unique<MMTriggerCalib>(m_calibType);
   } else {
