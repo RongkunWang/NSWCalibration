@@ -1,8 +1,8 @@
-<?xml version="1.0" encoding="ASCII"?>                                                                                                                                                                                                                                                                                                                                                                                                   
- 
+<?xml version="1.0" encoding="ASCII"?>
+
 <!-- oks-schema version 2.0 -->
- 
- 
+
+
 <!DOCTYPE oks-schema [
   <!ELEMENT oks-schema (info, (include)?, (comments)?, (class)+)>
   <!ELEMENT info EMPTY>
@@ -75,22 +75,23 @@
       body CDATA ""
   >
 ]>
- 
+
 <oks-schema>
- 
+
 <info name="" type="" num-of-items="1" oks-format="schema" oks-version="oks-06-10-11 built &quot;Nov  27 2017&quot;" created-by="cyildiz" created-on="pccenk-dev2.cern.ch" creation-time="20171127T191100" last-modified-by="cyildiz" last-modified-on="pccenk-dev2.cern.ch" last-modification-time="20171127T191100"/>
- 
+
 <include>
  <file path="daq/schema/core.schema.xml"/>
  <file path="daq/schema/df.schema.xml"/>
 </include>
- 
- <class name="NSWCalibApplication" description="NSW Calibration Application that calibrates FE for multiple swROD">
+
+ <class name="NSWCalibApplication" description="NSW Calibration Application that configures FE for multiple swROD">
   <superclass name="RunControlApplication"/>
+    <attribute name="resetVMM" description="Will reset vmm right before configuring it. A fail-safe mechanism." type="bool" init-value="false" is-not-null="yes"/>
+   <attribute name="resetTDS" description="Will reset TDS SER, logic, ePLL after configuring normally." type="bool" init-value="false" is-not-null="yes"/>
    <attribute name="maxThreads" description="Maximum number of threads for parallel FEB configuring." type="u32" init-value="99" is-not-null="yes"/>
    <attribute name="dbConnection" description="Database connection string, depending on the starting word(json, xml, oracle), different ConfigReader APIs are used" type="string" init-value="json:///afs/cern.ch/user/c/cyildiz/public/nsw-work/work/NSWConfiguration/data/integration_config.json" is-not-null="yes"/>
   <relationship name="SwROD" description="Link to swROD applications" class-type="Application" low-cc="zero" high-cc="many" is-composite="no" is-exclusive="no" is-dependent="no"/>
  </class>
- 
-</oks-schema>
 
+</oks-schema>
