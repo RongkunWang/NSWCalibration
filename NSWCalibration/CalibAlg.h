@@ -16,6 +16,7 @@
 #include "NSWConfiguration/ConfigSender.h"
 
 using boost::property_tree::ptree;
+namespace chr = std::chrono;
 
 namespace nsw {
 
@@ -28,14 +29,24 @@ namespace nsw {
     virtual void configure();
     virtual void unconfigure();
     bool next();
+    void progressbar();
     int counter() {return m_counter;};
     int total() {return m_total;};
     void setCounter(int ctr) {m_counter = ctr;};
     void setTotal(int tot) {m_total = tot;};
 
+    // "progress bar"
+    void setStartTime() {m_time_start = chr::system_clock::now();}
+    void setElapsedSeconds() {m_elapsed_seconds = chr::system_clock::now() - m_time_start;}
+    double elapsedSeconds() {return m_elapsed_seconds.count();}
+    double rate() {return elapsedSeconds() > 0 ? counter() / elapsedSeconds() : -1;}
+    double remainingSeconds() {return (double)(total()-counter())/rate();}
+
   private:
     int m_counter;
     int m_total;
+    chr::time_point<chr::system_clock> m_time_start;
+    chr::duration<double> m_elapsed_seconds;
 
   };
 
