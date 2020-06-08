@@ -20,12 +20,15 @@ ROOT.gErrorIgnoreLevel = ROOT.kWarning
 DEFAULT_PHASE = 4
 
 def options():
+    connec_data = "/afs/cern.ch/work/n/nswdaq/public/nswmmartconnectivitytest/data/"
+    config_json = "/afs/cern.ch/user/n/nswdaq/public/sw/config-ttc/config-files/config_json/"
+    trigger_eos = "/eos/atlas/atlascerngroupdisk/det-nsw/191/trigger/"
     parser = argparse.ArgumentParser(usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-t", help="Input ROOT TTree name", default="decodedData")
-    parser.add_argument("-i", help="Input ROOT file",       default="A10.6_tree.root")
+    parser.add_argument("-i", help="Input ROOT file",       default=os.path.join(connec_data, "dummy.root"))
+    parser.add_argument("-c", help="Config JSON file",      default=os.path.join(config_json, "BB5/A16/full_small_sector_a16_bb5_internalPulser_ADDC_TP.json"))
+    parser.add_argument("-j", help="Pattern JSON file",     default=os.path.join(trigger_eos, "nsw_art_input_phase.json"))
     parser.add_argument("-o", help="Output ROOT file",      default="art_phase_%s.root" % (NOW))
-    parser.add_argument("-c", help="Config JSON file",      default="config_json_BB5_A10_ADDC_TP.json")
-    parser.add_argument("-j", help="Pattern JSON file",     default="trigger_loop_mm_2020_03_04_22h44m27s.json")
     parser.add_argument("--debug", help="Enable debug output", action="store_true")
     return parser.parse_args()
 
