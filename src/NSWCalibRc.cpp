@@ -75,7 +75,6 @@ void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd& cmd) {
 
     //Retrieving the ptree configuration to be modified
     ptree conf = m_NSWConfig->getConf();
-    write_xml(std::cout, conf);
 
     //Sending the new configuration to be used for this run
     m_NSWConfig->substituteConf(conf);
@@ -157,7 +156,7 @@ void nsw::NSWCalibRc::handler() {
   while (calib->next()) {
     if (end_of_run)
       break;
-    ERS_INFO("Iteration " << calib->counter()+1 << " / " << calib->total());
+    calib->progressbar();
     calib->configure();
     alti_toggle_pattern();
     calib->unconfigure();
@@ -174,7 +173,7 @@ void nsw::NSWCalibRc::alti_toggle_pattern() {
     //     stop it
     //   start it
     //
-    ERS_INFO("alti_toggle_pattern()");
+    ERS_LOG("alti_toggle_pattern()");
     std::string app_name = "Alti_RCD";
     std::string cmd_name = "StartPatternGenerator";
     daq::rc::UserCmd cmd(cmd_name, std::vector<std::string>());
