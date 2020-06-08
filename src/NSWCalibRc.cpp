@@ -28,8 +28,11 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     const daq::core::RunControlApplicationBase& rcBase = rcSvc.getApplication();
     const nsw::dal::NSWCalibApplication* nswApp = rcBase.cast<nsw::dal::NSWCalibApplication>();
     m_dbcon = nswApp->get_dbConnection();
+    m_resetVMM = nswApp->get_resetVMM();
+    m_resetTDS = nswApp->get_resetTDS();
     ERS_INFO("DB Configuration: " << m_dbcon);
-
+    ERS_INFO("reset VMM: " << m_resetVMM);
+    ERS_INFO("reset TDS: " << m_resetTDS);
     //Retrieve the ipc partition
     m_ipcpartition = rcSvc.getIPCPartition();
 
@@ -72,7 +75,6 @@ void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd& cmd) {
 
     //Retrieving the ptree configuration to be modified
     ptree conf = m_NSWConfig->getConf();
-    write_xml(std::cout, conf);
 
     //Sending the new configuration to be used for this run
     m_NSWConfig->substituteConf(conf);
@@ -138,6 +140,7 @@ void nsw::NSWCalibRc::handler() {
   ERS_INFO("Calibration Type: " << m_calibType);
   if (m_calibType=="MMARTConnectivityTest" ||
       m_calibType=="MMTrackPulserTest" ||
+      m_calibType=="MMCableNoise" ||
       m_calibType=="MMARTPhase"){
     calib = std::make_unique<MMTriggerCalib>(m_calibType);
   } else {
@@ -153,7 +156,7 @@ void nsw::NSWCalibRc::handler() {
   while (calib->next()) {
     if (end_of_run)
       break;
-    ERS_INFO("Iteration " << calib->counter()+1 << " / " << calib->total());
+    calib->progressbar();
     calib->configure();
     alti_toggle_pattern();
     calib->unconfigure();
@@ -170,7 +173,7 @@ void nsw::NSWCalibRc::alti_toggle_pattern() {
     //     stop it
     //   start it
     //
-    ERS_INFO("alti_toggle_pattern()");
+    ERS_LOG("alti_toggle_pattern()");
     std::string app_name = "Alti_RCD";
     std::string cmd_name = "StartPatternGenerator";
     daq::rc::UserCmd cmd(cmd_name, std::vector<std::string>());

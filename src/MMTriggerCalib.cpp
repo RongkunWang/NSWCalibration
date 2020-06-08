@@ -15,15 +15,26 @@ void nsw::MMTriggerCalib::setup(std::string db) {
   m_threads = std::make_unique< std::vector< std::future<int> > >();
   m_threads->clear();
 
-  if (m_calibType=="MMARTConnectivityTest"){
+  if (m_calibType=="MMARTConnectivityTest") {
     m_phases = {-1};
-    m_tracks = false;
-  } else if (m_calibType=="MMTrackPulserTest"){
+    m_connectivity = true;
+    m_tracks       = false;
+    m_noise        = false;
+  } else if (m_calibType=="MMTrackPulserTest") {
     m_phases = {-1};
-    m_tracks = true;
-  } else if (m_calibType=="MMARTPhase"){
+    m_connectivity = false;
+    m_tracks       = true;
+    m_noise        = false;
+  } else if (m_calibType=="MMCableNoise") {
+    m_phases = {-1};
+    m_connectivity = false;
+    m_tracks       = false;
+    m_noise        = true;
+  } else if (m_calibType=="MMARTPhase") {
     m_phases = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-    m_tracks = false;
+    m_connectivity = true;
+    m_tracks       = false;
+    m_noise        = false;
   } else {
     throw std::runtime_error("Unknown calibration request. Can't set up MMTriggerCalib.");
   }
@@ -236,7 +247,21 @@ ptree nsw::MMTriggerCalib::patterns() {
   int ipatts   = 0;
   int ifebpatt = 0;
 
-  if (!m_tracks) {
+  if (m_noise) {
+    //
+    // cable noise loop: no patterns
+    //
+    int npatts = 1000;
+    for (int i = 0; i < npatts; i++) {
+      ptree feb_patt;
+      ptree top_patt;
+      top_patt.put("art_input_phase", -1);
+      top_patt.add_child("febpattern_" + std::to_string(ifebpatt), feb_patt);
+      patts.add_child("pattern_" + std::to_string(ipatts), top_patt);
+      ipatts++;
+      ifebpatt++;
+    }
+  } else if (m_connectivity) {
     //
     // connectivity max-parallel loop
     //
@@ -288,7 +313,7 @@ ptree nsw::MMTriggerCalib::patterns() {
         ifebpatt++;
       }
     }
-  } else {
+  } else if (m_tracks) {
         //
         // track-like loop
         //

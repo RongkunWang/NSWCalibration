@@ -41,6 +41,8 @@ namespace nsw {
     std::vector<int>               m_phases = {};
 
     bool m_tracks = 0;
+    bool m_connectivity = 0;
+    bool m_noise = 0;
     bool m_dry_run = 0;
     bool m_reset_vmm = 0;
     ptree m_patterns;
