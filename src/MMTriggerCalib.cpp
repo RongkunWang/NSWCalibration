@@ -331,7 +331,7 @@ ptree nsw::MMTriggerCalib::patterns() {
                 for (int vmmid = 0; vmmid < nvmm; vmmid++) {
                     // if (vmm_of_interest >= 0 && vmmid != vmm_of_interest)
                     //     continue;
-                    ptree patt;
+                    ptree feb_patt;
                     for (auto name : {"MMFE8_L1P" + pcbstr + "_HO" + (even ? "R" : "L"),
                                 "MMFE8_L2P" + pcbstr + "_HO" + (even ? "L" : "R"),
                                 "MMFE8_L3P" + pcbstr + "_HO" + (even ? "R" : "L"),
@@ -348,10 +348,16 @@ ptree nsw::MMTriggerCalib::patterns() {
                         chantree.put("", chan);
                         vmmtree.push_back(std::make_pair("", chantree));
                         febtree.add_child(std::to_string(vmmid), vmmtree);
-                        patt.add_child(name, febtree);
+                        feb_patt.add_child(name, febtree);
                     }
-                    patts.add_child("febpattern_" + std::to_string(ipatts), patt);
-                    ipatts++;
+                    for (auto art_phase : m_phases) {
+                      ptree top_patt;
+                      top_patt.put("art_input_phase", art_phase);
+                      top_patt.add_child("febpattern_" + std::to_string(ifebpatt), feb_patt);
+                      patts.add_child("pattern_" + std::to_string(ipatts), top_patt);
+                      ifebpatt++;
+                      ipatts++;
+                    }
                 }
             }
         }
