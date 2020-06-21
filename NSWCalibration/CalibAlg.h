@@ -32,8 +32,12 @@ namespace nsw {
     void progressbar();
     int counter() {return m_counter;};
     int total() {return m_total;};
-    void setCounter(int ctr) {m_counter = ctr;};
-    void setTotal(int tot) {m_total = tot;};
+    bool toggle() {return m_toggle;}
+    bool wait4swrod() {return m_wait4swrod;}
+    void setCounter(int ctr) {m_counter = ctr;}
+    void setTotal(int tot) {m_total = tot;}
+    void setToggle(bool tog) {m_toggle = tog;}
+    void setWait4swROD(bool wait) {m_wait4swrod = wait;}
 
     // "progress bar"
     void setStartTime() {m_time_start = chr::system_clock::now();}
@@ -45,6 +49,8 @@ namespace nsw {
   private:
     int m_counter;
     int m_total;
+    bool m_toggle = 1;
+    bool m_wait4swrod = 0;
     chr::time_point<chr::system_clock> m_time_start;
     chr::duration<double> m_elapsed_seconds;
 

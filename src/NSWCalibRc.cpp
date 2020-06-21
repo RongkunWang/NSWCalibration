@@ -7,7 +7,6 @@
 
 #include "NSWCalibration/NSWCalibRc.h"
 #include "NSWCalibrationDal/NSWCalibApplication.h"
-#include "NSWCalibration/CalibAlg.h"
 #include "NSWCalibration/MMTriggerCalib.h"
 #include "NSWConfiguration/NSWConfig.h"
 
@@ -42,6 +41,7 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     std::string g_info_server_name="";
     const std::string stateInfoName = g_info_server_name + ".CurrentCalibState";
     const std::string calibInfoName = g_info_server_name + "." + g_calibration_type + "CalibInfo";
+    publish();
 
     // Currently supported options are:
     //    MMARTConnectivityTest
@@ -136,7 +136,7 @@ void nsw::NSWCalibRc::handler() {
   sleep(1);
 
   // create calib object
-  std::unique_ptr<CalibAlg> calib = 0;
+  calib = 0;
   ERS_INFO("Calibration Type: " << m_calibType);
   if (m_calibType=="MMARTConnectivityTest" ||
       m_calibType=="MMTrackPulserTest" ||
@@ -156,9 +156,11 @@ void nsw::NSWCalibRc::handler() {
   while (calib->next()) {
     if (end_of_run)
       break;
+    publish();
     calib->progressbar();
     calib->configure();
-    alti_toggle_pattern();
+    if (calib->toggle())
+      alti_toggle_pattern();
     calib->unconfigure();
   }
 
@@ -182,3 +184,24 @@ void nsw::NSWCalibRc::alti_toggle_pattern() {
     usleep(100e3);
 }
 
+void nsw::NSWCalibRc::publish() {
+  if (calib) {
+    is_dictionary->checkin(m_calibCounter, ISInfoInt(calib->counter()));
+  } else {
+    is_dictionary->checkin(m_calibCounter, ISInfoInt(-1));
+  }
+  wait4swrod();
+}
+
+void nsw::NSWCalibRc::wait4swrod() {
+  if (!calib)
+    return;
+  if (!calib->wait4swrod())
+    return;
+  ISInfoInt counter(-1);
+  ERS_INFO("calib waiting for swROD...");
+  while (counter.getValue() != calib->counter()) {
+    is_dictionary->getValue(m_calibCounter_readback, counter);
+    usleep(100e3);
+  }
+}
