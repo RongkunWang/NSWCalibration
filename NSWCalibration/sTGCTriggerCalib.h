@@ -27,6 +27,7 @@ namespace nsw {
 
   private:
     bool m_dry_run;
+    int m_nbc_for_latency = 60;
     std::string m_calibType = "";
     std::vector<nsw::FEBConfig> m_pfebs = {};
     std::vector<nsw::PadTriggerSCAConfig> m_pts = {};

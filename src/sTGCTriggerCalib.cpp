@@ -10,16 +10,22 @@ nsw::sTGCTriggerCalib::sTGCTriggerCalib(std::string calibType) {
 void nsw::sTGCTriggerCalib::setup(std::string db) {
   ERS_INFO("setup " << db);
 
-  m_dry_run = 1;
+  m_dry_run = 0;
 
   // parse calib type
   if (m_calibType=="sTGCPadConnectivity") {
     ERS_INFO(m_calibType);
+  } else if (m_calibType=="sTGCPadLatency") {
+    ERS_INFO(m_calibType);
   } else {
-    throw std::runtime_error("Unknown calibration request. Can't set up sTGCTriggerCalib.");
+    std::stringstream msg;
+    msg << "Unknown calibration request for sTGCTriggerCalib: " << m_calibType << ". Crashing.";
+    ERS_INFO(msg.str());
+    throw std::runtime_error(msg.str());
   }
 
   // make NSWConfig objects from input db
+  ERS_INFO("Making pFEB and Pad Trigger objects");
   m_pfebs = nsw::ConfigReader::makeObjects<nsw::FEBConfig> (db, "PFEB");
   m_pts   = nsw::ConfigReader::makeObjects<nsw::PadTriggerSCAConfig> (db, "PadTriggerSCA");
   ERS_INFO("Found " << m_pfebs.size() << " pFEBs");
@@ -27,7 +33,12 @@ void nsw::sTGCTriggerCalib::setup(std::string db) {
   if (m_pts.size() > 1)
     throw std::runtime_error("I dont know how to process >1 PadTriggers!");
 
-  setTotal((int)(m_pfebs.size()));
+  // set number of loops in the iteration
+  if (m_calibType=="sTGCPadConnectivity") {
+    setTotal((int)(m_pfebs.size()));
+  } else if (m_calibType=="sTGCPadLatency") {
+    setTotal((int)(m_nbc_for_latency));
+  }
 
   // make ConfigSenders
   for (auto & feb : m_pfebs)
@@ -37,22 +48,46 @@ void nsw::sTGCTriggerCalib::setup(std::string db) {
 }
 
 void nsw::sTGCTriggerCalib::configure() {
+  ERS_INFO("sTGCTriggerCalib::configure " << counter() << ", great job 191 team!!");
+  if (m_calibType=="sTGCPadConnectivity") {
 
-  ERS_INFO("sTGCTriggerCalib::configure " << counter() << ", great job Olga!!");
-  auto & pfeb = m_pfebs.at((size_t)(counter()));
-  configure_vmms(pfeb, 1);
-  configure_pad_trigger();
-  sleep(1);
+    // test pulse one pfeb
+    auto & pfeb = m_pfebs.at((size_t)(counter()));
+    configure_vmms(pfeb, 1);
+    configure_pad_trigger();
+    usleep(500e3);
 
+  } else if (m_calibType=="sTGCPadLatency") {
+
+    // test pulse all pfebs
+    if (counter() == 0) {
+      ERS_INFO("sTGCTriggerCalib::configure all pFEBs");
+      for (auto & pfeb: m_pfebs)
+        configure_vmms(pfeb, 1);
+    }
+
+    // set pad trigger readout latency
+    for (auto & pt: m_pts)
+      pt.SetUserL1AReadoutLatency(counter());
+    configure_pad_trigger();
+    usleep(1e6);
+
+  }
 }
 
 void nsw::sTGCTriggerCalib::unconfigure() {
-
   ERS_INFO("sTGCTriggerCalib::unconfigure " << counter());
-  auto & pfeb = m_pfebs.at((size_t)(counter()));
-  configure_vmms(pfeb, 0);
-  sleep(1);
-
+  if (m_calibType=="sTGCPadConnectivity") {
+      auto & pfeb = m_pfebs.at((size_t)(counter()));
+      configure_vmms(pfeb, 0);
+      usleep(500e3);
+  } else if (m_calibType=="sTGCPadLatency") {
+    if (counter() == total()-1) {
+      ERS_INFO("sTGCTriggerCalib::unconfigure all pFEBs");
+      for (auto & pfeb: m_pfebs)
+          configure_vmms(pfeb, 0);
+    }
+  }
 }
 
 int nsw::sTGCTriggerCalib::configure_vmms(nsw::FEBConfig feb, bool unmask) {
@@ -65,14 +100,25 @@ int nsw::sTGCTriggerCalib::configure_vmms(nsw::FEBConfig feb, bool unmask) {
   if (!m_dry_run)
     cs->sendVmmConfig(feb);
   return 0;
-
 }
 
 int nsw::sTGCTriggerCalib::configure_pad_trigger() {
   for (auto & pt: m_pts) {
+    auto & cs = m_senders[pt.getAddress()];
     ERS_INFO("Configuring " << pt.getOpcServerIp() << " " << pt.getAddress());
-    // enable  the L1A readout
+
+    // enable the L1A readout
+    pt.SetUserL1AReadoutEnable();
+    if (!m_dry_run)
+        cs->sendPadTriggerSCAControlRegister(pt);
+
+    // pause to collect L1As
+    usleep(50e3);
+
     // disable the L1A readout
+    pt.SetUserL1AReadoutDisable();
+    if (!m_dry_run)
+        cs->sendPadTriggerSCAControlRegister(pt);
   }
   return 0;
 }
