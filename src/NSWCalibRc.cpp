@@ -80,7 +80,7 @@ void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd& cmd) {
     m_NSWConfig->substituteConf(conf);
 
     //Sending the configuration to the HW
-    m_NSWConfig->configureRc();
+    // m_NSWConfig->configureRc();
     ERS_LOG("End");
 }
 
@@ -149,8 +149,10 @@ void nsw::NSWCalibRc::handler() {
 
   // setup
   calib->setup(m_dbcon);
-  ERS_INFO("calib counter: " << calib->counter());
-  ERS_INFO("calib total:   " << calib->total());
+  ERS_INFO("calib counter:    " << calib->counter());
+  ERS_INFO("calib total:      " << calib->total());
+  ERS_INFO("calib toggle:     " << calib->toggle());
+  ERS_INFO("calib wait4swrod: " << calib->wait4swrod());
 
   // calib loop
   while (calib->next()) {
@@ -200,8 +202,20 @@ void nsw::NSWCalibRc::wait4swrod() {
     return;
   ISInfoInt counter(-1);
   ERS_INFO("calib waiting for swROD...");
+  int attempt_i = 0;
+  int attempts_max = 5;
   while (counter.getValue() != calib->counter()) {
-    is_dictionary->getValue(m_calibCounter_readback, counter);
+    try {
+      is_dictionary->getValue(m_calibCounter_readback, counter);
+    } catch(daq::is::Exception& ex) {
+      ers::error(ex);
+    }
+    // usleep(100e3);
+    ERS_INFO("calib waiting for swROD, attempt " << attempt_i);
     usleep(100e3);
+    // usleep(1e6);
+    attempt_i++;
+    if (attempt_i >= attempts_max)
+      throw std::runtime_error("Waiting for swROD failed");
   }
 }

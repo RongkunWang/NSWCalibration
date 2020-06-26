@@ -10,7 +10,7 @@ nsw::MMTriggerCalib::MMTriggerCalib(std::string calibType) {
 void nsw::MMTriggerCalib::setup(std::string db) {
   ERS_INFO("setup " << db);
 
-  m_dry_run   = 0;
+  m_dry_run   = 1;
   m_reset_vmm = 0;
   m_threads = std::make_unique< std::vector< std::future<int> > >();
   m_threads->clear();
@@ -42,6 +42,8 @@ void nsw::MMTriggerCalib::setup(std::string db) {
   m_patterns = patterns();
   write_json("test.json", m_patterns);
   setTotal((int)(m_patterns.size()));
+  setToggle(0);
+  setWait4swROD(0);
 
   m_febs   = make_objects<nsw::FEBConfig> (db, "MMFE8");
   m_addcs  = make_objects<nsw::ADDCConfig>(db, "ADDC");
