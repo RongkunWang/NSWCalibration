@@ -144,10 +144,14 @@ void nsw::NSWCalibRc::handler() {
       m_calibType=="MMCableNoise" ||
       m_calibType=="MMARTPhase") {
     calib = std::make_unique<MMTriggerCalib>(m_calibType);
-  } else if (m_calibType=="sTGCPadConnectivity") {
+  } else if (m_calibType=="sTGCPadConnectivity" ||
+             m_calibType=="sTGCPadLatency") {
     calib = std::make_unique<sTGCTriggerCalib>(m_calibType);
   } else {
-    throw std::runtime_error("Unknown calibration request");
+    std::string msg = "Unknown calibration request: " + m_calibType;
+    nsw::NSWCalibIssue issue(ERS_HERE, msg);
+    ers::error(issue);
+    throw std::runtime_error(msg);
   }
 
   // setup
