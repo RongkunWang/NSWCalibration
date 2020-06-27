@@ -5,56 +5,13 @@ nsw::sTGCTriggerCalib::sTGCTriggerCalib(std::string calibType) {
   setCounter(-1);
   setTotal(0);
   m_calibType = calibType;
-  if (false) {
-    // VS
-    m_pfebs_ordered.push_back("PFEB_L1Q2_IPL");
-    m_pfebs_ordered.push_back("PFEB_L1Q1_IPL");
-    m_pfebs_ordered.push_back("PFEB_L4Q3_IPR");
-    m_pfebs_ordered.push_back("PFEB_L1Q3_IPL");
-    m_pfebs_ordered.push_back("PFEB_L2Q3_IPR");
-    m_pfebs_ordered.push_back("PFEB_L4Q2_IPR");
-    m_pfebs_ordered.push_back("PFEB_L2Q2_IPR");
-    m_pfebs_ordered.push_back("PFEB_L2Q1_IPR");
-    m_pfebs_ordered.push_back("PFEB_L4Q1_IPR");
-  }
-  else {
-    // 191
-    m_pfebs_ordered.push_back("PFEB_L4Q2_IPL");
-    m_pfebs_ordered.push_back("PFEB_L2Q2_IPL");
-    m_pfebs_ordered.push_back("PFEB_L4Q1_IPL");
-    m_pfebs_ordered.push_back("PFEB_L2Q1_IPL");
-
-    m_pfebs_ordered.push_back("PFEB_L4Q2_HOL");
-    m_pfebs_ordered.push_back("PFEB_L2Q2_HOL");
-    m_pfebs_ordered.push_back("PFEB_L4Q1_HOL");
-    m_pfebs_ordered.push_back("PFEB_L2Q1_HOL");
-
-    m_pfebs_ordered.push_back("PFEB_L1Q3_HOR");
-    m_pfebs_ordered.push_back("PFEB_L2Q3_HOL");
-    m_pfebs_ordered.push_back("PFEB_L3Q3_HOR");
-    m_pfebs_ordered.push_back("PFEB_L4Q3_HOL");
-
-    m_pfebs_ordered.push_back("PFEB_L1Q3_IPR");
-    m_pfebs_ordered.push_back("PFEB_L2Q3_IPL");
-    m_pfebs_ordered.push_back("PFEB_L3Q3_IPR");
-    m_pfebs_ordered.push_back("PFEB_L4Q3_IPL");
-
-    m_pfebs_ordered.push_back("PFEB_L1Q2_HOR");
-    m_pfebs_ordered.push_back("PFEB_L3Q2_HOR");
-    m_pfebs_ordered.push_back("PFEB_L1Q1_HOR");
-    m_pfebs_ordered.push_back("PFEB_L3Q1_HOR");
-
-    m_pfebs_ordered.push_back("PFEB_L3Q2_IPR");
-    m_pfebs_ordered.push_back("PFEB_L1Q2_IPR");
-    m_pfebs_ordered.push_back("PFEB_L3Q1_IPR");
-    m_pfebs_ordered.push_back("PFEB_L1Q1_IPR");
-  }
 }
 
 void nsw::sTGCTriggerCalib::setup(std::string db) {
   ERS_INFO("setup " << db);
 
   m_dry_run = 0;
+  gather_pfebs();
 
   // parse calib type
   if (m_calibType=="sTGCPadConnectivity") {
@@ -192,6 +149,57 @@ int nsw::sTGCTriggerCalib::configure_pad_trigger() {
         cs->sendPadTriggerSCAControlRegister(pt);
   }
   return 0;
+}
+
+void nsw::sTGCTriggerCalib::gather_pfebs() {
+  std::string partition(std::getenv("TDAQ_PARTITION"));
+  ERS_INFO("Gather pFEBs: found partition " << partition);
+  if (partition.find("VS") != std::string::npos) {
+    // VS
+    ERS_INFO("Gather pFEBs: VS pFEBs");
+    m_pfebs_ordered.push_back("PFEB_L1Q2_IPL");
+    m_pfebs_ordered.push_back("PFEB_L1Q1_IPL");
+    m_pfebs_ordered.push_back("PFEB_L4Q3_IPR");
+    m_pfebs_ordered.push_back("PFEB_L1Q3_IPL");
+    m_pfebs_ordered.push_back("PFEB_L2Q3_IPR");
+    m_pfebs_ordered.push_back("PFEB_L4Q2_IPR");
+    m_pfebs_ordered.push_back("PFEB_L2Q2_IPR");
+    m_pfebs_ordered.push_back("PFEB_L2Q1_IPR");
+    m_pfebs_ordered.push_back("PFEB_L4Q1_IPR");
+  }
+  else {
+    // 191
+    ERS_INFO("Gather pFEBs: 191 pFEBs");
+    m_pfebs_ordered.push_back("PFEB_L4Q2_IPL");
+    m_pfebs_ordered.push_back("PFEB_L2Q2_IPL");
+    m_pfebs_ordered.push_back("PFEB_L4Q1_IPL");
+    m_pfebs_ordered.push_back("PFEB_L2Q1_IPL");
+
+    m_pfebs_ordered.push_back("PFEB_L4Q2_HOL");
+    m_pfebs_ordered.push_back("PFEB_L2Q2_HOL");
+    m_pfebs_ordered.push_back("PFEB_L4Q1_HOL");
+    m_pfebs_ordered.push_back("PFEB_L2Q1_HOL");
+
+    m_pfebs_ordered.push_back("PFEB_L1Q3_HOR");
+    m_pfebs_ordered.push_back("PFEB_L2Q3_HOL");
+    m_pfebs_ordered.push_back("PFEB_L3Q3_HOR");
+    m_pfebs_ordered.push_back("PFEB_L4Q3_HOL");
+
+    m_pfebs_ordered.push_back("PFEB_L1Q3_IPR");
+    m_pfebs_ordered.push_back("PFEB_L2Q3_IPL");
+    m_pfebs_ordered.push_back("PFEB_L3Q3_IPR");
+    m_pfebs_ordered.push_back("PFEB_L4Q3_IPL");
+
+    m_pfebs_ordered.push_back("PFEB_L1Q2_HOR");
+    m_pfebs_ordered.push_back("PFEB_L3Q2_HOR");
+    m_pfebs_ordered.push_back("PFEB_L1Q1_HOR");
+    m_pfebs_ordered.push_back("PFEB_L3Q1_HOR");
+
+    m_pfebs_ordered.push_back("PFEB_L3Q2_IPR");
+    m_pfebs_ordered.push_back("PFEB_L1Q2_IPR");
+    m_pfebs_ordered.push_back("PFEB_L3Q1_IPR");
+    m_pfebs_ordered.push_back("PFEB_L1Q1_IPR");
+  }
 }
 
 std::string nsw::sTGCTriggerCalib::next_pfeb(bool pop) {

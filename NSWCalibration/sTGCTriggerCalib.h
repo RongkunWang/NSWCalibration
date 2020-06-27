@@ -35,6 +35,7 @@ namespace nsw {
     int latencyscan_nbc()     {return m_nbc_for_latency;}
     int latencyscan_current() {return latencyscan_offset() + counter();}
     bool order_pfebs()        {return m_order_pfebs;}
+    void gather_pfebs();
 
   private:
     bool m_dry_run;
