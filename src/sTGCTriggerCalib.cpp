@@ -19,35 +19,35 @@ nsw::sTGCTriggerCalib::sTGCTriggerCalib(std::string calibType) {
   }
   else {
     // 191
+    m_pfebs_ordered.push_back("PFEB_L4Q2_IPL");
+    m_pfebs_ordered.push_back("PFEB_L2Q2_IPL");
+    m_pfebs_ordered.push_back("PFEB_L4Q1_IPL");
+    m_pfebs_ordered.push_back("PFEB_L2Q1_IPL");
+
+    m_pfebs_ordered.push_back("PFEB_L4Q2_HOL");
+    m_pfebs_ordered.push_back("PFEB_L2Q2_HOL");
+    m_pfebs_ordered.push_back("PFEB_L4Q1_HOL");
+    m_pfebs_ordered.push_back("PFEB_L2Q1_HOL");
+
+    m_pfebs_ordered.push_back("PFEB_L1Q3_HOR");
+    m_pfebs_ordered.push_back("PFEB_L2Q3_HOL");
+    m_pfebs_ordered.push_back("PFEB_L3Q3_HOR");
+    m_pfebs_ordered.push_back("PFEB_L4Q3_HOL");
+
+    m_pfebs_ordered.push_back("PFEB_L1Q3_IPR");
+    m_pfebs_ordered.push_back("PFEB_L2Q3_IPL");
+    m_pfebs_ordered.push_back("PFEB_L3Q3_IPR");
+    m_pfebs_ordered.push_back("PFEB_L4Q3_IPL");
+
+    m_pfebs_ordered.push_back("PFEB_L1Q2_HOR");
+    m_pfebs_ordered.push_back("PFEB_L3Q2_HOR");
+    m_pfebs_ordered.push_back("PFEB_L1Q1_HOR");
+    m_pfebs_ordered.push_back("PFEB_L3Q1_HOR");
+
     m_pfebs_ordered.push_back("PFEB_L3Q2_IPR");
     m_pfebs_ordered.push_back("PFEB_L1Q2_IPR");
     m_pfebs_ordered.push_back("PFEB_L3Q1_IPR");
     m_pfebs_ordered.push_back("PFEB_L1Q1_IPR");
-
-    m_pfebs_ordered.push_back("PFEB_L3Q2_HOR");
-    m_pfebs_ordered.push_back("PFEB_L1Q2_HOR");
-    m_pfebs_ordered.push_back("PFEB_L3Q1_HOR");
-    m_pfebs_ordered.push_back("PFEB_L1Q1_HOR");
-
-    m_pfebs_ordered.push_back("PFEB_L3Q3_IPR");
-    m_pfebs_ordered.push_back("PFEB_L4Q3_IPL");
-    m_pfebs_ordered.push_back("PFEB_L1Q3_IPR");
-    m_pfebs_ordered.push_back("PFEB_L2Q3_IPL");
-
-    m_pfebs_ordered.push_back("PFEB_L3Q3_HOR");
-    m_pfebs_ordered.push_back("PFEB_L4Q3_HOL");
-    m_pfebs_ordered.push_back("PFEB_L1Q3_HOR");
-    m_pfebs_ordered.push_back("PFEB_L2Q3_HOL");
-
-    m_pfebs_ordered.push_back("PFEB_L4Q2_IPL");
-    m_pfebs_ordered.push_back("PFEB_L2Q2_IPL");
-    m_pfebs_ordered.push_back("PFEB_L2Q1_IPL");
-    m_pfebs_ordered.push_back("PFEB_L4Q1_IPL");
-
-    m_pfebs_ordered.push_back("PFEB_L4Q2_HOL");
-    m_pfebs_ordered.push_back("PFEB_L2Q2_HOL");
-    m_pfebs_ordered.push_back("PFEB_L2Q1_HOL");
-    m_pfebs_ordered.push_back("PFEB_L4Q1_HOL");
   }
 }
 
