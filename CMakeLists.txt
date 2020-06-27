@@ -19,6 +19,7 @@ tdaq_add_library(nswcalib
         src/CalibrationSca.cpp
         src/CalibAlg.cpp
         src/MMTriggerCalib.cpp
+        src/sTGCTriggerCalib.cpp
         src/NSWCalibRc.cpp
     INCLUDE_DIRECTORIES PRIVATE ${OPC_GENERATED_CLIENT_SRCS}
     LINK_LIBRARIES nswconfig NSWConfig nswcalibdal

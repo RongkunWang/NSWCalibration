@@ -9,6 +9,7 @@
 #include "NSWCalibrationDal/NSWCalibApplication.h"
 #include "NSWCalibration/CalibAlg.h"
 #include "NSWCalibration/MMTriggerCalib.h"
+#include "NSWCalibration/sTGCTriggerCalib.h"
 #include "NSWConfiguration/NSWConfig.h"
 
 using boost::property_tree::ptree;
@@ -141,10 +142,16 @@ void nsw::NSWCalibRc::handler() {
   if (m_calibType=="MMARTConnectivityTest" ||
       m_calibType=="MMTrackPulserTest" ||
       m_calibType=="MMCableNoise" ||
-      m_calibType=="MMARTPhase"){
+      m_calibType=="MMARTPhase") {
     calib = std::make_unique<MMTriggerCalib>(m_calibType);
+  } else if (m_calibType=="sTGCPadConnectivity" ||
+             m_calibType=="sTGCPadLatency") {
+    calib = std::make_unique<sTGCTriggerCalib>(m_calibType);
   } else {
-    throw std::runtime_error("Unknown calibration request");
+    std::string msg = "Unknown calibration request: " + m_calibType;
+    nsw::NSWCalibIssue issue(ERS_HERE, msg);
+    ers::error(issue);
+    throw std::runtime_error(msg);
   }
 
   // setup
