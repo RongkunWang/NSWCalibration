@@ -80,7 +80,7 @@ void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd& cmd) {
     m_NSWConfig->substituteConf(conf);
 
     //Sending the configuration to the HW
-    // m_NSWConfig->configureRc();
+    m_NSWConfig->configureRc();
     ERS_LOG("End");
 }
 
@@ -187,12 +187,16 @@ void nsw::NSWCalibRc::alti_toggle_pattern() {
 }
 
 void nsw::NSWCalibRc::publish4swrod() {
-  if (calib) {
-    is_dictionary->checkin(m_calibCounter, ISInfoInt(calib->counter()));
-  } else {
-    is_dictionary->checkin(m_calibCounter, ISInfoInt(-1));
-  }
-  wait4swrod();
+  //
+  // Commented out for now.
+  // This is powerful and risky.
+  //
+  // if (calib) {
+  //   is_dictionary->checkin(m_calibCounter, ISInfoInt(calib->counter()));
+  // } else {
+  //   is_dictionary->checkin(m_calibCounter, ISInfoInt(-1));
+  // }
+  // wait4swrod();
 }
 
 void nsw::NSWCalibRc::wait4swrod() {
