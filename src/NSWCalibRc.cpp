@@ -41,7 +41,7 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     std::string g_info_server_name="";
     const std::string stateInfoName = g_info_server_name + ".CurrentCalibState";
     const std::string calibInfoName = g_info_server_name + "." + g_calibration_type + "CalibInfo";
-    publish();
+    publish4swrod();
 
     // Currently supported options are:
     //    MMARTConnectivityTest
@@ -158,7 +158,7 @@ void nsw::NSWCalibRc::handler() {
   while (calib->next()) {
     if (end_of_run)
       break;
-    publish();
+    publish4swrod();
     calib->progressbar();
     calib->configure();
     if (calib->toggle())
@@ -186,7 +186,7 @@ void nsw::NSWCalibRc::alti_toggle_pattern() {
     usleep(100e3);
 }
 
-void nsw::NSWCalibRc::publish() {
+void nsw::NSWCalibRc::publish4swrod() {
   if (calib) {
     is_dictionary->checkin(m_calibCounter, ISInfoInt(calib->counter()));
   } else {

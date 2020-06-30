@@ -69,7 +69,7 @@ class NSWCalibRc: public daq::rc::Controllable {
     std::future<void> handler_thread;
     void handler();
     void alti_toggle_pattern();
-    void publish();
+    void publish4swrod();
     void wait4swrod();
 
  private:
