@@ -10,7 +10,7 @@ nsw::MMTriggerCalib::MMTriggerCalib(std::string calibType) {
 void nsw::MMTriggerCalib::setup(std::string db) {
   ERS_INFO("setup " << db);
 
-  m_dry_run   = 1;
+  m_dry_run   = 0;
   m_reset_vmm = 0;
   m_threads = std::make_unique< std::vector< std::future<int> > >();
   m_threads->clear();
@@ -171,7 +171,8 @@ int nsw::MMTriggerCalib::configure_addcs_from_ptree(ptree tr) {
 int nsw::MMTriggerCalib::configure_tps() {
   for (auto & tp : m_tps) {
     auto & cs = m_senders[tp.getAddress()];
-    cs->sendTpConfig(tp);
+    if (!m_dry_run)
+      cs->sendTpConfig(tp);
   }
   return 0;
 }
