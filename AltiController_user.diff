@@ -1,8 +1,8 @@
 diff --git src/AltiController.cpp src/AltiController.cpp
-index e8a204b..73932df 100644
+index e8a204b..5e2dd71 100644
 --- src/AltiController.cpp
 +++ src/AltiController.cpp
-@@ -1278,7 +1278,62 @@ void AltiController::clearInfo() {
+@@ -1278,7 +1278,78 @@ void AltiController::clearInfo() {
  //========================================================================================================================
  
  void AltiController::user(const daq::rc::UserCmd& usrCmd) {
@@ -62,6 +62,22 @@ index e8a204b..73932df 100644
 +    }
 +  }
 +
++  else if (command_name == "SendAsyncShortCommand") {
++    ERS_LOG(m_name << " Message \"SendAsyncShortCommand\" received with parameters " << argument);
++    if(params.size() != 1) {
++      string reason = " too mane parameters: " + argument;
++      ers::error(ALTI::AltiController::VmeError(ERS_HERE, ROS::IOMPlugin::m_uid, reason));
++    }
++
++    unsigned int data = stoi(params[0], 0, 16);
++    if ((status |= m_alti->ENCAsyncCommandPutShort(data)) != AltiModule::SUCCESS) {
++      string reason = " sending short command (data = 0x" + params[0] + ")";
++      ers::error(ALTI::AltiController::VmeError(ERS_HERE, ROS::IOMPlugin::m_uid, reason));
++    }
++    else {
++      ERS_INFO(m_name << " sent BGo command (data = 0x" << std::hex << data << std::dec << ")");
++    }
++  }
 +  ERS_LOG(m_name << " Done");
  }
  
