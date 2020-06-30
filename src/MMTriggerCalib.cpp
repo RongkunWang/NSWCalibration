@@ -42,14 +42,16 @@ void nsw::MMTriggerCalib::setup(std::string db) {
   m_patterns = patterns();
   write_json("test.json", m_patterns);
   setTotal((int)(m_patterns.size()));
-  setToggle(0);
+  setToggle(1);
   setWait4swROD(0);
 
   m_febs   = make_objects<nsw::FEBConfig> (db, "MMFE8");
   m_addcs  = make_objects<nsw::ADDCConfig>(db, "ADDC");
+  m_tps    = make_objects<nsw::TPConfig>  (db, "TP");
 
   ERS_INFO("Found " << m_febs.size()     << " MMFE8s");
   ERS_INFO("Found " << m_addcs.size()    << " ADDCs");
+  ERS_INFO("Found " << m_tps.size()      << " TPs");
   ERS_INFO("Found " << m_phases.size()   << " ART input phases");
   ERS_INFO("Found " << m_patterns.size() << " patterns");
 
@@ -57,6 +59,8 @@ void nsw::MMTriggerCalib::setup(std::string db) {
     m_senders.insert( {feb.getAddress(), std::make_unique<nsw::ConfigSender>()} );
   for (auto & addc : m_addcs)
     m_senders.insert( {addc.getAddress(), std::make_unique<nsw::ConfigSender>()} );
+  for (auto & tp : m_tps)
+    m_senders.insert( {tp.getAddress(), std::make_unique<nsw::ConfigSender>()} );
 }
 
 void nsw::MMTriggerCalib::configure() {
@@ -75,6 +79,9 @@ void nsw::MMTriggerCalib::configure() {
 
     // set addc phase
     configure_addcs_from_ptree(tr);
+
+    // send TP config ("ECR")
+    configure_tps();
   }
 
 }
@@ -157,6 +164,14 @@ int nsw::MMTriggerCalib::configure_addcs_from_ptree(ptree tr) {
                                       &nsw::MMTriggerCalib::configure_art_input_phase, this,
                                       addc, phase));
     wait_until_done();
+  }
+  return 0;
+}
+
+int nsw::MMTriggerCalib::configure_tps() {
+  for (auto & tp : m_tps) {
+    auto & cs = m_senders[tp.getAddress()];
+    cs->sendTpConfig(tp);
   }
   return 0;
 }
