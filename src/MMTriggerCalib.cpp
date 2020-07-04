@@ -61,6 +61,8 @@ void nsw::MMTriggerCalib::setup(std::string db) {
     m_senders.insert( {addc.getAddress(), std::make_unique<nsw::ConfigSender>()} );
   for (auto & tp : m_tps)
     m_senders.insert( {tp.getAddress(), std::make_unique<nsw::ConfigSender>()} );
+
+  m_watchdog = std::async(std::launch::async, &nsw::MMTriggerCalib::addc_tp_watchdog, this);
 }
 
 void nsw::MMTriggerCalib::configure() {
@@ -171,8 +173,12 @@ int nsw::MMTriggerCalib::configure_addcs_from_ptree(ptree tr) {
 int nsw::MMTriggerCalib::configure_tps() {
   for (auto & tp : m_tps) {
     auto & cs = m_senders[tp.getAddress()];
+    while (m_tpscax_busy)
+      usleep(1e5);
+    m_tpscax_busy = 1;
     if (!m_dry_run)
       cs->sendTpConfig(tp);
+    m_tpscax_busy = 0;
   }
   return 0;
 }
@@ -385,6 +391,75 @@ ptree nsw::MMTriggerCalib::patterns() {
   return patts;
 }
 
+std::string nsw::MMTriggerCalib::strf_time() {
+  std::stringstream ss;
+  std::string out;
+  std::time_t result = std::time(nullptr);
+  std::tm tm = *std::localtime(&result);
+  ss << std::put_time(&tm, "%Y_%m_%d_%Hh%Mm%Ss");
+  ss >> out;
+  return out;
+}
+
+int nsw::MMTriggerCalib::addc_tp_watchdog() {
+  //
+  // Be forewarned: this function reads TP SCAX registers.
+  // Dont race elsewhere.
+  //
+
+  if (m_addcs.size() == 0)
+    return 0;
+
+  nsw::ConfigSender cs;
+
+  // sleep time
+  size_t slp = 1;
+
+  // collect all TPs from the ARTs
+  std::set< std::pair<std::string, std::string> > tps;
+  for (auto & addc : m_addcs)
+    for (auto art : addc.getARTs())
+      tps.emplace(std::make_pair(art.getOpcServerIp_TP(), art.getOpcNodeId_TP()));
+  auto regAddrVec = nsw::hexStringToByteVector("0x02", 4, true);
+
+  // output file and announce
+  std::string fname = "addc_alignment_" + strf_time() + ".txt";
+  std::ofstream myfile;
+  myfile.open(fname);
+  ERS_INFO("ADDC-TP watchdog. Output: " << fname << ". Sleep: " << slp << "s");
+
+  // monitor
+  while (counter() < total()) {
+    myfile << "Time " << strf_time() << std::endl;
+    for (auto tp : tps) {
+      while (m_tpscax_busy)
+        usleep(1e5);
+      m_tpscax_busy = 1;
+      auto outdata = m_dry_run ? std::vector<uint8_t>(4) :
+        cs.readI2cAtAddress(tp.first, tp.second, regAddrVec.data(), regAddrVec.size(), 4);
+      m_tpscax_busy = 0;
+      for (auto & addc : m_addcs) {
+        for (auto art : addc.getARTs()) {
+          if (art.IsMyTP(tp.first, tp.second)) {
+            auto aligned = art.IsAlignedWithTP(outdata);
+            std::stringstream result;
+            result << addc.getAddress()         << " "
+                   << art.getName()             << " "
+                   << art.TP_GBTxAlignmentBit() << " "
+                   << aligned << std::endl;
+            myfile << result.str();
+          }
+        }
+      }
+    }
+    sleep(slp);
+  }
+
+  // close
+  ERS_INFO("Closing " << fname);
+  myfile.close();
+  return 0;
+}
 
 template <class T>
 std::vector<T> nsw::MMTriggerCalib::make_objects(std::string cfg, std::string element_type, std::string name) {
