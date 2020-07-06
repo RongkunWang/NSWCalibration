@@ -21,7 +21,7 @@
 #include "RunControl/Common/RunControlCommands.h"
 
 #include "NSWConfiguration/NSWConfig.h"
-
+#include "NSWCalibration/CalibAlg.h"
 
 using boost::property_tree::ptree;
 
@@ -69,10 +69,15 @@ class NSWCalibRc: public daq::rc::Controllable {
     std::future<void> handler_thread;
     void handler();
     void alti_toggle_pattern();
+    void publish4swrod();
+    void wait4swrod();
 
  private:
 
-    std::string                 m_calibType = "";
+    std::unique_ptr<CalibAlg> calib;
+    std::string m_calibType             = "";
+    std::string m_calibCounter          = "Monitoring.NSWCalibration.triggerCalibrationKey";
+    std::string m_calibCounter_readback = "Monitoring.NSWCalibration.swrodCalibrationKey";
 
     // Run the program in simulation mode, don't send any configuration
     bool                        m_simulation;
