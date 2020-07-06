@@ -40,6 +40,8 @@ void nsw::sTGCTriggerCalib::setup(std::string db) {
   } else if (m_calibType=="sTGCPadLatency") {
     setTotal((int)(m_nbc_for_latency));
   }
+  setToggle(0);
+  setWait4swROD(0);
 
   // make ConfigSenders
   for (auto & feb : m_pfebs)
