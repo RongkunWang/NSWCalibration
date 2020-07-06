@@ -4,6 +4,7 @@ And lo, if death is for us, who can be against us?
 Recommendation: python3, and any ROOT version.
 
 Run like:
+> setupATLAS && lsetup 'lcgenv -p LCG_96python3 x86_64-centos7-gcc8-opt ROOT'
 > python nsw_art_input_phase.py -i my_run.root -r -n
 
 NB: partial runs can still be analyzed, but the -n option crashes.
