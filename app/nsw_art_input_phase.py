@@ -2,6 +2,12 @@
 And lo, if death is for us, who can be against us?
 
 Recommendation: python3, and any ROOT version.
+
+Run like:
+> python nsw_art_input_phase.py -i my_run.root -r -n
+
+NB: partial runs can still be analyzed, but the -n option crashes.
+Consider not using this for partial runs!
 """
 import argparse
 import collections
@@ -28,7 +34,9 @@ def options():
     parser.add_argument("-i", help="Input ROOT file",       default=os.path.join(connec_data, "dummy.root"))
     parser.add_argument("-c", help="Config JSON file",      default=os.path.join(config_json, "BB5/A16/full_small_sector_a16_bb5_internalPulser_ADDC_TP.json"))
     parser.add_argument("-j", help="Pattern JSON file",     default=os.path.join(trigger_eos, "nsw_art_input_phase.json"))
-    parser.add_argument("-o", help="Output ROOT file",      default="art_phase_%s.root" % (NOW))
+    parser.add_argument("-o", help="Output ROOT file",      default=os.path.join(trigger_eos, "mmtp/artphase/", "art_phase_%s.root" % (NOW)))
+    parser.add_argument("-n", help="Make a new JSON file",     action="store_true")
+    parser.add_argument("-r", help="Make plots w/root2html",   action="store_true")
     parser.add_argument("--debug", help="Enable debug output", action="store_true")
     return parser.parse_args()
 
@@ -40,7 +48,11 @@ def main():
     dataman = load_data()
     dataman = measure_efficiency(dataman, outrfile)
     best_phase = plot_efficiency(dataman, outrfile)
-    make_new_json(best_phase)
+    if ops.n:
+        make_new_json(best_phase)
+    outrfile.Close()
+    if ops.r:
+        root2html(ops.o)
     print("Done! ^.^")
     print("")
 
@@ -660,6 +672,20 @@ def connector2regs(conn):
         return ("51", "52", "53", "54")
     else:
         fatal("Unrecognized ART connector: %s" % (conn))
+
+def root2html(fname):
+    if not os.path.isfile(fname):
+        fatal("Bad ROOT file for root2html: %s" % (fname))
+    # script = "/eos/atlas/atlascerngroupdisk/det-nsw/bb5/cosmics/html/addc/root2html.py"
+    script = "/eos/atlas/atlascerngroupdisk/det-nsw/191/trigger/root2html.py"
+    os.system("%s %s" % (script, fname))
+    print("")
+    print("Plots:")
+    print("  https://www.cern.ch/nsw191/trigger/mmtp/artphase/%s" % (os.path.basename(fname.rstrip(".root"))))
+    print("")
+
+def fatal(msg):
+    sys.exit("Fatal error: %s" % (msg))
 
 def progress(time_diff, nprocessed, ntotal):
     nprocessed, ntotal = float(nprocessed), float(ntotal)
