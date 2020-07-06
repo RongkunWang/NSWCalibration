@@ -21,6 +21,8 @@
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/FEBConfig.h"
 
+//#include "NSWConfiguration/I2cMasterConfig.h"
+
 #include "NSWCalibration/CalibrationMath.h"
 #include "NSWCalibration/CalibrationSca.h"
 
@@ -643,6 +645,10 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 	auto VMMS = feb.getVmms();
 	int VmmSize = VMMS.size();
 	int n_vmms = VmmSize;
+	int first_vmm = 0;
+  if(n_vmms==6){//in sFEB w 6 vmms numbering strts from 2
+		first_vmm=2;
+	}
 	std::string f_name = feb.getAddress();
 	bool stgc = f_name.find("FEB")!=std::string::npos;
 	std::cout<<"PARAMS: VMMs["<<n_vmms<<"], flag["<<stgc<<"]"<<std::endl;
@@ -661,7 +667,8 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 	pt::ptree single_mask;
 	pt::ptree single_trim;
 
-	for(int i_vmm=0; i_vmm<n_vmms; i_vmm++)
+//	for(int i_vmm=0; i_vmm<n_vmms; i_vmm++)
+	for(int i_vmm=first_vmm; i_vmm<n_vmms; i_vmm++)
 	{
     //////////////////////////////////
 	    // VMM-level calculations
@@ -1346,11 +1353,15 @@ void nsw::CalibrationSca::read_thresholds(std::string config_filename,
 	auto VMMS = feb.getVmms();
 	int VmmSize = VMMS.size();
   int n_vmms = VmmSize;
-	
+	int first_vmm = 0;
+  if(n_vmms==6){//in sFEB w 6 vmms numbering strts from 2
+		first_vmm=2;
+	}
   std::string f_name = feb.getAddress();
 	bool fetype = f_name.find("MMFE")!=std::string::npos; 
 //----------------------------------------------------------------
-    for (int vmm_id = 0; vmm_id < n_vmms; vmm_id++) {
+//    for (int vmm_id = 0; vmm_id < n_vmms; vmm_id++) {
+    for (int vmm_id = first_vmm; vmm_id < n_vmms; vmm_id++) {
  			std::vector<short unsigned int> results;
 			int dev_thr = 0;
       for (int channel_id = 0; channel_id < 64; channel_id++) {
@@ -1439,14 +1450,21 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 	auto feb = frontend_configs.at(fe_name_sorted);
 //----- asking how many vmms FEB has ------------------
 	auto VMMS = feb.getVmms();
+
+//	auto roc_analog = feb.getRocAnalog(); //---!!!!----
+
 	int VmmSize = VMMS.size();
 
 	int n_vmms = VmmSize;
+	int first_vmm=0;
+  if(n_vmms==6){//in sFEB w 6 vmms numbering strts from 2
+		first_vmm=2;
+	}
 
 	bool fetype = fe_name.find("FEB")!=std::string::npos;
 	
 	if(conn_check and fetype){std::cout<<" I AM s/pFEB"<<std::endl;}
-	if(conn_check and !fetype){std::cout<<" I AM GROOT - MMFE8"<<std::endl;}
+	if(conn_check and !fetype){std::cout<<" I AM MMFE8"<<std::endl;}
 //	std::cout<<fe_name<<" - SCA ID: "<<cs.readSCAID(feb)<<std::endl;
 //	std::cout<<fe_name<<" - SCA address: "<<cs.readSCAAddress(feb)<<std::endl;
 //	std::cout<<fe_name<<" - SCA online: "<<cs.readSCAOnline(feb)<<std::endl;
@@ -1454,13 +1472,33 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 //-------------------------------------------------------
 	std::cout<<fe_name<<" has ["<<VmmSize<<"] VMMs"<<std::endl;
 
-  	for (int vmm_id = 0; vmm_id < n_vmms; vmm_id++) {
+//	roc_analog.setRegisterValue("reg073ePllVmm0", "tp_phase_0", 1);///----!!!!----
+//	cs.sendRocConfig(feb);
+//	std::cout<<"\n sent ROC reg073 bit [1] \n"<<std::endl;
+  	//for (int vmm_id = 0; vmm_id < n_vmms; vmm_id++) {
+  	for (int vmm_id = first_vmm; vmm_id < n_vmms; vmm_id++) {
 
 		std::vector<short unsigned int> results;
 
 		auto t0 = std::chrono::high_resolution_clock::now();
 		int fault_chan = 0, noisy_channels = 0;
-
+//------------ tested roc analog config -------------------
+//		if(vmm_id==0){
+//			roc_analog.setRegisterValue("reg075ePllVmm0", "ctrl_delay_0", 1);
+//			cs.sendRocConfig(feb);
+//			std::cout<<"Sending out ROC config wit htest pulse delay bit [1]"<<std::endl;
+//		}///----!!!!----
+//		if(vmm_id==1){
+//			roc_analog.setRegisterValue("reg075ePllVmm0", "ctrl_delay_0", 2);
+//			cs.sendRocConfig(feb);
+//			std::cout<<"Sending out ROC config wit htest pulse delay bit [2]"<<std::endl;	
+//		}///----!!!!----
+//		if(vmm_id==2){
+//			roc_analog.setRegisterValue("reg075ePllVmm0", "ctrl_delay_0", 3);	
+//			cs.sendRocConfig(feb);
+//			std::cout<<"Sending out ROC config wit htest pulse delay bit [3]"<<std::endl;
+//		}///----!!!!----
+//-----------------------------------------------------------------
     	for (int channel_id = 0; channel_id < 64; channel_id++) {
 							
 				feb.getVmm(vmm_id).setMonitorOutput(channel_id, nsw::vmm::ChannelMonitor);
@@ -1594,13 +1632,18 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 	int VmmSize = VMMS.size();
 
 	int n_vmms = VmmSize;
+	int first_vmm = 0;
+  if(n_vmms==6){//in sFEB w 6 vmms numbering strts from 2
+		first_vmm=2;
+	}
 	std::string FebName = feb.getAddress(); 
 	bool fetype = FebName.find("FEB")!=std::string::npos; 
 //-------------------------------------------------------------
     std::ofstream tp_file(tp_path2+fe_name+"_tp_sample_data.txt");
     std::ofstream tp_var_file(tp_path+fe_name+"tp_data.txt");
  
-    for (int vmm_id = 0; vmm_id < n_vmms; vmm_id++) {
+    //for (int vmm_id = 0; vmm_id < n_vmms; vmm_id++) {
+    for (int vmm_id = first_vmm; vmm_id < n_vmms; vmm_id++) {
  
  //       tp_file.is_open();
         tp_var_file.is_open();

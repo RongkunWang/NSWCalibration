@@ -39,12 +39,9 @@ int main(int ac, const char* av[]){
 //--------------------------------------------------------------
 	namespace pt = boost::property_tree;
 	pt::ptree input_data;
-//	std::string io_config_path = "../../NSWCalibration/lxplus_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
-//	std::string io_config_path = "../../NSWCalibration/bb5_sectA14_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
-//	std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/lxplus_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
-//	std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/bb5_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
-	std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/vs_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
-//	std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/vs_pulser_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
+	std::string io_config_path = "../../NSWCalibration/lxplus_input_data.json"; //<<---- default input_data.json path file location!!!!
+
+//	std::string io_config_path = "../../NSWCalibration/bb5_sectA14_input_data.json"; //<<---- can have another path file in same direcroty but then recompile with default file path commented out and new file location in  
 	pt::read_json(io_config_path, input_data);
 //-------------------------------------------------------------------
 	std::string	def_config = input_data.get<std::string>("configuration_json");
