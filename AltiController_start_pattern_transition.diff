@@ -1,0 +1,13 @@
+diff --git schema/alti.schema.xml schema/alti.schema.xml
+index 7a7f0b0..955db7d 100644
+--- schema/alti.schema.xml
++++ schema/alti.schema.xml
+@@ -161,7 +161,7 @@
+   <attribute name="start_address" description="pattern generation start address" type="u32" range="0..1048575" init-value="0" is-not-null="yes"/>
+   <attribute name="stop_address" description="pattern generation stop address" type="u32" range="0..1048575" init-value="0" is-not-null="yes"/>
+   <attribute name="pattern_filename" description="data file with patterns" type="string" init-value="pg.dat" is-not-null="yes"/>
+-  <attribute name="start_pattern_transition" description="FSM trsansition during which the pattern generator starts" type="enum" range="Configure,Connect,PrepareForRun" init-value="PrepareForRun"/>
++  <attribute name="start_pattern_transition" description="FSM trsansition during which the pattern generator starts" type="enum" range="None,Configure,Connect,PrepareForRun" init-value="PrepareForRun"/>
+   <attribute name="keep_running" description="keep the pattern generator running after SHUTDOWN" type="bool" init-value="false"/>
+   <relationship name="signals_masked" class-type="PGSignalMask" low-cc="zero" high-cc="eleven" is-composite="no" is-exclusive="no" is-dependent="no"/>
+  </class>
