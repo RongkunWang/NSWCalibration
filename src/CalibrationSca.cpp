@@ -648,6 +648,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 	int first_vmm = 0;
   if(n_vmms==6){//in sFEB w 6 vmms numbering strts from 2
 		first_vmm=2;
+		n_vmms = n_vmms+1;
 	}
 	std::string f_name = feb.getAddress();
 	bool stgc = f_name.find("FEB")!=std::string::npos;
@@ -1356,6 +1357,7 @@ void nsw::CalibrationSca::read_thresholds(std::string config_filename,
 	int first_vmm = 0;
   if(n_vmms==6){//in sFEB w 6 vmms numbering strts from 2
 		first_vmm=2;
+		n_vmms = n_vmms+1;
 	}
   std::string f_name = feb.getAddress();
 	bool fetype = f_name.find("MMFE")!=std::string::npos; 
@@ -1459,6 +1461,7 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 	int first_vmm=0;
   if(n_vmms==6){//in sFEB w 6 vmms numbering strts from 2
 		first_vmm=2;
+		n_vmms = n_vmms+1;
 	}
 
 	bool fetype = fe_name.find("FEB")!=std::string::npos;
@@ -1635,6 +1638,7 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 	int first_vmm = 0;
   if(n_vmms==6){//in sFEB w 6 vmms numbering strts from 2
 		first_vmm=2;
+		n_vmms = n_vmms+1;
 	}
 	std::string FebName = feb.getAddress(); 
 	bool fetype = FebName.find("FEB")!=std::string::npos; 
