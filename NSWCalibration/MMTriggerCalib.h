@@ -30,14 +30,18 @@ namespace nsw {
     int configure_addcs_from_ptree(ptree tr);
     int configure_vmms(nsw::FEBConfig feb, ptree febpatt, bool unmask);
     int configure_art_input_phase(nsw::ADDCConfig addc, uint phase);
+    int configure_tps();
+    int addc_tp_watchdog();
     int wait_until_done();
     int announce(std::string name, ptree tr, bool unmask);
+    std::string strf_time();
 
   private:
     std::string                    m_calibType = "";
 
     std::vector<nsw::FEBConfig>    m_febs   = {};
     std::vector<nsw::ADDCConfig>   m_addcs  = {};
+    std::vector<nsw::TPConfig>     m_tps    = {};
     std::vector<int>               m_phases = {};
 
     bool m_tracks = 0;
@@ -48,6 +52,8 @@ namespace nsw {
     ptree m_patterns;
     std::unique_ptr< std::vector< std::future<int> > > m_threads = 0;
     std::map<std::string, std::unique_ptr<nsw::ConfigSender> > m_senders = {};
+    std::future<int> m_watchdog;
+    std::atomic<bool> m_tpscax_busy = 0;
 
   };
 
