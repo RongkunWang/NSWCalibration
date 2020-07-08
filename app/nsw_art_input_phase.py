@@ -54,6 +54,7 @@ def main():
     outrfile.Close()
     if ops.r:
         root2html(ops.o)
+    print("")
     print("Done! ^.^")
     print("")
 
@@ -365,9 +366,7 @@ def make_new_json(best_phase):
     outfilename = ops.o.replace(".root", ".json")
     with open(outfilename, 'w') as json_file:
         json.dump(newconf, json_file, indent=4)
-    print("")
     print("Wrote config file with phases: %s" % (outfilename))
-    print("")
 
 def convert2regs(connvmm2phase):
     ret = {}
@@ -675,15 +674,13 @@ def connector2regs(conn):
         fatal("Unrecognized ART connector: %s" % (conn))
 
 def root2html(fname):
+    print("Converting TCanvas into html with root2html...")
     if not os.path.isfile(fname):
         fatal("Bad ROOT file for root2html: %s" % (fname))
-    # script = "/eos/atlas/atlascerngroupdisk/det-nsw/bb5/cosmics/html/addc/root2html.py"
     script = "/eos/atlas/atlascerngroupdisk/det-nsw/191/trigger/root2html.py"
     os.system("%s %s" % (script, fname))
-    print("")
     print("Plots:")
     print("  https://www.cern.ch/nsw191/trigger/mmtp/artphase/%s" % (os.path.basename(fname.rstrip(".root"))))
-    print("")
 
 def fatal(msg):
     sys.exit("Fatal error: %s" % (msg))
