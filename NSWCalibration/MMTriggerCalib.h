@@ -30,7 +30,7 @@ namespace nsw {
     int configure_addcs_from_ptree(ptree tr);
     int configure_vmms(nsw::FEBConfig feb, ptree febpatt, bool unmask);
     int configure_art_input_phase(nsw::ADDCConfig addc, uint phase);
-    int configure_tps();
+    int configure_tps(ptree tr);
     int addc_tp_watchdog();
     int wait_until_done();
     int announce(std::string name, ptree tr, bool unmask);
@@ -44,9 +44,10 @@ namespace nsw {
     std::vector<nsw::TPConfig>     m_tps    = {};
     std::vector<int>               m_phases = {};
 
-    bool m_tracks = 0;
     bool m_connectivity = 0;
+    bool m_tracks = 0;
     bool m_noise = 0;
+    bool m_latency = 0;
     bool m_dry_run = 0;
     bool m_reset_vmm = 0;
     ptree m_patterns;
