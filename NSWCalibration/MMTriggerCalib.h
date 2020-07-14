@@ -52,7 +52,6 @@ namespace nsw {
     bool m_reset_vmm = 0;
     ptree m_patterns;
     std::unique_ptr< std::vector< std::future<int> > > m_threads = 0;
-    std::map<std::string, std::unique_ptr<nsw::ConfigSender> > m_senders = {};
     std::future<int> m_watchdog;
     std::atomic<bool> m_tpscax_busy = 0;
 

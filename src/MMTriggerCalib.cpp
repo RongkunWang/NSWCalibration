@@ -67,13 +67,6 @@ void nsw::MMTriggerCalib::setup(std::string db) {
   ERS_INFO("Found " << m_phases.size()   << " ART input phases");
   ERS_INFO("Found " << m_patterns.size() << " patterns");
 
-  for (auto & feb : m_febs)
-    m_senders.insert( {feb.getAddress(), std::make_unique<nsw::ConfigSender>()} );
-  for (auto & addc : m_addcs)
-    m_senders.insert( {addc.getAddress(), std::make_unique<nsw::ConfigSender>()} );
-  for (auto & tp : m_tps)
-    m_senders.insert( {tp.getAddress(), std::make_unique<nsw::ConfigSender>()} );
-
   m_watchdog = std::async(std::launch::async, &nsw::MMTriggerCalib::addc_tp_watchdog, this);
 }
 
@@ -194,7 +187,7 @@ int nsw::MMTriggerCalib::configure_tps(ptree tr) {
   for (auto & tp : m_tps) {
     if (latency != -1)
       tp.setARTWindowCenter(latency);
-    auto & cs = m_senders[tp.getAddress()];
+    auto cs = std::make_unique<nsw::ConfigSender>();
     while (m_tpscax_busy)
       usleep(1e5);
     m_tpscax_busy = 1;
@@ -228,7 +221,7 @@ int nsw::MMTriggerCalib::configure_vmms(nsw::FEBConfig feb, ptree febpatt, bool 
   //   "2": ["0"]
   // }
   //
-  auto & cs = m_senders[feb.getAddress()];
+  auto cs = std::make_unique<nsw::ConfigSender>();
   int vmmid, chan;
   std::set<int> vmmids = {};
   for (auto vmmkv : febpatt) {
@@ -262,7 +255,7 @@ int nsw::MMTriggerCalib::configure_vmms(nsw::FEBConfig feb, ptree febpatt, bool 
 }
 
 int nsw::MMTriggerCalib::configure_art_input_phase(nsw::ADDCConfig addc, uint phase) {
-  auto & cs = m_senders[addc.getAddress()];
+  auto cs = std::make_unique<nsw::ConfigSender>();
   if (phase > std::pow(2, 4))
     throw std::runtime_error("Gave bad phase to configure_art_input_phase: " + std::to_string(phase));
   size_t art_size = 2;
@@ -389,12 +382,12 @@ ptree nsw::MMTriggerCalib::patterns() {
             even = pos % 2 == 0;
             pcb  = pos / 2 + 1;
             auto pcbstr = std::to_string(pcb);
-            for (int chan = 0; chan < nchan; chan++) {
-                if (chan % 10 != 0)
-                    continue;
-                for (int vmmid = 0; vmmid < nvmm; vmmid++) {
-                    // if (vmm_of_interest >= 0 && vmmid != vmm_of_interest)
-                    //     continue;
+            for (int vmmid = 0; vmmid < nvmm; vmmid++) {
+                // if (vmm_of_interest >= 0 && vmmid != vmm_of_interest)
+                //     continue;
+                for (int chan = 0; chan < nchan; chan++) {
+                    if (chan % 10 != 0)
+                        continue;
                     ptree feb_patt;
                     for (auto name : {"MMFE8_L1P" + pcbstr + "_HO" + (even ? "R" : "L"),
                                 "MMFE8_L2P" + pcbstr + "_HO" + (even ? "L" : "R"),
