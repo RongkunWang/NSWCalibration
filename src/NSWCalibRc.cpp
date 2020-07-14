@@ -142,7 +142,8 @@ void nsw::NSWCalibRc::handler() {
   if (m_calibType=="MMARTConnectivityTest" ||
       m_calibType=="MMTrackPulserTest" ||
       m_calibType=="MMCableNoise" ||
-      m_calibType=="MMARTPhase") {
+      m_calibType=="MMARTPhase" ||
+      m_calibType=="MML1ALatency") {
     calib = std::make_unique<MMTriggerCalib>(m_calibType);
   } else if (m_calibType=="sTGCPadConnectivity" ||
              m_calibType=="sTGCPadLatency") {

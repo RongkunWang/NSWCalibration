@@ -20,21 +20,31 @@ void nsw::MMTriggerCalib::setup(std::string db) {
     m_connectivity = true;
     m_tracks       = false;
     m_noise        = false;
+    m_latency      = false;
   } else if (m_calibType=="MMTrackPulserTest") {
     m_phases = {-1};
     m_connectivity = false;
     m_tracks       = true;
     m_noise        = false;
+    m_latency      = false;
   } else if (m_calibType=="MMCableNoise") {
     m_phases = {-1};
     m_connectivity = false;
     m_tracks       = false;
     m_noise        = true;
+    m_latency      = false;
   } else if (m_calibType=="MMARTPhase") {
     m_phases = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
     m_connectivity = true;
     m_tracks       = false;
     m_noise        = false;
+    m_latency      = false;
+  } else if (m_calibType=="MML1ALatency") {
+    m_phases = {-1};
+    m_connectivity = false;
+    m_tracks       = false;
+    m_noise        = false;
+    m_latency      = true;
   } else {
     throw std::runtime_error("Unknown calibration request. Can't set up MMTriggerCalib.");
   }
@@ -44,6 +54,8 @@ void nsw::MMTriggerCalib::setup(std::string db) {
   setTotal((int)(m_patterns.size()));
   setToggle(1);
   setWait4swROD(0);
+  if (m_latency)
+    setToggle(0);
 
   m_febs   = make_objects<nsw::FEBConfig> (db, "MMFE8");
   m_addcs  = make_objects<nsw::ADDCConfig>(db, "ADDC");
@@ -74,7 +86,10 @@ void nsw::MMTriggerCalib::configure() {
       continue;
     auto tr = toppattkv.second;
 
-    ERS_INFO("Configure " << toppattkv.first << " with ART phase = " << tr.get<int>("art_input_phase"));
+    ERS_INFO("Configure " << toppattkv.first
+             << " with ART phase = " << tr.get<int>("art_input_phase")
+             << " and TP L1A latency = " << tr.get<int>("tp_latency")
+             );
 
     // enable test pulse
     configure_febs_from_ptree(tr, true);
@@ -83,7 +98,11 @@ void nsw::MMTriggerCalib::configure() {
     configure_addcs_from_ptree(tr);
 
     // send TP config ("ECR")
-    configure_tps();
+    configure_tps(tr);
+
+    // record some data?
+    if (m_latency)
+      sleep(5);
   }
 
 }
@@ -170,8 +189,11 @@ int nsw::MMTriggerCalib::configure_addcs_from_ptree(ptree tr) {
   return 0;
 }
 
-int nsw::MMTriggerCalib::configure_tps() {
+int nsw::MMTriggerCalib::configure_tps(ptree tr) {
+  auto latency = tr.get<int>("tp_latency");
   for (auto & tp : m_tps) {
+    if (latency != -1)
+      tp.setARTWindowCenter(latency);
     auto & cs = m_senders[tp.getAddress()];
     while (m_tpscax_busy)
       usleep(1e5);
@@ -279,6 +301,23 @@ ptree nsw::MMTriggerCalib::patterns() {
     for (int i = 0; i < npatts; i++) {
       ptree feb_patt;
       ptree top_patt;
+      top_patt.put("tp_latency", -1);
+      top_patt.put("art_input_phase", -1);
+      top_patt.add_child("febpattern_" + std::to_string(ifebpatt), feb_patt);
+      patts.add_child("pattern_" + std::to_string(ipatts), top_patt);
+      ipatts++;
+      ifebpatt++;
+    }
+  } else if (m_latency) {
+    //
+    // latency loop: incrementing latency
+    //               no FEB or ADDC patterns
+    //
+    int npatts = 100;
+    for (int i = 0; i < npatts; i++) {
+      ptree feb_patt;
+      ptree top_patt;
+      top_patt.put("tp_latency", i);
       top_patt.put("art_input_phase", -1);
       top_patt.add_child("febpattern_" + std::to_string(ifebpatt), feb_patt);
       patts.add_child("pattern_" + std::to_string(ipatts), top_patt);
@@ -328,6 +367,7 @@ ptree nsw::MMTriggerCalib::patterns() {
 
         for (auto art_phase : m_phases) {
           ptree top_patt;
+          top_patt.put("tp_latency", -1);
           top_patt.put("art_input_phase", art_phase);
           top_patt.add_child("febpattern_" + std::to_string(ifebpatt), feb_patt);
           patts.add_child("pattern_" + std::to_string(ipatts), top_patt);
@@ -376,6 +416,7 @@ ptree nsw::MMTriggerCalib::patterns() {
                     }
                     for (auto art_phase : m_phases) {
                       ptree top_patt;
+                      top_patt.put("tp_latency", -1);
                       top_patt.put("art_input_phase", art_phase);
                       top_patt.add_child("febpattern_" + std::to_string(ifebpatt), feb_patt);
                       patts.add_child("pattern_" + std::to_string(ipatts), top_patt);
