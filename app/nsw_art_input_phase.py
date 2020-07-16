@@ -18,6 +18,7 @@ import sys
 import time
 NOW = time.strftime("%Y_%m_%d_%Hh%Mm%Ss")
 PY3 = sys.version_info >= (3,)
+EOS = "/eos/atlas/atlascerngroupdisk/det-nsw/191/trigger/"
 
 import ROOT
 ROOT.gROOT.SetBatch()
@@ -29,23 +30,22 @@ DEFAULT_PHASE = 4
 def options():
     connec_data = "/afs/cern.ch/work/n/nswdaq/public/nswmmartconnectivitytest/data/"
     config_json = "/afs/cern.ch/user/n/nswdaq/public/sw/config-ttc/config-files/config_json/"
-    trigger_eos = "/eos/atlas/atlascerngroupdisk/det-nsw/191/trigger/"
     parser = argparse.ArgumentParser(usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-t", help="Input ROOT TTree name", default="decodedData")
     parser.add_argument("-i", help="Input ROOT file",       default=os.path.join(connec_data, "dummy.root"))
     parser.add_argument("-c", help="Config JSON file",      default=os.path.join(config_json, "BB5/A16/full_small_sector_a16_bb5_internalPulser_ADDC_TP.json"))
-    parser.add_argument("-j", help="Pattern JSON file",     default=os.path.join(trigger_eos, "nsw_art_input_phase.json"))
-    parser.add_argument("-o", help="Output ROOT file",      default=os.path.join(trigger_eos, "mmtp/artphase/", "art_phase_%s.root" % (NOW)))
+    parser.add_argument("-j", help="Pattern JSON file",     default=os.path.join(EOS, "nsw_art_input_phase.json"))
+    parser.add_argument("-o", help="Output ROOT file",      default=None)
     parser.add_argument("-n", help="Make a new JSON file",     action="store_true")
     parser.add_argument("-r", help="Make plots w/root2html",   action="store_true")
     parser.add_argument("--debug", help="Enable debug output", action="store_true")
     return parser.parse_args()
 
 def main():
-
     rootlogon()
+    announce()
     ops = options()
-    outrfile = ROOT.TFile(ops.o, "recreate")
+    outrfile = ROOT.TFile(output(), "recreate")
     dataman = load_data()
     dataman = measure_efficiency(dataman, outrfile)
     best_phase = plot_efficiency(dataman, outrfile)
@@ -53,10 +53,46 @@ def main():
         make_new_json(best_phase)
     outrfile.Close()
     if ops.r:
-        root2html(ops.o)
+        root2html(output())
     print("")
     print("Done! ^.^")
     print("")
+
+def announce():
+    ops = options()
+    new_json = output().replace(".root", ".json")
+    print("")
+    print("User input:")
+    print(" Input ROOT file:      %s" % (ops.i))
+    print(" Input JSON config:    %s" % (ops.c))
+    print(" Input JSON patterns:  %s" % (ops.j))
+    print(" Output ROOT file:     %s" % (output()))
+    print(" Make new JSON file?   %s" % ("No" if not ops.n else "Yes: " + new_json))
+    print(" root2html website?    %s" % ("No" if not ops.r else "Yes"))
+    print("")
+
+def output():
+    ops = options()
+    if not ops.o:
+        dname = os.path.join(EOS, "mmtp/artphase/")
+        bname = "art_phase.%s.%s.root" % (run_number(), NOW)
+        return os.path.join(dname, bname)
+    else:
+        return ops.o
+
+def run_number():
+    """
+    In:
+      /x/y/z/data_test.1594820699._.daq.RAW._lb0000._0001.root
+    Out:
+      1594820699
+    """
+    ops = options()
+    bname = os.path.basename(ops.i)
+    try:
+        return bname.split(".")[1]
+    except:
+        fatal("Cannot extract run number from %s" % (ops.i))
 
 def load_data():
 
@@ -363,7 +399,7 @@ def make_new_json(best_phase):
                     newconf[addc][art]["art_core"] = {reg: regs[reg]}
 
     # write to file
-    outfilename = ops.o.replace(".root", ".json")
+    outfilename = output().replace(".root", ".json")
     with open(outfilename, 'w') as json_file:
         json.dump(newconf, json_file, indent=4)
     print("Wrote config file with phases: %s" % (outfilename))
@@ -403,11 +439,17 @@ class DataManager:
         self.effic = {}
     def create(self, tup):
         if tup in self.hits:
-            self.fatal("%s already in hits. Bad." % (str(tup)))
+            self.fatal("\n\n %s already in hits. Bad.\n\n" % (str(tup)))
         self.hits[tup] = []
     def add(self, tup, ch_obs):
         if not tup in self.hits:
-            self.fatal("%s not in hits. Bad." % (str(tup)))
+            msg = "Warning:"
+            msg += " Unexpected (layer, vmmpos, ch_exp, phase)"
+            msg += " = %s was encountered." % (str(tup))
+            msg += " This can indicate fishy data was acquired."
+            msg += " Please check the BoardVsLevel1Id plot."
+            print("\n %s \n" % (msg))
+            return
         self.hits[tup].append(ch_obs)
     def fatal(self, msg):
         sys.exit("Fatal error: %s" % (msg))
