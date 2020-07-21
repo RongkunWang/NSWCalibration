@@ -159,8 +159,11 @@ void nsw::sTGCTriggerCalib::gather_pfebs() {
   if (partition.find("VS") != std::string::npos) {
     // VS
     ERS_INFO("Gather pFEBs: VS pFEBs");
+    m_pfebs_ordered.push_back("PFEB_L3Q2_IPL");
     m_pfebs_ordered.push_back("PFEB_L1Q2_IPL");
+    m_pfebs_ordered.push_back("PFEB_L3Q1_IPL");
     m_pfebs_ordered.push_back("PFEB_L1Q1_IPL");
+    m_pfebs_ordered.push_back("PFEB_L3Q3_IPL");
     m_pfebs_ordered.push_back("PFEB_L4Q3_IPR");
     m_pfebs_ordered.push_back("PFEB_L1Q3_IPL");
     m_pfebs_ordered.push_back("PFEB_L2Q3_IPR");
