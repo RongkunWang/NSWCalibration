@@ -67,6 +67,7 @@ class NSWCalibRc: public daq::rc::Controllable {
     //! Handle configuration and ALTI PG
     std::atomic<bool> end_of_run;
     std::future<void> handler_thread;
+    std::string calibTypeFromIS();
     void handler();
     void alti_toggle_pattern();
     void publish4swrod();
