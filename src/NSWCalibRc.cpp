@@ -1,6 +1,7 @@
 #include <utility>  // make_pair
 #include <string>
 #include <memory>
+#include <iostream>
 
 // Header to the RC online services
 #include "RunControl/Common/OnlineServices.h"
@@ -23,7 +24,7 @@ nsw::NSWCalibRc::NSWCalibRc(bool simulation):m_simulation {simulation} {
 void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     ERS_INFO("Start");
 
-    //Retrieving the configuration db
+    // Retrieving the configuration db
     daq::rc::OnlineServices& rcSvc = daq::rc::OnlineServices::instance();
     const daq::core::RunControlApplicationBase& rcBase = rcSvc.getApplication();
     const nsw::dal::NSWCalibApplication* nswApp = rcBase.cast<nsw::dal::NSWCalibApplication>();
@@ -33,7 +34,7 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     ERS_INFO("DB Configuration: " << m_dbcon);
     ERS_INFO("reset VMM: " << m_resetVMM);
     ERS_INFO("reset TDS: " << m_resetTDS);
-    //Retrieve the ipc partition
+    // Retrieve the ipc partition
     m_ipcpartition = rcSvc.getIPCPartition();
 
     // Get the IS dictionary for the current partition
@@ -42,28 +43,11 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     std::string g_info_server_name="";
     const std::string stateInfoName = g_info_server_name + ".CurrentCalibState";
     const std::string calibInfoName = g_info_server_name + "." + g_calibration_type + "CalibInfo";
+
+    // Announce the current calibType, and
+    // publish metadata to IS (in progress)
+    auto tmp = calibTypeFromIS();
     publish4swrod();
-
-    // Currently supported options are:
-    //    MMARTConnectivityTest
-    //    MMTrackPulserTest
-    //    MMARTPhase
-
-    // Going to attempt to grab the calibration type string from IS
-    // Can manually write to this variable from the command line:
-    // > is_write -p part-BB5-Calib -n Setup.NSW.calibType -t String  -v MMARTPhase -i 0
-    // > is_ls -p part-BB5-Calib -R ".*NSW.cali.*" -v
-
-    ISInfoDynAny calibTypeFromIS;
-    if(is_dictionary->contains("Setup.NSW.calibType") ){
-      is_dictionary->getValue("Setup.NSW.calibType", calibTypeFromIS);
-      m_calibType = calibTypeFromIS.getAttributeValue<std::string>(0);
-      ERS_INFO("Calibration type from IS: " << m_calibType);
-    } else {
-      m_calibType = "MMARTConnectivityTest";
-      nsw::NSWConfigIssue issue(ERS_HERE, "Calibration type not found in IS. Defaulting to: " + m_calibType);
-      ers::warning(issue);
-    }
 
     m_NSWConfig = std::make_unique<NSWConfig>(m_simulation);
     m_NSWConfig->readConf(nswApp);
@@ -74,13 +58,16 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
 void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd& cmd) {
     ERS_INFO("Start");
 
-    //Retrieving the ptree configuration to be modified
+    // Announce the current calibType (again)
+    auto tmp = calibTypeFromIS();
+
+    // Retrieving the ptree configuration to be modified
     ptree conf = m_NSWConfig->getConf();
 
-    //Sending the new configuration to be used for this run
+    // Sending the new configuration to be used for this run
     m_NSWConfig->substituteConf(conf);
 
-    //Sending the configuration to the HW
+    // Sending the configuration to the HW
     m_NSWConfig->configureRc();
     ERS_LOG("End");
 }
@@ -138,7 +125,7 @@ void nsw::NSWCalibRc::handler() {
 
   // create calib object
   calib = 0;
-  ERS_INFO("Calibration Type: " << m_calibType);
+  m_calibType = calibTypeFromIS();
   if (m_calibType=="MMARTConnectivityTest" ||
       m_calibType=="MMTrackPulserTest" ||
       m_calibType=="MMCableNoise" ||
@@ -230,4 +217,24 @@ void nsw::NSWCalibRc::wait4swrod() {
     if (attempt_i >= attempts_max)
       throw std::runtime_error("Waiting for swROD failed");
   }
+}
+
+std::string nsw::NSWCalibRc::calibTypeFromIS() {
+  // Grab the calibration type string from IS
+  // Can manually write to this variable from the command line:
+  // > is_write -p part-BB5-Calib -n Setup.NSW.calibType -t String  -v MMARTPhase -i 0
+  // > is_ls -p part-BB5-Calib -R ".*NSW.cali.*" -v
+  // Currently supported options are written in the `handler` function.
+  std::string calibType;
+  if(is_dictionary->contains("Setup.NSW.calibType") ){
+    ISInfoDynAny calibTypeFromIS;
+    is_dictionary->getValue("Setup.NSW.calibType", calibTypeFromIS);
+    calibType = calibTypeFromIS.getAttributeValue<std::string>(0);
+    ERS_INFO("Calibration type from IS: " << calibType);
+  } else {
+    calibType = "MMARTConnectivityTest";
+    nsw::NSWCalibIssue issue(ERS_HERE, "Calibration type not found in IS. Defaulting to: " + calibType);
+    ers::warning(issue);
+  }
+  return calibType;
 }
