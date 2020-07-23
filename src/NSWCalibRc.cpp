@@ -1,7 +1,6 @@
 #include <utility>  // make_pair
 #include <string>
 #include <memory>
-#include <iostream>
 
 // Header to the RC online services
 #include "RunControl/Common/OnlineServices.h"
