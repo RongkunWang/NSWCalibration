@@ -45,7 +45,7 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
 
     // Announce the current calibType, and
     // publish metadata to IS (in progress)
-    auto tmp = calibTypeFromIS();
+    m_calibType = calibTypeFromIS();
     publish4swrod();
 
     m_NSWConfig = std::make_unique<NSWConfig>(m_simulation);
@@ -58,7 +58,7 @@ void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd& cmd) {
     ERS_INFO("Start");
 
     // Announce the current calibType (again)
-    auto tmp = calibTypeFromIS();
+    m_calibType = calibTypeFromIS();
 
     // Retrieving the ptree configuration to be modified
     ptree conf = m_NSWConfig->getConf();
@@ -230,6 +230,11 @@ std::string nsw::NSWCalibRc::calibTypeFromIS() {
     is_dictionary->getValue("Setup.NSW.calibType", calibTypeFromIS);
     calibType = calibTypeFromIS.getAttributeValue<std::string>(0);
     ERS_INFO("Calibration type from IS: " << calibType);
+    if (m_calibType != "" && calibType != m_calibType) {
+      std::string msg = "Found a new calibType. Was " + m_calibType + ", is now " + calibType;
+      nsw::NSWCalibIssue issue(ERS_HERE, msg);
+      ers::warning(issue);
+    }
   } else {
     calibType = "MMARTConnectivityTest";
     nsw::NSWCalibIssue issue(ERS_HERE, "Calibration type not found in IS. Defaulting to: " + calibType);
