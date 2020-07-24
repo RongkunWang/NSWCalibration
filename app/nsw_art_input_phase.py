@@ -393,10 +393,10 @@ def make_new_json(best_phase):
                 connectorandvmm2phase[conn, febvmm] = phase
             regs = convert2regs(connectorandvmm2phase)
             for reg in regs:
-                if "art_core" in newconf[addc][art]:
-                    newconf[addc][art]["art_core"][reg] = regs[reg]
+                if "art_ps" in newconf[addc][art]:
+                    newconf[addc][art]["art_ps"][reg] = regs[reg]
                 else:
-                    newconf[addc][art]["art_core"] = {reg: regs[reg]}
+                    newconf[addc][art]["art_ps"] = {reg: regs[reg]}
 
     # write to file
     outfilename = output().replace(".root", ".json")
