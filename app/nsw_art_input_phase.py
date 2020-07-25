@@ -61,6 +61,7 @@ def main():
 def announce():
     ops = options()
     new_json = output().replace(".root", ".json")
+    json_log = output().replace(".root", ".txt")
     print("")
     print("User input:")
     print(" Input ROOT file:      %s" % (ops.i))
@@ -68,6 +69,7 @@ def announce():
     print(" Input JSON patterns:  %s" % (ops.j))
     print(" Output ROOT file:     %s" % (output()))
     print(" Make new JSON file?   %s" % ("No" if not ops.n else "Yes: " + new_json))
+    print(" Make JSON log file?   %s" % ("No" if not ops.n else "Yes: " + json_log))
     print(" root2html website?    %s" % ("No" if not ops.r else "Yes"))
     print("")
 
@@ -366,6 +368,8 @@ def make_new_json(best_phase):
     # Config json gives relationship between ART and fiber
     #
     ops = options()
+    outlogname = output().replace(".root", ".txt")
+    outlog = open(outlogname, "w")
 
     geoman = GeoManager(ops.c, ops.i, ops.t)
     if ops.debug:
@@ -391,12 +395,18 @@ def make_new_json(best_phase):
                 phase  = best_phase.get((layer, vmmpos), DEFAULT_PHASE)
                 febvmm = int(vmmpos2vmm(vmmpos) % 8)
                 connectorandvmm2phase[conn, febvmm] = phase
+                outlog.write("%s %s: (layer, vmmpos) = phase -> (%i, %02i) = %s\n" % (addc, art, layer, vmmpos, phase))
             regs = convert2regs(connectorandvmm2phase)
             for reg in regs:
+                outlog.write("%s %s: reg = phase -> %s = %s\n" % (addc, art, reg, regs[reg]))
                 if "art_ps" in newconf[addc][art]:
                     newconf[addc][art]["art_ps"][reg] = regs[reg]
                 else:
                     newconf[addc][art]["art_ps"] = {reg: regs[reg]}
+
+    # close log file
+    print("Wrote log file with phases: %s" % (outlogname))
+    outlog.close()
 
     # write to file
     outfilename = output().replace(".root", ".json")
