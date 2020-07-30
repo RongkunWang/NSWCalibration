@@ -6,6 +6,8 @@ import collections
 import json
 import os
 import sys
+if sys.version_info[0] < 3:
+    sys.exit("Error: python3 is required! Consider running: %s if you have access to cvmfs" % (__doc__))
 
 REGISTER = "sdt_dac"
 
@@ -15,14 +17,16 @@ def main():
     announce()
     with open(ops.i) as json_file:
         newconf = json.load(json_file, object_pairs_hook=collections.OrderedDict)
+    # update vmm_common_config
+    for common in newconf:
+        if common == "vmm_common_config":
+            update(newconf[common], ops.n)
+            break
+    # update the FEBs
     for feb in newconf:
         for vmm in newconf[feb]:
-            if not vmm.startswith("vmm"):
-                continue
-            for reg in newconf[feb][vmm]:
-                if not reg == REGISTER:
-                    continue
-                newconf[feb][vmm][reg] += int(ops.n)
+            if vmm.startswith("vmm"):
+                update(newconf[feb][vmm], ops.n)
     with open(output(), 'w') as json_file:
         json.dump(newconf, json_file, indent=4)
     mention_diff()
@@ -34,6 +38,12 @@ def options():
     parser.add_argument("-n", help="Increase threshold by this number", default=None)
     parser.add_argument("-f", help="Force overwrite of output file if it already exists", action="store_true")
     return parser.parse_args()
+
+def update(obj, n):
+    for reg in obj:
+        if reg == REGISTER:
+            obj[reg] += int(n)
+            return
 
 def check_options():
     ops = options()
