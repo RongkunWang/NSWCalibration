@@ -7,13 +7,21 @@
 #include <map>
 #include <future>
  
+#include "ipc/partition.h"
+#include "ipc/core.h"
+#include "is/info.h"
+#include "is/infoT.h"
+#include "is/infodynany.h"
+#include "is/infodictionary.h"
+
 #include "ers/ers.h"
  
 #include "RunControl/RunControl.h"
 #include "RunControl/Common/RunControlCommands.h"
- 
-#include "NSWConfiguration/ConfigSender.h"
-#include "NSWConfiguration/ConfigReader.h"
+
+#include "NSWCalibration/CalibAlg.h"
+#include "NSWConfiguration/NSWConfig.h"
+//#include "NSWConfiguration/NSWConfig.h"
  
 using boost::property_tree::ptree;
  
@@ -39,6 +47,10 @@ class NSWCalibRc: public daq::rc::Controllable {
     //! FEBConfig objects in the map m_frontends
 
     void configure(const daq::rc::TransitionCmd& cmd) override;
+    
+    void connect(const daq::rc::TransitionCmd& cmd) override;
+    
+    void disconnect(const daq::rc::TransitionCmd& cmd) override;
  
     void prepareForRun(const daq::rc::TransitionCmd& cmd) override;
  
@@ -48,27 +60,30 @@ class NSWCalibRc: public daq::rc::Controllable {
  
     void user(const daq::rc::UserCmd& cmd) override;
  
+    void subTransition(const daq::rc::SubTransitionCmd& cmd) override;                        
+
     // void onExit(daq::rc::FSM_STATE) noexcept override;
-    //
+    
+    std::atomic<bool> end_of_run;
+    std::future<void> handler_thread;
+    void handler();
+    void alti_hold_trg();
+    void alti_resume_trg();
+    void alti_start_pat();
+    void alti_stop_pat();
+    void alti_send_reset(std::vector<std::string> hex_data);
 
  private:
 
-   //! Count how many threads are running
+    std::string m_calibType = "PDOCalib";
 
-   size_t active_threads();
-    bool too_many_threads();
- 
-    //! Calibration functions
-    //    // void calibrateARTPhase(); // or something
-
-    std::unique_ptr<nsw::ConfigReader> m_reader;
-    std::unique_ptr<nsw::ConfigSender> m_sender;
- 
-    // Run the program in simulation mode, don't send any configuration
+   // Run the program in simulation mode, don't send any configuration
     bool m_simulation;
-   // thread management
-    size_t m_max_threads;
-    std::unique_ptr< std::vector< std::future<void> > > m_threads;
+    bool reset_vmm;
+    bool reset_tds;
+    std::unique_ptr<NSWConfig> m_NSWConfig;
+    IPCPartition m_ipcpartition;
+    ISInfoDictionary* is_dictionary;
            
    };
 }    // namespace nsw
