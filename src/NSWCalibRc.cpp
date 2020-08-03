@@ -240,5 +240,10 @@ std::string nsw::NSWCalibRc::calibTypeFromIS() {
     nsw::NSWCalibIssue issue(ERS_HERE, "Calibration type not found in IS. Defaulting to: " + calibType);
     ers::warning(issue);
   }
+  ISInfoDynAny runParams;
+  is_dictionary->getValue("RunParams.RunParams", runParams);
+  runParams.setAttributeValue<std::string>(4,"Calibration");
+  runParams.setAttributeValue<std::string>(8,calibType);
+  is_dictionary->update("RunParams.RunParams", runParams);
   return calibType;
 }
