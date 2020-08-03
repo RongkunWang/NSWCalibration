@@ -15,7 +15,8 @@ void nsw::MMTriggerCalib::setup(std::string db) {
   m_threads = std::make_unique< std::vector< std::future<int> > >();
   m_threads->clear();
 
-  if (m_calibType=="MMARTConnectivityTest") {
+  if (m_calibType=="MMARTConnectivityTest" ||
+      m_calibType=="MMARTConnectivityTestAllChannels") {
     m_phases = {-1};
     m_connectivity = true;
     m_tracks       = false;
@@ -46,7 +47,7 @@ void nsw::MMTriggerCalib::setup(std::string db) {
     m_noise        = false;
     m_latency      = true;
   } else {
-    throw std::runtime_error("Unknown calibration request. Can't set up MMTriggerCalib.");
+    throw std::runtime_error("Unknown calibration request. Can't set up MMTriggerCalib: " + m_calibType);
   }
 
   m_patterns = patterns();
@@ -325,22 +326,35 @@ ptree nsw::MMTriggerCalib::patterns() {
     int nvmm = 8;
     int nchan = 64;
     int pcb = 0;
-    for (int pos = 0; pos < 16; pos++) {
+    for (int pos = 0; pos < 8; pos++) {
       even = pos % 2 == 0;
       pcb  = pos / 2 + 1;
-      auto pcbstr = std::to_string(pcb);
+      auto pcbstr       = std::to_string(pcb);
+      auto pcbstr_plus4 = std::to_string(pcb+4);
       for (int chan = 0; chan < nchan; chan++) {
-        if (chan % 10 != 0)
+        if (m_calibType == "MMARTConnectivityTest" && chan % 10 != 0)
+          continue;
+        if (m_calibType == "MMARTPhase"            && chan % 10 != 0)
           continue;
         ptree feb_patt;
-        for (auto name : {"MMFE8_L1P" + pcbstr + "_HO" + (even ? "R" : "L"),
-                          "MMFE8_L2P" + pcbstr + "_HO" + (even ? "L" : "R"),
-                          "MMFE8_L3P" + pcbstr + "_HO" + (even ? "R" : "L"),
-                          "MMFE8_L4P" + pcbstr + "_HO" + (even ? "L" : "R"),
-                          "MMFE8_L4P" + pcbstr + "_IP" + (even ? "R" : "L"),
-                          "MMFE8_L3P" + pcbstr + "_IP" + (even ? "L" : "R"),
-                          "MMFE8_L2P" + pcbstr + "_IP" + (even ? "R" : "L"),
-                          "MMFE8_L1P" + pcbstr + "_IP" + (even ? "L" : "R")}) {
+        for (auto name : {
+              "MMFE8_L1P" + pcbstr       + "_HO" + (even ? "R" : "L"),
+              "MMFE8_L2P" + pcbstr       + "_HO" + (even ? "L" : "R"),
+              "MMFE8_L3P" + pcbstr       + "_HO" + (even ? "R" : "L"),
+              "MMFE8_L4P" + pcbstr       + "_HO" + (even ? "L" : "R"),
+              "MMFE8_L4P" + pcbstr       + "_IP" + (even ? "R" : "L"),
+              "MMFE8_L3P" + pcbstr       + "_IP" + (even ? "L" : "R"),
+              "MMFE8_L2P" + pcbstr       + "_IP" + (even ? "R" : "L"),
+              "MMFE8_L1P" + pcbstr       + "_IP" + (even ? "L" : "R"),
+              "MMFE8_L1P" + pcbstr_plus4 + "_HO" + (even ? "R" : "L"),
+              "MMFE8_L2P" + pcbstr_plus4 + "_HO" + (even ? "L" : "R"),
+              "MMFE8_L3P" + pcbstr_plus4 + "_HO" + (even ? "R" : "L"),
+              "MMFE8_L4P" + pcbstr_plus4 + "_HO" + (even ? "L" : "R"),
+              "MMFE8_L4P" + pcbstr_plus4 + "_IP" + (even ? "R" : "L"),
+              "MMFE8_L3P" + pcbstr_plus4 + "_IP" + (even ? "L" : "R"),
+              "MMFE8_L2P" + pcbstr_plus4 + "_IP" + (even ? "R" : "L"),
+              "MMFE8_L1P" + pcbstr_plus4 + "_IP" + (even ? "L" : "R"),
+              }) {
           ptree febtree;
           for (int vmmid = 0; vmmid < nvmm; vmmid++) {
 

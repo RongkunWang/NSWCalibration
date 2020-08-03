@@ -126,6 +126,7 @@ void nsw::NSWCalibRc::handler() {
   calib = 0;
   m_calibType = calibTypeFromIS();
   if (m_calibType=="MMARTConnectivityTest" ||
+      m_calibType=="MMARTConnectivityTestAllChannels" ||
       m_calibType=="MMTrackPulserTest" ||
       m_calibType=="MMCableNoise" ||
       m_calibType=="MMARTPhase" ||
