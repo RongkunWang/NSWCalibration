@@ -75,15 +75,14 @@ int nsw::sTGCStripsTriggerCalib::configure_tds(nsw::FEBConfig feb, int i_tds, bo
   for (auto tds : feb.getTdss()) {
     if(tds.getName().find(std::to_string(i_tds)) == std::string::npos)
       continue;
-    I2cMasterConfig this_tds(tds);
     ERS_INFO("Configuring " << feb.getOpcServerIp()
              << " " << feb.getAddress()
-             << " " << this_tds.getName()
+             << " " << tds.getName()
              << " -> " << (unmask ? "sending" : "masking")
              );
-    this_tds.setRegisterValue("register12", "test_frame2Router_enable", (int)(unmask));
+    tds.setRegisterValue("register12", "test_frame2Router_enable", (int)(unmask));
     if (!m_dry_run)
-      cs->sendI2cMasterSingle(opc_ip, sca_address, this_tds, "register12");
+      cs->sendI2cMasterSingle(opc_ip, sca_address, tds, "register12");
   }
   return 0;
 }
