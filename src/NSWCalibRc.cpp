@@ -9,6 +9,7 @@
 #include "NSWCalibrationDal/NSWCalibApplication.h"
 #include "NSWCalibration/MMTriggerCalib.h"
 #include "NSWCalibration/sTGCTriggerCalib.h"
+#include "NSWCalibration/sTGCStripsTriggerCalib.h"
 #include "NSWConfiguration/NSWConfig.h"
 
 using boost::property_tree::ptree;
@@ -135,6 +136,8 @@ void nsw::NSWCalibRc::handler() {
   } else if (m_calibType=="sTGCPadConnectivity" ||
              m_calibType=="sTGCPadLatency") {
     calib = std::make_unique<sTGCTriggerCalib>(m_calibType);
+  } else if (m_calibType=="sTGCFakeStripConnectivity") {
+    calib = std::make_unique<sTGCStripsTriggerCalib>(m_calibType);
   } else {
     std::string msg = "Unknown calibration request: " + m_calibType;
     nsw::NSWCalibIssue issue(ERS_HERE, msg);
