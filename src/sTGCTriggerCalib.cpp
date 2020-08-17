@@ -159,18 +159,30 @@ void nsw::sTGCTriggerCalib::gather_pfebs() {
   if (partition.find("VS") != std::string::npos) {
     // VS
     ERS_INFO("Gather pFEBs: VS pFEBs");
-    m_pfebs_ordered.push_back("PFEB_L3Q2_IPL");
-    m_pfebs_ordered.push_back("PFEB_L1Q2_IPL");
-    m_pfebs_ordered.push_back("PFEB_L3Q1_IPL");
-    m_pfebs_ordered.push_back("PFEB_L1Q1_IPL");
-    m_pfebs_ordered.push_back("PFEB_L3Q3_IPL");
-    m_pfebs_ordered.push_back("PFEB_L4Q3_IPR");
-    m_pfebs_ordered.push_back("PFEB_L1Q3_IPL");
-    m_pfebs_ordered.push_back("PFEB_L2Q3_IPR");
     m_pfebs_ordered.push_back("PFEB_L4Q2_IPR");
     m_pfebs_ordered.push_back("PFEB_L2Q2_IPR");
-    m_pfebs_ordered.push_back("PFEB_L2Q1_IPR");
     m_pfebs_ordered.push_back("PFEB_L4Q1_IPR");
+    m_pfebs_ordered.push_back("PFEB_L2Q1_IPR");
+    // m_pfebs_ordered.push_back("PFEB_L2Q2_HOR");
+    // m_pfebs_ordered.push_back("PFEB_L4Q2_HOR");
+    // m_pfebs_ordered.push_back("PFEB_L2Q1_HOR");
+    // m_pfebs_ordered.push_back("PFEB_L4Q1_HOR");
+    // m_pfebs_ordered.push_back("PFEB_L2Q3_HOR");
+    // m_pfebs_ordered.push_back("PFEB_L1Q3_HOL");
+    // m_pfebs_ordered.push_back("PFEB_L4Q3_HOR");
+    // m_pfebs_ordered.push_back("PFEB_L3Q3_HOL");
+    m_pfebs_ordered.push_back("PFEB_L1Q3_IPL");
+    m_pfebs_ordered.push_back("PFEB_L2Q3_IPR");
+    m_pfebs_ordered.push_back("PFEB_L3Q3_IPL");
+    m_pfebs_ordered.push_back("PFEB_L4Q3_IPR");
+    // m_pfebs_ordered.push_back("PFEB_L3Q2_HOL");
+    // m_pfebs_ordered.push_back("PFEB_L1Q2_HOL");
+    // m_pfebs_ordered.push_back("PFEB_L3Q1_HOL");
+    // m_pfebs_ordered.push_back("PFEB_L1Q1_HOL");
+    m_pfebs_ordered.push_back("PFEB_L1Q2_IPL");
+    m_pfebs_ordered.push_back("PFEB_L3Q2_IPL");
+    m_pfebs_ordered.push_back("PFEB_L1Q1_IPL");
+    m_pfebs_ordered.push_back("PFEB_L3Q1_IPL");
   }
   else {
     // 191
