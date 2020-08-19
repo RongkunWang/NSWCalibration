@@ -69,6 +69,8 @@ void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd& cmd) {
 
     // Sending the configuration to the HW
     m_NSWConfig->configureRc();
+
+    // End
     ERS_LOG("End");
 }
 
@@ -146,6 +148,7 @@ void nsw::NSWCalibRc::handler() {
   }
 
   // setup
+  alti_setup();
   calib->setup(m_dbcon);
   ERS_INFO("calib counter:    " << calib->counter());
   ERS_INFO("calib total:      " << calib->total());
@@ -165,6 +168,7 @@ void nsw::NSWCalibRc::handler() {
   }
 
   // fin
+  alti_count();
   ERS_INFO("NSWCalibRc::handler::End of handler");
 }
 
@@ -181,7 +185,150 @@ void nsw::NSWCalibRc::alti_toggle_pattern() {
     daq::rc::UserCmd cmd(cmd_name, std::vector<std::string>());
     daq::rc::CommandSender sendr(m_ipcpartition.name(), "NSWCalibRcSender");
     sendr.sendCommand(app_name, cmd);
-    usleep(100e3);
+
+    // sleep until the pattern should be finished
+    // safety factor of 2x
+    usleep(2 * alti_pg_duration());
+}
+
+void nsw::NSWCalibRc::alti_setup() {
+  alti_monitoring(1);
+  alti_pg_duration(1);
+  if (alti_monitoring() != "") {
+    m_rec = new ISInfoReceiver(m_ipcpartition, false);
+    m_rec->subscribe(alti_monitoring(), &nsw::NSWCalibRc::alti_callback);
+  }
+}
+
+std::string nsw::NSWCalibRc::alti_monitoring(bool refresh) {
+  if (!refresh)
+    return m_alti_monitoring;
+  ISInfoStream ii(m_ipcpartition, "Monitoring");
+  while (!ii.eof()) {
+    auto name = ii.name();
+    ERS_LOG("Looping through Monitoring server: " << name);
+    if (name.find("AltiMonitoring") != std::string::npos) {
+      ERS_INFO("ALTI monitoring server: " << name);
+      m_alti_monitoring = name;
+      return name;
+    } else {
+      ii.skip();
+    }
+  }
+  std::string msg = "Cannot find AltiMonitoring in IS. Will fly blind.";
+  nsw::NSWCalibIssue issue(ERS_HERE, msg);
+  ers::warning(issue);
+  m_alti_monitoring = "";
+  return m_alti_monitoring;
+}
+
+std::string nsw::NSWCalibRc::alti_pg_file() {
+  //
+  // Look up the ALTI PG file
+  //
+  try {
+    ISInfoDynAny any;
+    if (alti_monitoring() == "")
+      return "";
+    is_dictionary->getValue(alti_monitoring(), any);
+    auto pg_file = any.getAttributeValue<std::string>("pg_file");
+    return pg_file;
+  } catch(daq::is::Exception& ex) {
+    ers::warning(ex);
+  }
+  return "";
+}
+
+uint64_t nsw::NSWCalibRc::alti_pg_duration(bool refresh) {
+  //
+  // Read the pg file, and sum the number of BCs
+  // i.e. the duration of one iteration
+  // final units: microseconds
+  //
+  if (!refresh)
+    return m_alti_pg_duration;
+  auto fname = alti_pg_file();
+  ERS_INFO("ALTI PG file: " << (fname=="" ? "N/A" : fname));
+  if (fname == "")
+    return 0;
+  uint64_t sum = 0;
+  std::ifstream inf(fname.c_str(), std::ifstream::in);
+  std::string line;
+  while (std::getline(inf, line)) {
+    auto mult = alti_pg_multiplicity(line);
+    sum = sum + mult;
+  }
+  // convert to microseconds
+  m_alti_pg_duration = sum * 25 / 1000;
+  ERS_INFO("ALTI PG duration [BC]: " << sum);
+  ERS_INFO("ALTI PG duration [ms]: " << m_alti_pg_duration/1000);
+  return m_alti_pg_duration;
+}
+
+uint64_t nsw::NSWCalibRc::alti_pg_multiplicity(std::string line) {
+  if (line.empty())
+    return 0;
+  if (line[0] == '#' || line[0] == '-')
+    return 0;
+  std::vector<std::string> pg_words = {};
+  std::istringstream ss(line);
+  while (!ss.eof()) {
+    std::string buf;
+    std::getline(ss, buf, ' ');
+    if (buf != "")
+      pg_words.push_back(buf);
+  }
+  if (pg_words.size() < pg_size) {
+    std::string msg = "Cant understand the ALTI pg_file: line = " + line;
+    nsw::NSWCalibIssue issue(ERS_HERE, msg);
+    ers::error(issue);
+    throw std::runtime_error(msg);
+  }
+  auto mult = pg_words[pg_mult];
+  return std::stoull(mult);
+}
+
+void nsw::NSWCalibRc::alti_callback(ISCallbackInfo* isc) {
+  ISInfoDynAny any;
+  try {
+    isc->value(any);
+    std::vector<ISInfoDynAny> & counters
+      = any.getAttributeValue< std::vector<ISInfoDynAny> >("counters");
+    for (auto & counter : counters)
+      if (counter.getAttributeValue<std::string>("name") == "L1A")
+        ERS_LOG("L1A value = " << counter.getAttributeValue<uint32_t>("value")
+                << ", reason = " << isc->reason());
+  } catch (daq::is::Exception& ex) {
+    ers::error(ex);
+  }
+}
+
+void nsw::NSWCalibRc::alti_count() {
+  //
+  // Count all L1A
+  //
+  try {
+    usleep(1e6);
+    ERS_INFO("Pausing to collect L1A values from IS...");
+    usleep(5e6);
+    uint64_t l1as = 0;
+    struct Wrapper : public ISInfoDynAny {};
+    std::vector<Wrapper> anys;
+    is_dictionary->getValues(alti_monitoring(), anys);
+    for (auto & any: anys) {
+      std::vector<ISInfoDynAny> & counters
+        = any.getAttributeValue< std::vector<ISInfoDynAny> >("counters");
+      for (auto & counter : counters) {
+        if (counter.getAttributeValue<std::string>("name") == "L1A") {
+          // ERS_INFO("L1A value = " << counter.getAttributeValue<uint32_t>("value"));
+          l1as = l1as + counter.getAttributeValue<uint32_t>("value");
+        }
+      }
+    }
+    ERS_INFO("L1A sum, according to IS: " << l1as);
+  } catch (daq::is::Exception& ex) {
+    ers::error(ex);
+  }
 }
 
 void nsw::NSWCalibRc::publish4swrod() {
