@@ -13,9 +13,10 @@
 #include "ipc/core.h"
 #include "is/info.h"
 #include "is/infoT.h"
+#include "is/infostream.h"
 #include "is/infodynany.h"
 #include "is/infodictionary.h"
-
+#include "is/inforeceiver.h"
 
 #include "RunControl/RunControl.h"
 #include "RunControl/Common/RunControlCommands.h"
@@ -64,14 +65,22 @@ class NSWCalibRc: public daq::rc::Controllable {
     //! Used to syncronize ROC/VMM configuration
     void subTransition(const daq::rc::SubTransitionCmd&) override;
 
-    //! Handle configuration and ALTI PG
+    //! Handle configuration and ALTI
     std::atomic<bool> end_of_run;
     std::future<void> handler_thread;
     std::string calibTypeFromIS();
     void handler();
     void alti_toggle_pattern();
+    void alti_setup();
+    void alti_count();
     void publish4swrod();
     void wait4swrod();
+    void alti_callback(ISCallbackInfo* isc);
+    uint64_t alti_pg_duration(bool refresh = 0);
+    uint64_t alti_pg_multiplicity(std::string line);
+    std::string alti_pg_file();
+    std::string alti_monitoring(bool refresh = 0);
+    enum alti_pg_enum {pg_orb, pg_creq, pg_ttyp, pg_bgo, pg_l1a_ttr, pg_mult, pg_size};
 
  private:
 
@@ -79,6 +88,8 @@ class NSWCalibRc: public daq::rc::Controllable {
     std::string m_calibType             = "";
     std::string m_calibCounter          = "Monitoring.NSWCalibration.triggerCalibrationKey";
     std::string m_calibCounter_readback = "Monitoring.NSWCalibration.swrodCalibrationKey";
+    uint64_t m_alti_pg_duration = 0;
+    std::string m_alti_monitoring = "";
 
     // Run the program in simulation mode, don't send any configuration
     bool                        m_simulation;
@@ -88,6 +99,8 @@ class NSWCalibRc: public daq::rc::Controllable {
     bool                        m_resetTDS;
     IPCPartition                m_ipcpartition;
     ISInfoDictionary*           is_dictionary;
+    ISInfoReceiver*             m_rec;
+
 };
 }  // namespace nsw
 #endif  // NSWCALIBRATION_NSWCALIBRC_H_
