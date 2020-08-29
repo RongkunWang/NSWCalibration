@@ -11,8 +11,10 @@
 #include "ipc/core.h"
 #include "is/info.h"
 #include "is/infoT.h"
+#include "is/infostream.h"
 #include "is/infodynany.h"
 #include "is/infodictionary.h"
+#include "is/inforeceiver.h"
 
 #include "ers/ers.h"
  
@@ -66,16 +68,21 @@ class NSWCalibRc: public daq::rc::Controllable {
     
     std::atomic<bool> end_of_run;
     std::future<void> handler_thread;
+		std::string calibTypeFromIS(); 
     void handler();
-    void alti_hold_trg();
-    void alti_resume_trg();
+		void publish4swrod();
+		void wait4swrod();
     void alti_start_pat();
     void alti_stop_pat();
     void alti_send_reset(std::vector<std::string> hex_data);
 
  private:
 
-    std::string m_calibType = "PDOCalib";
+//    std::string m_calibType = "PDOCalib";
+    std::string m_calibType = "";
+		std::string m_calibCounter_readback = "Monitoring.NSWCalibration.swrodCalibrationKey";
+		std::unique_ptr<CalibAlg> calib;
+		std::string dbcon;
 
    // Run the program in simulation mode, don't send any configuration
     bool m_simulation;
@@ -84,6 +91,7 @@ class NSWCalibRc: public daq::rc::Controllable {
     std::unique_ptr<NSWConfig> m_NSWConfig;
     IPCPartition m_ipcpartition;
     ISInfoDictionary* is_dictionary;
+		ISInfoReceiver* m_rec;
            
    };
 }    // namespace nsw

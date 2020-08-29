@@ -31,6 +31,8 @@ namespace nsw {
       virtual void configure(int tpdac); // my addition...
       virtual void unconfigure();
       bool next();
+      bool wait4swrod() {return m_wait4swrod;}
+      void setWait4swROD(bool wait) {m_wait4swrod = wait;}
       int counter() {return m_counter;};
       int total() {return m_total;};
       void setCounter(int ctr) {m_counter = ctr;};
@@ -39,6 +41,7 @@ namespace nsw {
     private:
       int m_counter;
       int m_total;
+      bool m_wait4swrod = 0;
 
   };
 } 
