@@ -385,6 +385,7 @@ ptree nsw::MMTriggerCalib::patterns() {
       }
     }
   } else if (m_tracks) {
+/*
         //
         // track-like loop
         //
@@ -433,9 +434,102 @@ ptree nsw::MMTriggerCalib::patterns() {
                 }
             }
         }
+*/
+        //
+        // homogeneously distributted perpendicular tracks
+        //
+
+        bool even;
+        int nvmm = 8;
+        int nchan = 64;
+        int countId[8192][4];
+        for (int pos = 0; pos < 16; pos++) {
+            even = pos % 2 == 0;
+            for (int vmmid = 0; vmmid < nvmm; vmmid++) {
+                for (int chan = 0; chan < nchan; chan++) {
+                    int count = (even ? ((pos+1)*512-vmmid*64-chan-1) : (pos*512+vmmid*64+chan));
+                    countId[count][0] = count;
+                    countId[count][1] = pos;
+                    countId[count][2] = vmmid;
+                    countId[count][3] = chan;
+                }
+            }
+        }
+        for (int cx = 0; cx < 8192; cx++) {
+            if (cx % 100 != 0)
+                continue;
+            for (int dif = -3000; dif < 3001; dif++) {
+                if (dif % 100 != 0)
+                    continue;
+                int posx = countId[cx][1];
+                int vmmidx = countId[cx][2];
+                int chanx = countId[cx][3];
+                bool evenx = posx % 2 == 0;
+                int pcbx  = posx / 2 + 1;
+                auto pcbstrx = std::to_string(pcbx);
+                ptree feb_patt;
+                for (auto name : {"MMFE8_L1P" + pcbstrx + "_HO" + (evenx ? "R" : "L"),
+                            "MMFE8_L2P" + pcbstrx + "_HO" + (evenx ? "L" : "R"),
+                            "MMFE8_L2P" + pcbstrx + "_IP" + (evenx ? "R" : "L"),
+                            "MMFE8_L1P" + pcbstrx + "_IP" + (evenx ? "L" : "R")}) {
+                    ptree febtree;
+                    ptree vmmtree;
+                    ptree chantree;
+                    chantree.put("", chanx);
+                    vmmtree.push_back(std::make_pair("", chantree));
+                    febtree.add_child(std::to_string(vmmidx), vmmtree);
+                    feb_patt.add_child(name, febtree);
+                }
+                int cu = cx + dif;
+                if (cu >= 0 && cu < 8192){
+                    int posu = countId[cu][1];
+                    int vmmidu = countId[cu][2];
+                    int chanu = countId[cu][3];
+                    bool evenu = posu % 2 == 0;
+                    int pcbu  = posu / 2 + 1;
+                    auto pcbstru = std::to_string(pcbu);
+                    for (auto name : {"MMFE8_L4P" + pcbstru + "_HO" + (evenu ? "L" : "R"),
+                                "MMFE8_L3P" + pcbstru + "_IP" + (evenu ? "L" : "R")}) {
+                        ptree febtree;
+                        ptree vmmtree;
+                        ptree chantree;
+                        chantree.put("", chanu);
+                        vmmtree.push_back(std::make_pair("", chantree));
+                        febtree.add_child(std::to_string(vmmidu), vmmtree);
+                        feb_patt.add_child(name, febtree);
+                    }
+                }
+                int cv = cx - dif;
+                if (cv >= 0 && cv < 8192){
+                    int posv = countId[cv][1];
+                    int vmmidv = countId[cv][2];
+                    int chanv = countId[cv][3];
+                    bool evenv = posv % 2 == 0;
+                    int pcbv  = posv / 2 + 1;
+                    auto pcbstrv = std::to_string(pcbv);
+                    for (auto name : {"MMFE8_L3P" + pcbstrv + "_HO" + (evenv ? "L" : "R"),
+                                "MMFE8_L4P" + pcbstrv + "_IP" + (evenv ? "L" : "R")}) {
+                        ptree febtree;
+                        ptree vmmtree;
+                        ptree chantree;
+                        chantree.put("", chanv);
+                        vmmtree.push_back(std::make_pair("", chantree));
+                        febtree.add_child(std::to_string(vmmidv), vmmtree);
+                        feb_patt.add_child(name, febtree);
+                    }
+                }
+                for (auto art_phase : m_phases) {
+                      ptree top_patt;
+                      top_patt.put("tp_latency", -1);
+                      top_patt.put("art_input_phase", art_phase);
+                      top_patt.add_child("febpattern_" + std::to_string(ifebpatt), feb_patt);
+                      patts.add_child("pattern_" + std::to_string(ipatts), top_patt);
+                      ifebpatt++;
+                      ipatts++;
+                }
+            }
+        }
     }
-
-
   return patts;
 }
 
