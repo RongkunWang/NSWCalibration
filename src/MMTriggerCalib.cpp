@@ -513,8 +513,8 @@ ptree nsw::MMTriggerCalib::patterns() {
         for (int cx = 0; cx < 8192; cx++) {
             if (cx % 100 != 0)
                 continue;
-            for (int dif = -3000; dif < 3001; dif++) {
-                if (dif % 100 != 0)
+            for (int dif = -70; dif < 71; dif++) {
+                if (dif % 5 != 0)
                     continue;
                 int posx = countId[cx][1];
                 int vmmidx = countId[cx][2];
@@ -562,8 +562,8 @@ ptree nsw::MMTriggerCalib::patterns() {
                     bool evenv = posv % 2 == 0;
                     int pcbv  = posv / 2 + 1;
                     auto pcbstrv = std::to_string(pcbv);
-                    for (auto name : {"MMFE8_L3P" + pcbstrv + "_HO" + (evenv ? "L" : "R"),
-                                "MMFE8_L4P" + pcbstrv + "_IP" + (evenv ? "L" : "R")}) {
+                    for (auto name : {"MMFE8_L3P" + pcbstrv + "_HO" + (evenv ? "R" : "L"),
+                                "MMFE8_L4P" + pcbstrv + "_IP" + (evenv ? "R" : "L")}) {
                         ptree febtree;
                         ptree vmmtree;
                         ptree chantree;
