@@ -109,13 +109,27 @@ void nsw::NSWCalibRc::handler(){
 
   ERS_INFO("Starting the PDO calibration run");
   //std::string fname = "/afs/cern.ch/user/n/nswdaq/workspace/public/vlad/vlad_calibdev/NSWCalibrationData/config_files/vs_test_conf_no_pulser_enebled.json";
+    daq::rc::OnlineServices& rcSvc = daq::rc::OnlineServices::instance();
+    const daq::core::RunControlApplicationBase& rcBase = rcSvc.getApplication();
+    const nsw::dal::NSWCalibApplication* nswApp = rcBase.cast<nsw::dal::NSWCalibApplication>();
+    std::string config = nswApp->get_dbConnection();
+ 
   ERS_INFO("Imported the Front-End Configuration");
+
+  bool pdo = false;
+  bool tdo = false;
+
+  if(m_calibType == "PDOCalib"){pdo=true;}
+  if(m_calibType == "TDOCalib"){tdo=true;}
+
   calib = 0;
 //--------- add IS publication/reading when main loop operates -----
    ERS_INFO("Calibration type:"<<m_calibType);
    if(m_calibType=="PDOCalib" ||
  		 m_calibType=="TDOCalib") {
      calib = std::make_unique<PDOCalib>(m_calibType);
+     ERS_INFO("unique pointer to PDOCalib made based on the IS calib type entry = " << m_calibType);
+     if(calib!=0){ ERS_INFO("Calib pointer status is non zero");}
    }
    else{ 
       std::string msg = m_calibType + "-> calibration type is not supported or does not exist";
@@ -123,20 +137,34 @@ void nsw::NSWCalibRc::handler(){
    	 ers::error(issue);
  		 throw std::runtime_error(msg); 
    }
-
+//   std::string config = dbcon;
+//  ERS_INFO("Mark1: dbcon << "<< dbcon);
+  ERS_INFO("Mark1.5: config << "<< config);
 //    calib = std::make_unique<PDOCalib>(m_calibType);
-    calib->setup(dbcon);
-    ERS_INFO("calib wait4swrod: " << calib->wait4swrod());
+   // calib->setup(dbcon);
+    calib->setup(config);
+//    ERS_INFO("calib wait4swrod: " << calib->wait4swrod());
 
 //    std::string reset_ecr = "rc_sender -p NSWCalibRcSender -n ALTI_RCD -c USER SendShortAsyncCommand 0x2";
 //    std::string reset_bcr = "rc_sender -p NSWCalibRcSender -n ALTI_RCD -c USER SendShortAsyncCommand 0x1";
 
+  ERS_INFO("Mark2");
     std::vector<std::string> v_hex_data_sr = { "0x8" };
     std::vector<std::string> v_hex_data_ecr = { "0x2" };
     std::vector<std::string> v_hex_data_bcr = { "0x1" };
     
-    std::vector<int> tpdacs = {200,300,400};
-    int dac_counter = 0;
+    std::vector<int> tpdacs = {200,300,400,500,600,700,800,900,1000};// testing full range
+    //std::vector<int> tpdacs = {200,300,400};
+    std::vector<int> delays = {0,1,2,3,4,5,6,7};// full range of delays
+    //std::vector<int> delays = {2,4,6};
+    int i_counter = 0;
+    int n_delays = delays.size();
+    int n_dacs = tpdacs.size();
+    
+    int loop_max;
+    if(pdo){loop_max = n_dacs;}
+    if(tdo){loop_max = n_delays;}
+  ERS_INFO("Mark3");
 ///======== a small test before main loop ============
 //    alti_hold_trg();
 //    sleep(20);
@@ -154,30 +182,39 @@ void nsw::NSWCalibRc::handler(){
 //    alti_start_pat();
 
 ///===================================================
-   for(long unsigned int i_tpdac=0; i_tpdac<tpdacs.size(); i_tpdac++){
+  // for(long unsigned int i_tpdac=0; i_tpdac<tpdacs.size(); i_tpdac++){
+   for(int i_step=0; i_step<loop_max; i_step++){
 
-     alti_stop_pat();
-     ERS_INFO("NSWCalib::handler::Calibrating PDO with DAC = "<<tpdacs[dac_counter]);
+     if(i_counter==0){alti_stop_pat();}
+     if(pdo){ERS_INFO("NSWCalib::handler::Calibrating PDO with pulser DAC = "<<tpdacs[i_step]);}
+     if(tdo){ERS_INFO("NSWCalib::handler::Calibrating TDO with delay = "<<delays[i_step]*3 <<" [ns]");}
 		 
-		 publish4swrod();
-     calib->configure(tpdacs[dac_counter]);
+//		 publish4swrod();
+     if(pdo){calib->configure(tpdacs[i_step], pdo, tdo);}
+     else if(tdo){calib->configure(delays[i_step], pdo, tdo);}
+     else{
+       ERS_INFO("Something went wrong...");
+       break;
+     } 
 
      alti_send_reset(v_hex_data_sr);
 		 sleep(2);
      alti_send_reset(v_hex_data_bcr);
 		 sleep(2);
      alti_send_reset(v_hex_data_ecr);
-     int sleeptime = 15;
+     int sleeptime = 10;
      ERS_INFO("NSWCalibRc::handler::Sleeping "<<sleeptime<<" sec");
      alti_start_pat();
 
      sleep(sleeptime);
 
-     calib->unconfigure();
-     ERS_INFO("NSWCalib::handler::end of iteration nr "<<dac_counter);
-     dac_counter++;
+     alti_stop_pat();
+//     sleep(0.5);
+//     calib->unconfigure();
+     ERS_INFO("NSWCalib::handler::end of iteration nr "<<i_counter+1);
+     i_counter++;
    }
-   alti_stop_pat();
+//   alti_stop_pat();
    end_of_run = 1;
    ERS_INFO("NSWCalibRc::handler::calibrations done, pattern generator stopped");
 
@@ -192,7 +229,6 @@ void nsw::NSWCalibRc::alti_stop_pat(){
     daq::rc::CommandSender sendr(m_ipcpartition.name(), "NSWCalibRcSender");
     sendr.sendCommand(app_name, cmd);
     usleep(100e3);
-    //sleep(60);
 }
 void nsw::NSWCalibRc::alti_start_pat(){
     ERS_INFO("ALTI - started pattern generator");
@@ -202,7 +238,6 @@ void nsw::NSWCalibRc::alti_start_pat(){
     daq::rc::CommandSender sendr(m_ipcpartition.name(), "NSWCalibRcSender");
     sendr.sendCommand(app_name, cmd);
     usleep(100e3);
-    //sleep(60);
 }
 /////////////////////////////////////////////////////////////
 

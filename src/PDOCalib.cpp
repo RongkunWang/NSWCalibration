@@ -42,11 +42,11 @@ void nsw::PDOCalib::setup(std::string db){
 }
 
 //void configure(std::vector<nsw::FEBConfig> &feconfigs, int i_tpdac){
-void nsw::PDOCalib::configure(int i_tpdac){
+void nsw::PDOCalib::configure(int i_par, bool pdo, bool tdo){
 
-  send_pulsing_configs(i_tpdac);
-  ERS_INFO("Configuring"); 
-  
+  send_pulsing_configs(i_par, pdo, tdo);
+  if(pdo)ERS_INFO("Configuring test pulse amplitude"); 
+  if(tdo)ERS_INFO("Configuring test pulse delay"); 
 }
 //
 void nsw::PDOCalib::unconfigure(){
@@ -65,16 +65,19 @@ std::vector<nsw::FEBConfig> nsw::PDOCalib::ReadPulsingConfig(std::string config_
 //void nsw::PDOCalib::ReadPulsingConfig(std::string config_filename){
 
 // in header put defibnitions of :  fenames<vector of strings>, feconfigs<set of nswconfigs> 
-
-    nsw::ConfigReader reader1("json://" + config_filename);  //<----INJECT FILE FROM lxplus_input_data.json 
+    
+      ERS_INFO("reading file << " << config_filename);
+    nsw::ConfigReader reader1(config_filename);  //<----INJECT FILE FROM lxplus_input_data.json 
 
     try { 
-      auto config1 = reader1.readConfig(); 
+      auto config1 = reader1.readConfig();
+      ERS_INFO("HOBA");
     } catch (std::exception & e) { 
       std::runtime_error("Configuration file is improperly assembled");
       exit(0); 
     } 
     //--------------------------------------------------------------------------------- 
+      ERS_INFO("JOBA");
     fenames = reader1.getAllElementNames(); 
 
    // Reading configuration for the first indicated entries of FULL SET of FEBs\n"; 
@@ -88,6 +91,7 @@ std::vector<nsw::FEBConfig> nsw::PDOCalib::ReadPulsingConfig(std::string config_
        } 
     }  
 
+      ERS_INFO("NUKA");
 	  int nfebs = fenames.size();
 
 //-------------- later should be an option to choose specific febs ---------------    
@@ -106,13 +110,11 @@ std::vector<nsw::FEBConfig> nsw::PDOCalib::ReadPulsingConfig(std::string config_
     return feconfigs;
 }
 
-//void nsw::PDOCalib::send_pulsing_configs(std::vector<nsw::FEBConfig> &feconfigs, std::set<std::string> &fenames, int tpdac){
-void nsw::PDOCalib::send_pulsing_configs(int i_tpdac){
+void nsw::PDOCalib::send_pulsing_configs(int i_par, bool pdo, bool tdo){
 
   for(unsigned int thrd=0; thrd<fenames.size(); thrd++){
-//    nsw::PDOCalib * calib_ptr = new nsw::PDOCalib;
-    //conf_threads[thrd] = std::thread(&nsw::PDOCalib::setup_pulses, calib_ptr, feconfigs, thrd, tpdac);
-    conf_threads.push_back(std::thread(&nsw::PDOCalib::setup_pulses, this, thrd, i_tpdac));
+    if(pdo){conf_threads.push_back(std::thread(&nsw::PDOCalib::setup_pulses, this, thrd, i_par));}
+    if(tdo){conf_threads.push_back(std::thread(&nsw::PDOCalib::setup_pulse_delay, this, thrd, i_par));}
   }
   sleep(2);
   for(unsigned int thrd=0; thrd<fenames.size(); thrd++){
@@ -126,8 +128,6 @@ void nsw::PDOCalib::send_pulsing_configs(int i_tpdac){
 void nsw::PDOCalib::disable_pulser(){
 
   for(unsigned int thrd=0; thrd<fenames.size(); thrd++){
-//    nsw::PDOCalib * calib_ptr = new nsw::PDOCalib;
-    //conf_threads[thrd] = std::thread(&nsw::PDOCalib::setup_pulses, calib_ptr, feconfigs, thrd, tpdac);
     conf_threads.push_back(std::thread(&nsw::PDOCalib::turn_off_pulses, this, thrd));
   }
   sleep(2);
@@ -138,7 +138,6 @@ void nsw::PDOCalib::disable_pulser(){
   conf_threads.clear();
 }
 
-//void nsw::PDOCalib::setup_pulses(std::vector<nsw::FEBConfig> feconfigs, int which_feb, int tpdac_i)					
 void nsw::PDOCalib::setup_pulses(int which_feb, int i_tpdac)					
 																			
 {
@@ -156,20 +155,20 @@ void nsw::PDOCalib::setup_pulses(int which_feb, int i_tpdac)
  ///////////// setting appropriate pulser DAC for calibration //////////////////////////////////////////////////////
 		for (int vmm_id = 0; vmm_id < n_vmms; vmm_id++) 
 		{
-//			if(debug){std::cout<<"\nINFO - "<<feb.getAddress()<< " VMM_"<<vmm_id<<"\t-> setting pulser DAC at ["<<tpdac_i<<"]"<<std::endl;}
+
  //     feb.getVmm(vmm_id).setGlobalThreshold((size_t)(thdac));
 			feb.getVmm(vmm_id).setTestPulseDAC((size_t)(i_tpdac));
-//      feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_st", 1);    //lets start with all of channels
-//      feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_sm", 0);    
-      for(int channel=0; channel<64; channel++){
-        if(channel % 2 != 0){
-          feb.getVmm(vmm_id).setChannelRegisterOneChannel("channel_st", 1, channel);
-          feb.getVmm(vmm_id).setChannelRegisterOneChannel("channel_sm", 0, channel);
-        }else{
-          feb.getVmm(vmm_id).setChannelRegisterOneChannel("channel_st", 0, channel);
-          feb.getVmm(vmm_id).setChannelRegisterOneChannel("channel_sm", 1, channel);      
-        }
-       }
+      feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_st", 1);    //lets start with all of channels
+      feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_sm", 0);    
+//      for(int channel=0; channel<64; channel++){
+//        if(channel % 2 != 0){
+//          feb.getVmm(vmm_id).setChannelRegisterOneChannel("channel_st", 1, channel);
+//          feb.getVmm(vmm_id).setChannelRegisterOneChannel("channel_sm", 0, channel);
+//        }else{
+//          feb.getVmm(vmm_id).setChannelRegisterOneChannel("channel_st", 0, channel);
+//          feb.getVmm(vmm_id).setChannelRegisterOneChannel("channel_sm", 1, channel);      
+//        }
+//       }
 //			cs.sendVmmConfigSingle(feb,vmm_id);
 		}		
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -241,4 +240,85 @@ void nsw::PDOCalib::turn_off_pulses(int which_feb)
   ERS_INFO("PDOCalib::disable_pulses - Configuration sent");
 
 }
+//
+// for the TDO calibration 
+//
+void nsw::PDOCalib::setup_pulse_delay(int which_feb, int i_delay)
+{
+  nsw::ConfigSender cs;
+
+  auto feb = feconfigs.at(which_feb); 
+//--------- what board am i? ---------------------------------- 
+	auto VMMS = feb.getVmms();
+	int VmmSize = VMMS.size();
+
+  int n_vmms = VmmSize;
+//------------- tryna configure ROC ----------------------------------------------------------
+  auto & roc_analog = feb.getRocAnalog();
+//////////////// setting gain, puilse height, peak time, tac slope //////////////////////////
+  for (int vmm_id = 0; vmm_id < n_vmms; vmm_id++) 
+	{
+//			if(debug){std::cout<<"\nINFO - "<<feb.getAddress()<< " VMM_"<<vmm_id<<"\t-> pulser diabled"<<std::endl;}
+    feb.getVmm(vmm_id).setGlobalRegister("stc",0); // TAC slope (60 ns for now)
+    feb.getVmm(vmm_id).setGlobalRegister("st",3); // peak time (50 ns)
+    feb.getVmm(vmm_id).setGlobalRegister("sg",5); // gain (9 mV/fC)
+    feb.getVmm(vmm_id).setTestPulseDAC(400); 
+    feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_st", 1);    
+    feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_sm", 0);    
+	//		cs.sendVmmConfigSingle(feb,vmm_id);
+	}		
+///////////// apparently this delays only vmms 0 to 3 ///////////////////////////
+  roc_analog.setRegisterValue("reg073ePllVmm0","tp_phase_0",i_delay);
+  roc_analog.setRegisterValue("reg073ePllVmm0","tp_phase_1",i_delay);
+  roc_analog.setRegisterValue("reg074ePllVmm0","tp_phase_2",i_delay);
+  roc_analog.setRegisterValue("reg074ePllVmm0","tp_phase_3",i_delay);
+//////////// possibly the code below will delay vmms 4 to 7 ///////////////////
+  roc_analog.setRegisterValue("reg089ePllVmm1","tp_phase_0",i_delay);
+  roc_analog.setRegisterValue("reg089ePllVmm1","tp_phase_1",i_delay);
+  roc_analog.setRegisterValue("reg090ePllVmm1","tp_phase_2",i_delay);
+  roc_analog.setRegisterValue("reg090ePllVmm1","tp_phase_3",i_delay);
+
+  //  roc_analog.setRegisterValue();
+
+  //  cs.sendRocConfig(feb);
+  //-------------------------------------------------------------
+ ///////////// setting test pulse delay i nthe ROC regs...  //////////////////////////////////////////////////////
+//		for (int vmm_id = 0; vmm_id < n_vmms; vmm_id++) 
+//		{
+//
+// //     feb.getVmm(vmm_id).setGlobalThreshold((size_t)(thdac));
+//			feb.getVmm(vmm_id).setTestPulseDAC((size_t)(i_tpdac));
+////      feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_st", 1);    //lets start with all of channels
+////      feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_sm", 0);    
+//      for(int channel=0; channel<64; channel++){
+//        if(channel % 2 != 0){
+//          feb.getVmm(vmm_id).setChannelRegisterOneChannel("channel_st", 1, channel);
+//          feb.getVmm(vmm_id).setChannelRegisterOneChannel("channel_sm", 0, channel);
+//        }else{
+//          feb.getVmm(vmm_id).setChannelRegisterOneChannel("channel_st", 0, channel);
+//          feb.getVmm(vmm_id).setChannelRegisterOneChannel("channel_sm", 1, channel);      
+//        }
+//       }
+////			cs.sendVmmConfigSingle(feb,vmm_id);
+//		}		
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  cs.sendRocConfig(feb);
+
+  auto &vmms = feb.getVmms();
+  std::vector<unsigned> reset_orig;
+  
+  for(auto &vmm:vmms){
+    reset_orig.push_back(vmm.getGlobalRegister("reset"));
+    vmm.setGlobalRegister("reset",3);
+  }
+  cs.sendVmmConfig(feb);
+  size_t i=0;
+  for(auto &vmm: vmms){
+    vmm.setGlobalRegister("reset", reset_orig[i++]);
+  }
+  cs.sendVmmConfig(feb);
+  ERS_INFO("PDOCalib::setup_pulse_delay - ROC Configuration sent");
+
+}
+
 

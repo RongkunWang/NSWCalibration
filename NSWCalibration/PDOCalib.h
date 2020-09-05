@@ -47,7 +47,7 @@ namespace nsw {
 
       //void configure();
 
-      void configure(int tpdac);
+      void configure(int i_par, bool pdo, bool tdo);
 
       void unconfigure();
 
@@ -57,11 +57,13 @@ namespace nsw {
       std::vector<nsw::FEBConfig> ReadPulsingConfig(std::string db_conf);
 
       //void send_pulsing_configs(std::vector<nsw::FEBConfig> &frontend_configs, std::set<std::string> &frontend_names, int tpdac);     
-      void send_pulsing_configs(int tpdac);     
+      void send_pulsing_configs(int i_par, bool pdo, bool tdo);     
       
       void disable_pulser();     
       
       void setup_pulses(int which_feb, int i_tpdac);
+
+      void setup_pulse_delay(int which_feb, int i_delay);
 
       void turn_off_pulses(int which_feb);
 
