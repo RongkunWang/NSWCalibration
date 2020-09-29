@@ -10,6 +10,7 @@
 #include "NSWCalibration/MMTriggerCalib.h"
 #include "NSWCalibration/sTGCTriggerCalib.h"
 #include "NSWCalibration/sTGCStripsTriggerCalib.h"
+#include "NSWCalibration/SCAIDCalib.h"
 #include "NSWConfiguration/NSWConfig.h"
 
 using boost::property_tree::ptree;
@@ -140,6 +141,9 @@ void nsw::NSWCalibRc::handler() {
     calib = std::make_unique<sTGCTriggerCalib>(m_calibType);
   } else if (m_calibType=="sTGCFakeStripConnectivity") {
     calib = std::make_unique<sTGCStripsTriggerCalib>(m_calibType);
+  } else if (m_calibType == "SCAIDFetch" ||
+             m_calibType == "SCAIDTest") {
+    calib = std::make_unique<ScaIdCalib>(m_calibType);
   } else {
     std::string msg = "Unknown calibration request: " + m_calibType;
     nsw::NSWCalibIssue issue(ERS_HERE, msg);
