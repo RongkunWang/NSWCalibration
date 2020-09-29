@@ -26,6 +26,7 @@ void ScaIdCalib::setup(std::string db) {
     ers::fatal(issue);
     throw issue;
   }
+
   const auto element_names = reader.getAllElementNames();
   for (const auto& name : element_names) {
     // TPs have no SCA chips
@@ -35,21 +36,55 @@ void ScaIdCalib::setup(std::string db) {
 }
 
 void ScaIdCalib::configure() {
-  // Read SCAIDs from each board
+  fetch_sca_ids();
+  write_sca_ids("sca_ids.json");
+}
+
+void ScaIdCalib::fetch_sca_ids() {
+  // Read SCA IDs from each board
   std::unordered_map<std::string, OpcClient> clients;
   for (const auto& pair : m_boards) {
     const auto& opc_ip = pair.second.getOpcServerIp();
     if (clients.find(opc_ip) == clients.end()) {
       // Create new pairing: OPC server IP <-> OPC client (note the `emplace`)
-      clients.emplace(opc_ip, opc_ip);
+      try {
+        clients.emplace(opc_ip, opc_ip);
+      } catch (const std::exception& ex) {
+        NSWSCAIDCalibIssue issue(ERS_HERE, "Could not connect to OPC server " + pair.second.getOpcServerIp() + ": " + ex.what());
+        ers::error(issue);
+      }
     }
-    auto id = clients.at(opc_ip).readScaID(pair.second.getAddress());
-    m_ids.emplace(pair.first, id);
+    try {
+      auto id = clients.at(opc_ip).readScaID(pair.second.getAddress());
+      m_ids.emplace(pair.first, id);
+    } catch (const std::exception& ex) {
+      NSWSCAIDCalibIssue issue(ERS_HERE, "Could not read SCA ID of board at address " + pair.second.getAddress() + ": " + ex.what());
+      ers::error(issue);
+    }
   }
 }
 
-void ScaIdCalib::unconfigure() {
-  // Possibly put logic for storing IDs to disk here
+void ScaIdCalib::write_sca_ids(const std::string& filepath) const {
+  if (m_ids.empty()) {
+    NSWSCAIDCalibIssue issue(ERS_HERE, "No SCA IDs found, writing empty list to disk anyway");
+    ers::warning(issue);
+  }
+
+  boost::property_tree::ptree pt;
+  std::stringstream hex_stream;
+  // SCA IDs are 24 bits (6 hex digits) long
+  hex_stream << std::setfill('0') << std::setw(6) << std::hex;
+  for (const auto& pair : m_ids) {
+    hex_stream << "0x" << pair.second;
+    pt.put(pair.first, hex_stream.str());
+    hex_stream.str("");   // clear the stream
+  }
+  try {
+    boost::property_tree::write_json(filepath, pt);
+  } catch (const std::exception& ex) {
+    NSWSCAIDCalibIssue issue(ERS_HERE, "Could not write JSON to disk: " + std::string(ex.what()));
+    ers::error(issue);
+  }
 }
 
 } // namespace nsw
