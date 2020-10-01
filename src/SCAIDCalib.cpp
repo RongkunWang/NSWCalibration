@@ -72,13 +72,13 @@ void ScaIdCalib::write_sca_ids(const std::string& filepath) const {
 
   boost::property_tree::ptree pt;
   std::stringstream hex_stream;
-  // SCA IDs are 24 bits (6 hex digits) long
-  hex_stream << std::setfill('0') << std::setw(6) << std::hex;
   for (const auto& pair : m_ids) {
-    hex_stream << "0x" << pair.second;
+    // SCA IDs are 24 bits (6 hex digits) long
+    hex_stream << "0x" << std::setfill('0') << std::setw(8) << std::hex << pair.second;
     pt.put(pair.first, hex_stream.str());
     hex_stream.str("");   // clear the stream
   }
+
   try {
     boost::property_tree::write_json(filepath, pt);
   } catch (const std::exception& ex) {
