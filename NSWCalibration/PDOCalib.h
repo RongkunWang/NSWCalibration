@@ -45,9 +45,9 @@ namespace nsw {
 
       void setup(std::string db);
 
-      //void configure();
+      void configure(); //have to do smth about this func. name conflict...
 
-      void configure(int i_par, bool pdo, bool tdo);
+      void configure(int i_par, bool pdo, bool tdo, int chan);
 
       void unconfigure();
 
@@ -56,18 +56,15 @@ namespace nsw {
      public:
       std::vector<nsw::FEBConfig> ReadPulsingConfig(std::string db_conf);
 
-      //void send_pulsing_configs(std::vector<nsw::FEBConfig> &frontend_configs, std::set<std::string> &frontend_names, int tpdac);     
-      void send_pulsing_configs(int i_par, bool pdo, bool tdo);     
+      void send_pulsing_configs(int i_par, bool pdo, bool tdo, int pulse_this_chan);     
       
       void disable_pulser();     
       
-      void setup_pulses(int which_feb, int i_tpdac);
+      void setup_pulses(int which_feb, int i_tpdac, int pulse_this_chan);
 
       void setup_pulse_delay(int which_feb, int i_delay);
 
       void turn_off_pulses(int which_feb);
-
-     // void launch_PDO_calib();
 
      private:
       std::string m_calibType = "";
@@ -76,8 +73,6 @@ namespace nsw {
       std::set<std::string> fenames = {};
 
       std::vector<std::thread> conf_threads = {};
-      //std::vector<int> tpdacs = {200,300,400,500};
-
   
   }; //class brack
 

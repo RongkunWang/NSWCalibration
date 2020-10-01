@@ -70,7 +70,7 @@ class NSWCalibRc: public daq::rc::Controllable {
     std::future<void> handler_thread;
 		std::string calibTypeFromIS(); 
     void handler();
-		void publish4swrod();
+		void publish4swrod(int i_par);
 		void wait4swrod();
     void alti_start_pat();
     void alti_stop_pat();
@@ -78,9 +78,9 @@ class NSWCalibRc: public daq::rc::Controllable {
 
  private:
 
-//    std::string m_calibType = "PDOCalib";
     std::string m_calibType = "";
-		std::string m_calibCounter_readback = "Monitoring.NSWCalibration.swrodCalibrationKey";
+    std::string m_calibCounter = "Monitoring.NSWCalibration.triggerCalibrationKey";
+    std::string m_calibCounter_readback = "Monitoring.NSWCalibration.swrodCalibrationKey";
 		std::unique_ptr<CalibAlg> calib;
 		std::string dbcon;
 

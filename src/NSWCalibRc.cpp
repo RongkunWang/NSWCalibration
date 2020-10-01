@@ -46,7 +46,8 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
      // Announce the current calibType, and
     // publish metadata to IS (in progress)
     m_calibType = calibTypeFromIS();
-    publish4swrod();
+    int init_trgCalKey = -1;
+    publish4swrod(init_trgCalKey);
     m_NSWConfig = std::make_unique<NSWConfig>(m_simulation);
     m_NSWConfig->readConf(nswApp);
 
@@ -107,15 +108,13 @@ void nsw::NSWCalibRc::subTransition(const daq::rc::SubTransitionCmd& cmd) {
 
 void nsw::NSWCalibRc::handler(){
 
-  ERS_INFO("Starting the PDO calibration run");
-  //std::string fname = "/afs/cern.ch/user/n/nswdaq/workspace/public/vlad/vlad_calibdev/NSWCalibrationData/config_files/vs_test_conf_no_pulser_enebled.json";
+  ERS_INFO("NSWCalibration::handler::Starting the calibration run");
+
     daq::rc::OnlineServices& rcSvc = daq::rc::OnlineServices::instance();
     const daq::core::RunControlApplicationBase& rcBase = rcSvc.getApplication();
     const nsw::dal::NSWCalibApplication* nswApp = rcBase.cast<nsw::dal::NSWCalibApplication>();
     std::string config = nswApp->get_dbConnection();
  
-  ERS_INFO("Imported the Front-End Configuration");
-
   bool pdo = false;
   bool tdo = false;
 
@@ -137,9 +136,8 @@ void nsw::NSWCalibRc::handler(){
    	 ers::error(issue);
  		 throw std::runtime_error(msg); 
    }
-//   std::string config = dbcon;
-//  ERS_INFO("Mark1: dbcon << "<< dbcon);
-  ERS_INFO("Mark1.5: config << "<< config);
+
+//  ERS_INFO("Mark1.5: config << "<< config);
 //    calib = std::make_unique<PDOCalib>(m_calibType);
    // calib->setup(dbcon);
     calib->setup(config);
@@ -148,15 +146,15 @@ void nsw::NSWCalibRc::handler(){
 //    std::string reset_ecr = "rc_sender -p NSWCalibRcSender -n ALTI_RCD -c USER SendShortAsyncCommand 0x2";
 //    std::string reset_bcr = "rc_sender -p NSWCalibRcSender -n ALTI_RCD -c USER SendShortAsyncCommand 0x1";
 
-  ERS_INFO("Mark2");
     std::vector<std::string> v_hex_data_sr = { "0x8" };
     std::vector<std::string> v_hex_data_ecr = { "0x2" };
     std::vector<std::string> v_hex_data_bcr = { "0x1" };
     
-    std::vector<int> tpdacs = {200,300,400,500,600,700,800,900,1000};// testing full range
-    //std::vector<int> tpdacs = {200,300,400};
-    std::vector<int> delays = {0,1,2,3,4,5,6,7};// full range of delays
-    //std::vector<int> delays = {2,4,6};
+//    std::vector<int> tpdacs = {200,300,400,500,600,700,800,900,1000};// testing full range
+//    std::vector<int> tpdacs = {150,200,250,300,350,400,450,500};
+    std::vector<int> tpdacs = {150,200,250,300,350,400,450};
+//    std::vector<int> delays = {0,1,2,3,4,5,6,7};// full range of delays
+    std::vector<int> delays = {1,2,3,4};
     int i_counter = 0;
     int n_delays = delays.size();
     int n_dacs = tpdacs.size();
@@ -164,7 +162,6 @@ void nsw::NSWCalibRc::handler(){
     int loop_max;
     if(pdo){loop_max = n_dacs;}
     if(tdo){loop_max = n_delays;}
-  ERS_INFO("Mark3");
 ///======== a small test before main loop ============
 //    alti_hold_trg();
 //    sleep(20);
@@ -182,38 +179,53 @@ void nsw::NSWCalibRc::handler(){
 //    alti_start_pat();
 
 ///===================================================
-  // for(long unsigned int i_tpdac=0; i_tpdac<tpdacs.size(); i_tpdac++){
+
    for(int i_step=0; i_step<loop_max; i_step++){
 
-     if(i_counter==0){alti_stop_pat();}
-     if(pdo){ERS_INFO("NSWCalib::handler::Calibrating PDO with pulser DAC = "<<tpdacs[i_step]);}
-     if(tdo){ERS_INFO("NSWCalib::handler::Calibrating TDO with delay = "<<delays[i_step]*3 <<" [ns]");}
-		 
-//		 publish4swrod();
-     if(pdo){calib->configure(tpdacs[i_step], pdo, tdo);}
-     else if(tdo){calib->configure(delays[i_step], pdo, tdo);}
-     else{
-       ERS_INFO("Something went wrong...");
-       break;
-     } 
+    for(int c=0; c<64; c++){
 
-     alti_send_reset(v_hex_data_sr);
-		 sleep(2);
-     alti_send_reset(v_hex_data_bcr);
-		 sleep(2);
-     alti_send_reset(v_hex_data_ecr);
-     int sleeptime = 10;
-     ERS_INFO("NSWCalibRc::handler::Sleeping "<<sleeptime<<" sec");
-     alti_start_pat();
-
-     sleep(sleeptime);
-
-     alti_stop_pat();
-//     sleep(0.5);
-//     calib->unconfigure();
-     ERS_INFO("NSWCalib::handler::end of iteration nr "<<i_counter+1);
-     i_counter++;
-   }
+       int i_par;
+       if(i_counter==0){alti_stop_pat();}
+       if(pdo){
+         i_par = tpdacs[i_step];
+         ERS_INFO("NSWCalib::handler::Calibrating PDO with pulser DAC = "<<tpdacs[i_step]);
+       }
+       if(tdo){
+         i_par = delays[i_step];
+         ERS_INFO("NSWCalib::handler::Calibrating TDO with delay = "<<delays[i_step]*3 <<" [ns]");
+       }
+  
+    	 //publish4swrod(i_par);
+       if(pdo){calib->configure(tpdacs[i_step], pdo, tdo, c);}
+       else if(tdo){calib->configure(delays[i_step], pdo, tdo, c);}
+       else{
+         ERS_INFO("Something went wrong...");
+         break;
+       } 
+  
+    	 publish4swrod(i_par);
+   
+       alti_send_reset(v_hex_data_sr);
+  		 sleep(2);
+       alti_send_reset(v_hex_data_bcr);
+  		 sleep(2);
+       alti_send_reset(v_hex_data_ecr);
+       sleep(1);
+       //int sleeptime = 10;
+       int sleeptime = 5;
+       ERS_INFO("NSWCalibRc::handler::Recording data for [ "<<sleeptime<<" ] sec");
+       alti_start_pat();
+  
+       sleep(sleeptime);
+  
+       alti_stop_pat();
+  //     sleep(0.5);
+  //     calib->unconfigure();
+       ERS_INFO("NSWCalib::handler:: "<<c);
+       i_counter++;
+      }// channel loop end here
+   
+   }// DAC/Delay loop vector ends
 //   alti_stop_pat();
    end_of_run = 1;
    ERS_INFO("NSWCalibRc::handler::calibrations done, pattern generator stopped");
@@ -255,42 +267,56 @@ void nsw::NSWCalibRc::alti_send_reset(std::vector<std::string> hex_data){
     sleep(2);
 }
 //---------------- borrowed from master branch --------------------------
-void nsw::NSWCalibRc::publish4swrod() {
+void nsw::NSWCalibRc::publish4swrod(int i_par) {
   //
   // Commented out for now.
   // This is powerful and risky.
   //
-  // if (calib) {
-  //   is_dictionary->checkin(m_calibCounter, ISInfoInt(calib->counter()));
-  // } else {
-  //   is_dictionary->checkin(m_calibCounter, ISInfoInt(-1));
-  // }
-  // wait4swrod();
+   if (calib) {
+     //is_dictionary->checkin(m_calibCounter, ISInfoInt(calib->counter()));
+     is_dictionary->checkin(m_calibCounter, ISInfoInt(i_par));
+     ERS_INFO("Publishing following parameter to swrod plugin >>" << i_par);
+   } else {
+     is_dictionary->checkin(m_calibCounter, ISInfoInt(-1));
+     ERS_INFO("Updated triggerCalibrationKey w value [-1]");
+   }
+   sleep(2);
+   wait4swrod();
+   sleep(2);
 }
 
 void nsw::NSWCalibRc::wait4swrod() {
-  if (!calib)
-    return;
-  if (!calib->wait4swrod())
-    return;
-  ISInfoInt counter(-1);
-  ERS_INFO("calib waiting for swROD...");
-  int attempt_i = 0;
-  int attempts_max = 5;
-  while (counter.getValue() != calib->counter()) {
-    try {
-      is_dictionary->getValue(m_calibCounter_readback, counter);
-    } catch(daq::is::Exception& ex) {
-      ers::error(ex);
+  if(calib){
+    ISInfoInt trigger_par;
+    try{
+      is_dictionary->getValue(m_calibCounter, trigger_par);
+      ERS_INFO("Reading back updated triggerCalibrationKey is >> "<< trigger_par);
+    }catch(daq::is::Exception &ex){
+       ers::error(ex);
     }
-    // usleep(100e3);
-    ERS_INFO("calib waiting for swROD, attempt " << attempt_i);
-    usleep(100e3);
-    // usleep(1e6);
-    attempt_i++;
-    if (attempt_i >= attempts_max)
-      throw std::runtime_error("Waiting for swROD failed");
   }
+  if (!calib->wait4swrod())
+    return; 
+  //ISInfoInt counter(-1);
+ // ISInfoInt counter(-1);
+  //ERS_INFO("calib waiting for swROD...");
+//  int attempt_i = 0;
+//  int attempts_max = 5;
+//  //while (counter.getValue() != calib->counter()) {
+//  while (counter.getValue() != calib->counter()) {
+//    try {
+//      is_dictionary->getValue(m_calibCounter_readback, counter);
+//    } catch(daq::is::Exception& ex) {
+//      ers::error(ex);
+//    }
+//    // usleep(100e3);
+//    ERS_INFO("calib waiting for swROD, attempt " << attempt_i);
+//    usleep(100e3);
+//    // usleep(1e6);
+//    attempt_i++;
+//    if (attempt_i >= attempts_max)
+//      throw std::runtime_error("Waiting for swROD failed");
+//  }
 }
 
 std::string nsw::NSWCalibRc::calibTypeFromIS() {
