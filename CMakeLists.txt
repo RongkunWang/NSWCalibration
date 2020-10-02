@@ -22,6 +22,7 @@ tdaq_add_library(nswcalib
         src/sTGCTriggerCalib.cpp
         src/sTGCStripsTriggerCalib.cpp
         src/sTGCsFEBToRouter.cpp
+        src/sTGCPadTriggerTosFEB.cpp
         src/NSWCalibRc.cpp
     INCLUDE_DIRECTORIES PRIVATE ${OPC_GENERATED_CLIENT_SRCS}
     LINK_LIBRARIES nswconfig NSWConfig nswcalibdal
