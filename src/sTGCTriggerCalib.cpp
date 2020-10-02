@@ -59,7 +59,7 @@ void nsw::sTGCTriggerCalib::configure() {
     if (order_pfebs()) {
       auto next_addr = next_pfeb(0);
       for (auto & pfeb: m_pfebs) {
-        if (next_addr.compare(pfeb.getAddress()) == 0) {
+        if (next_addr == pfeb.getAddress()) {
           configure_vmms(pfeb, 1);
           break;
         }
@@ -97,7 +97,7 @@ void nsw::sTGCTriggerCalib::unconfigure() {
     if (order_pfebs()) {
       auto next_addr = next_pfeb(1);
       for (auto & pfeb: m_pfebs) {
-        if (next_addr.compare(pfeb.getAddress()) == 0) {
+        if (next_addr == pfeb.getAddress()) {
           configure_vmms(pfeb, 0);
           break;
         }
@@ -230,16 +230,18 @@ std::string nsw::sTGCTriggerCalib::next_pfeb(bool pop) {
   // "valid" means: exists in the config
   auto next_feb = m_pfebs_ordered.front();
   for (auto & pfeb: m_pfebs) {
-    if (next_feb.compare(pfeb.getAddress()) == 0) {
+    if (next_feb == pfeb.getAddress()) {
       if (pop)
         m_pfebs_ordered.erase(m_pfebs_ordered.begin());
       return next_feb;
     }
   }
-  // crash
-  std::string msg = next_feb + " does not exist in config. Crashing.";
+  // if youre here: that pfeb is not in the config db
+  // warn the user, then move to the next pfeb
+  std::string msg = next_feb + " does not exist in config. Skipping.";
   nsw::NSWsTGCTriggerCalibIssue issue(ERS_HERE, msg);
-  ers::error(issue);
-  throw std::runtime_error(msg);
-  return "";
+  ers::warning(issue);
+
+  m_pfebs_ordered.erase(m_pfebs_ordered.begin());
+  return next_pfeb(pop);
 }
