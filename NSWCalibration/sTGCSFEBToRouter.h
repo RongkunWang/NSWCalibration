@@ -2,7 +2,7 @@
 #define STGCSFEBTOROUTER_H_
 
 //
-// Derived class for testing Q1 sFEB to Router connection
+// Derived class for testing Q1 SFEB to Router connection
 //
 
 #include "NSWCalibration/CalibAlg.h"
@@ -11,18 +11,18 @@
 using boost::property_tree::ptree;
 
 ERS_DECLARE_ISSUE(nsw,
-                  NSWsTGCsFEBToRouterIssue,
+                  NSWsTGCSFEBToRouterIssue,
                   message,
                   ((std::string)message)
                   )
 
 namespace nsw {
 
-  class sTGCsFEBToRouter: public CalibAlg {
+  class sTGCSFEBToRouter: public CalibAlg {
 
   public:
-    sTGCsFEBToRouter(std::string calibType);
-    ~sTGCsFEBToRouter() {};
+    sTGCSFEBToRouter(std::string calibType);
+    ~sTGCSFEBToRouter() {};
     void setup(std::string db);
     void configure();
     void unconfigure();

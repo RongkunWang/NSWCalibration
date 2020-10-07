@@ -1,29 +1,29 @@
-#include "NSWCalibration/sTGCsFEBToRouter.h"
+#include "NSWCalibration/sTGCSFEBToRouter.h"
 using boost::property_tree::ptree;
 
-nsw::sTGCsFEBToRouter::sTGCsFEBToRouter(std::string calibType) {
+nsw::sTGCSFEBToRouter::sTGCSFEBToRouter(std::string calibType) {
   setCounter(-1);
   setTotal(0);
   m_calibType = calibType;
 }
 
-void nsw::sTGCsFEBToRouter::setup(std::string db) {
+void nsw::sTGCSFEBToRouter::setup(std::string db) {
   ERS_INFO("setup " << db);
 
   m_dry_run = 0;
 
   // parse calib type
-  if (m_calibType=="sTGCsFEBToRouter") {
+  if (m_calibType=="sTGCSFEBToRouter") {
     ERS_INFO("Calib type: " << m_calibType);
   } else {
     std::stringstream msg;
-    msg << "Unknown calibration request for sTGCsFEBToRouter: " << m_calibType << ". Crashing.";
+    msg << "Unknown calibration request for sTGCSFEBToRouter: " << m_calibType << ". Crashing.";
     ERS_INFO(msg.str());
     throw std::runtime_error(msg.str());
   }
 
   // make NSWConfig objects from input db
-  // can be sFEB, sFEB8, or sFEB6 :(
+  // can be SFEB, SFEB8, or SFEB6 :(
   m_routers = nsw::ConfigReader::makeObjects<nsw::RouterConfig> (db, "Router");
   for (auto feb: nsw::ConfigReader::makeObjects<nsw::FEBConfig> (db, "SFEB"))
     m_sfebs.push_back(feb);
@@ -32,10 +32,10 @@ void nsw::sTGCsFEBToRouter::setup(std::string db) {
   for (auto feb: nsw::ConfigReader::makeObjects<nsw::FEBConfig> (db, "SFEB6"))
     m_sfebs.push_back(feb);
   ERS_INFO("Found " << m_routers.size() << " Routers");
-  ERS_INFO("Found " << m_sfebs.size()   << " sFEBs");
+  ERS_INFO("Found " << m_sfebs.size()   << " SFEBs");
 
   // start dog
-  m_watchdog = std::async(std::launch::async, &nsw::sTGCsFEBToRouter::router_watchdog, this);
+  m_watchdog = std::async(std::launch::async, &nsw::sTGCSFEBToRouter::router_watchdog, this);
 
   // set number of iterations
   gather_sfebs();
@@ -45,8 +45,8 @@ void nsw::sTGCsFEBToRouter::setup(std::string db) {
   usleep(1e6);
 }
 
-void nsw::sTGCsFEBToRouter::configure() {
-  ERS_INFO("sTGCsFEBToRouter::configure " << counter());
+void nsw::sTGCSFEBToRouter::configure() {
+  ERS_INFO("sTGCSFEBToRouter::configure " << counter());
   auto name = m_sfebs_ordered.at(counter());
   for (auto & sfeb: m_sfebs)
     if (sfeb.getAddress().find(name) != std::string::npos)
@@ -55,8 +55,8 @@ void nsw::sTGCsFEBToRouter::configure() {
   usleep(5e6);
 }
 
-void nsw::sTGCsFEBToRouter::unconfigure() {
-  ERS_INFO("sTGCsFEBToRouter::unconfigure " << counter());
+void nsw::sTGCSFEBToRouter::unconfigure() {
+  ERS_INFO("sTGCSFEBToRouter::unconfigure " << counter());
   auto name = m_sfebs_ordered.at(counter());
   for (auto & sfeb: m_sfebs)
     if (sfeb.getAddress().find(name) != std::string::npos)
@@ -65,11 +65,11 @@ void nsw::sTGCsFEBToRouter::unconfigure() {
   usleep(5e6);
 }
 
-int nsw::sTGCsFEBToRouter::configure_routers() {
+int nsw::sTGCSFEBToRouter::configure_routers() {
     auto threads = std::make_unique<std::vector< std::future<int> > >();
     for (auto & router : m_routers)
         threads->push_back( std::async(std::launch::async,
-                                       &nsw::sTGCsFEBToRouter::configure_router,
+                                       &nsw::sTGCSFEBToRouter::configure_router,
                                        this,
                                        router) );
     for (auto& thread : *threads)
@@ -77,7 +77,7 @@ int nsw::sTGCsFEBToRouter::configure_routers() {
     return 0;
 }
 
-int nsw::sTGCsFEBToRouter::configure_router(const nsw::RouterConfig & router) {
+int nsw::sTGCSFEBToRouter::configure_router(const nsw::RouterConfig & router) {
     ERS_INFO("Configuring " << router.getAddress());
     auto cs = std::make_unique<nsw::ConfigSender>();
     if (!m_dry_run)
@@ -85,7 +85,7 @@ int nsw::sTGCsFEBToRouter::configure_router(const nsw::RouterConfig & router) {
     return 0;
 }
 
-int nsw::sTGCsFEBToRouter::configure_tds(const nsw::FEBConfig & feb, bool enable) {
+int nsw::sTGCSFEBToRouter::configure_tds(const nsw::FEBConfig & feb, bool enable) {
   auto cs = std::make_unique<nsw::ConfigSender>();
   auto opc_ip = feb.getOpcServerIp();
   auto sca_address = feb.getAddress();
@@ -104,9 +104,9 @@ int nsw::sTGCsFEBToRouter::configure_tds(const nsw::FEBConfig & feb, bool enable
   return 0;
 }
 
-void nsw::sTGCsFEBToRouter::gather_sfebs() {
+void nsw::sTGCSFEBToRouter::gather_sfebs() {
   std::string partition(std::getenv("TDAQ_PARTITION"));
-  ERS_INFO("Gather sFEBs: found partition " << partition);
+  ERS_INFO("Gather SFEBs: found partition " << partition);
   if (partition.find("VS") != std::string::npos) {
     // VS
     ERS_INFO("Gather sfebs: VS sfebs");
@@ -127,7 +127,7 @@ void nsw::sTGCsFEBToRouter::gather_sfebs() {
   }
 }
 
-int nsw::sTGCsFEBToRouter::router_watchdog() {
+int nsw::sTGCSFEBToRouter::router_watchdog() {
     //
     // Be forewarned: this function reads Router SCA registers.
     // Dont race elsewhere.
@@ -150,7 +150,7 @@ int nsw::sTGCsFEBToRouter::router_watchdog() {
     myfile << "Time " << strf_time() << std::endl;
     for (auto & router : m_routers)
       threads->push_back( std::async(std::launch::async,
-                                     &nsw::sTGCsFEBToRouter::router_ClkReady,
+                                     &nsw::sTGCSFEBToRouter::router_ClkReady,
                                      this,
                                      router) );
     for (size_t ir = 0; ir < m_routers.size(); ir++) {
@@ -168,7 +168,7 @@ int nsw::sTGCsFEBToRouter::router_watchdog() {
   return 0;
 }
 
-bool nsw::sTGCsFEBToRouter::router_ClkReady(const nsw::RouterConfig & router) {
+bool nsw::sTGCSFEBToRouter::router_ClkReady(const nsw::RouterConfig & router) {
   auto cs = std::make_unique<nsw::ConfigSender>();
   auto opc_ip   = router.getOpcServerIp();
   auto sca_addr = router.getAddress();
@@ -179,7 +179,7 @@ bool nsw::sTGCsFEBToRouter::router_ClkReady(const nsw::RouterConfig & router) {
   return rx_val && tx_val;
 }
 
-std::string nsw::sTGCsFEBToRouter::strf_time() {
+std::string nsw::sTGCSFEBToRouter::strf_time() {
     std::stringstream ss;
     std::string out;
     std::time_t result = std::time(nullptr);
