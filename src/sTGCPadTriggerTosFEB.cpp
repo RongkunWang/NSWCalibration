@@ -11,7 +11,7 @@ nsw::sTGCPadTriggerTosFEB::sTGCPadTriggerTosFEB(std::string calibType) {
 void nsw::sTGCPadTriggerTosFEB::setup(std::string db) {
   ERS_INFO("setup " << db);
 
-  m_dry_run = 1;
+  m_dry_run = 0;
 
   // parse calib type
   if (m_calibType=="sTGCPadTriggerTosFEB") {
@@ -45,7 +45,11 @@ void nsw::sTGCPadTriggerTosFEB::setup(std::string db) {
 
 void nsw::sTGCPadTriggerTosFEB::configure() {
   ERS_INFO("sTGCPadTriggerTosFEB::configure " << counter());
-  usleep(10e6);
+  int seconds = 600;
+  for (int second = 0; second < seconds; second++) {
+    usleep(1e6);
+    ERS_INFO("sTGCPadTriggerTosFEB::sleeping " << second+1 << " / " << seconds);
+  }
 }
 
 void nsw::sTGCPadTriggerTosFEB::unconfigure() {
@@ -85,7 +89,10 @@ int nsw::sTGCPadTriggerTosFEB::sfeb_watchdog() {
         auto name_sfeb = m_sfebs.at(is).getAddress();
         auto name_tds  = m_sfebs.at(is).getTdss().at(it).getName();
         auto val       = result.at(it);
-        myfile << name_sfeb << " " << name_tds << " 0x" << std::hex << val << std::dec << std::endl;
+
+        std::stringstream valstream;
+        valstream << std::setw(8) << std::setfill('0') << std::hex << val;
+        myfile << name_sfeb << " " << name_tds << " 0x" << valstream.str() << std::endl;
       }
     }
     threads->clear();
@@ -109,11 +116,20 @@ std::vector<uint32_t> nsw::sTGCPadTriggerTosFEB::sfeb_register15(const nsw::FEBC
     std::string full_node_name = sca_addr + "." + tds.getName()  + "." + address_to_read;
     auto size_in_bytes = tds.getTotalSize(tds_i2c_address) / 8;
     std::vector<uint8_t> dataread(size_in_bytes);
-    if (!m_dry_run)
-      dataread = cs->readI2c(opc_ip, full_node_name, size_in_bytes);
-    auto reg_str = nsw::vectorToBitString(dataread);
-    auto reg_32  = static_cast<uint32_t>(std::stoul(reg_str));
-    regs.push_back(reg_32);
+    size_t attempts = 5;
+    for (size_t attempt = 0; attempt < attempts; attempt++) {
+      try {
+        if (!m_dry_run)
+          dataread = cs->readI2c(opc_ip, full_node_name, size_in_bytes);
+        auto reg_str = nsw::vectorToBitString(dataread);
+        auto reg_32  = static_cast<uint32_t>(std::stoul(reg_str, nullptr, 2));
+        regs.push_back(reg_32);
+        break;
+      } catch (std::exception & e) {
+        ERS_INFO("Catching " << sca_addr << " on attempt " << attempt);
+      }
+    }
+
   }
   return regs;
 }
