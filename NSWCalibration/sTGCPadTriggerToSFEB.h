@@ -2,7 +2,7 @@
 #define STGCPADTRIGGERTOSFEB_H_
 
 //
-// Derived class for testing Q1 SFEB to Router connection
+// Derived class for testing Pad Trigger to SFEB connection
 //
 
 #include "NSWCalibration/CalibAlg.h"
