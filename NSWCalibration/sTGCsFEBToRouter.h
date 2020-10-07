@@ -30,6 +30,8 @@ namespace nsw {
   public:
     ptree patterns();
     int configure_tds(const nsw::FEBConfig & feb, bool enable);
+    int configure_routers();
+    int configure_router(const nsw::RouterConfig & router);
     void gather_sfebs();
     int pattern_number(std::string name);
     int router_watchdog();

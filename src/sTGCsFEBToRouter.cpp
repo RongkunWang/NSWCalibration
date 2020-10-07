@@ -10,7 +10,7 @@ nsw::sTGCsFEBToRouter::sTGCsFEBToRouter(std::string calibType) {
 void nsw::sTGCsFEBToRouter::setup(std::string db) {
   ERS_INFO("setup " << db);
 
-  m_dry_run = 1;
+  m_dry_run = 0;
 
   // parse calib type
   if (m_calibType=="sTGCsFEBToRouter") {
@@ -49,8 +49,9 @@ void nsw::sTGCsFEBToRouter::configure() {
   ERS_INFO("sTGCsFEBToRouter::configure " << counter());
   auto name = m_sfebs_ordered.at(counter());
   for (auto & sfeb: m_sfebs)
-    if (name == sfeb.getAddress())
+    if (sfeb.getAddress().find(name) != std::string::npos)
       configure_tds(sfeb, 1);
+  configure_routers();
   usleep(5e6);
 }
 
@@ -58,24 +59,47 @@ void nsw::sTGCsFEBToRouter::unconfigure() {
   ERS_INFO("sTGCsFEBToRouter::unconfigure " << counter());
   auto name = m_sfebs_ordered.at(counter());
   for (auto & sfeb: m_sfebs)
-    if (name == sfeb.getAddress())
+    if (sfeb.getAddress().find(name) != std::string::npos)
       configure_tds(sfeb, 0);
+  configure_routers();
   usleep(5e6);
+}
+
+int nsw::sTGCsFEBToRouter::configure_routers() {
+    auto threads = std::make_unique<std::vector< std::future<int> > >();
+    for (auto & router : m_routers)
+        threads->push_back( std::async(std::launch::async,
+                                       &nsw::sTGCsFEBToRouter::configure_router,
+                                       this,
+                                       router) );
+    for (auto& thread : *threads)
+        thread.get();
+    return 0;
+}
+
+int nsw::sTGCsFEBToRouter::configure_router(const nsw::RouterConfig & router) {
+    ERS_INFO("Configuring " << router.getAddress());
+    auto cs = std::make_unique<nsw::ConfigSender>();
+    if (!m_dry_run)
+        cs->sendRouterConfig(router);
+    return 0;
 }
 
 int nsw::sTGCsFEBToRouter::configure_tds(const nsw::FEBConfig & feb, bool enable) {
   auto cs = std::make_unique<nsw::ConfigSender>();
   auto opc_ip = feb.getOpcServerIp();
   auto sca_address = feb.getAddress();
+  std::string reg = "register12";
+  std::string subreg = "PRBS_e";
   for (auto tds : feb.getTdss()) {
     ERS_INFO("Configuring " << feb.getOpcServerIp()
              << " " << feb.getAddress()
              << " " << tds.getName()
              << " -> " << (enable ? "enable PRBS" : "disable PRBS")
              );
-    tds.setRegisterValue("register12", "PRBS_e", (int)(enable));
+    tds.setRegisterValue(reg, subreg, enable ? 1 : 0);
     if (!m_dry_run)
-      cs->sendI2cMasterSingle(opc_ip, sca_address, tds, "register12");
+      cs->sendI2cMasterSingle(opc_ip, sca_address, tds, reg);
   }
   return 0;
 }
@@ -86,20 +110,20 @@ void nsw::sTGCsFEBToRouter::gather_sfebs() {
   if (partition.find("VS") != std::string::npos) {
     // VS
     ERS_INFO("Gather sfebs: VS sfebs");
-    m_sfebs_ordered.push_back("SFEB_L1Q1_IPL");
-    m_sfebs_ordered.push_back("SFEB_L2Q1_IPR");
-    m_sfebs_ordered.push_back("SFEB_L3Q1_IPL");
-    m_sfebs_ordered.push_back("SFEB_L4Q1_IPR");
+    m_sfebs_ordered.push_back("L1Q1_IP");
+    m_sfebs_ordered.push_back("L2Q1_IP");
+    m_sfebs_ordered.push_back("L3Q1_IP");
+    m_sfebs_ordered.push_back("L4Q1_IP");
   } else {
     // 191
-    m_sfebs_ordered.push_back("SFEB_L1Q1_IPL");
-    m_sfebs_ordered.push_back("SFEB_L2Q1_IPR");
-    m_sfebs_ordered.push_back("SFEB_L3Q1_IPL");
-    m_sfebs_ordered.push_back("SFEB_L4Q1_IPR");
-    m_sfebs_ordered.push_back("SFEB_L1Q1_HOL");
-    m_sfebs_ordered.push_back("SFEB_L2Q1_HOR");
-    m_sfebs_ordered.push_back("SFEB_L3Q1_HOL");
-    m_sfebs_ordered.push_back("SFEB_L4Q1_HOR");
+    m_sfebs_ordered.push_back("L1Q1_IP");
+    m_sfebs_ordered.push_back("L2Q1_IP");
+    m_sfebs_ordered.push_back("L3Q1_IP");
+    m_sfebs_ordered.push_back("L4Q1_IP");
+    m_sfebs_ordered.push_back("L1Q1_HO");
+    m_sfebs_ordered.push_back("L2Q1_HO");
+    m_sfebs_ordered.push_back("L3Q1_HO");
+    m_sfebs_ordered.push_back("L4Q1_HO");
   }
 }
 
