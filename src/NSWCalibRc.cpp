@@ -12,7 +12,6 @@
 #include "NSWCalibration/sTGCStripsTriggerCalib.h"
 #include "NSWCalibration/sTGCSFEBToRouter.h"
 #include "NSWCalibration/sTGCPadTriggerToSFEB.h"
-#include "NSWCalibration/ROCCalib.h"
 #include "NSWConfiguration/NSWConfig.h"
 
 using boost::property_tree::ptree;
@@ -147,8 +146,6 @@ void nsw::NSWCalibRc::handler() {
     calib = std::make_unique<sTGCPadTriggerToSFEB>(m_calibType);
   } else if (m_calibType=="sTGCFakeStripConnectivity") {
     calib = std::make_unique<sTGCStripsTriggerCalib>(m_calibType);
-  } else if (m_calibType=="ROCPhase") {
-    calib = std::make_unique<ROCCalib>(m_calibType);
   } else {
     std::string msg = "Unknown calibration request: " + m_calibType;
     nsw::NSWCalibIssue issue(ERS_HERE, msg);
