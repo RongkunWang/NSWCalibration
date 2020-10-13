@@ -62,5 +62,11 @@ tdaq_add_executable(NSWCalibRc_main app/NSWCalibRc_main.cpp src/NSWCalibRc.cpp
         tdaq-common::ers Boost::program_options nswcalibdal nswconfig
 )
 
+tdaq_add_executable(calibrate_clock_phase app/calibrate_clock_phase.cpp
+    LINK_LIBRARIES nswcalib nswconfig
+        tdaq-common::ers Boost::program_options
+        tdaq::AltiModule
+)
+
 tdaq_add_schema(schema/NSWCalib.schema.xml)
 
