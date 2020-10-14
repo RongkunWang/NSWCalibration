@@ -48,6 +48,7 @@ namespace nsw {
     bool m_tracks = 0;
     bool m_noise = 0;
     bool m_latency = 0;
+    bool m_staircase = 0;
     bool m_dry_run = 0;
     bool m_reset_vmm = 0;
     ptree m_patterns;

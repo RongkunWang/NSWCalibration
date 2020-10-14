@@ -22,30 +22,42 @@ void nsw::MMTriggerCalib::setup(std::string db) {
     m_tracks       = false;
     m_noise        = false;
     m_latency      = false;
+    m_staircase    = false;
   } else if (m_calibType=="MMTrackPulserTest") {
     m_phases = {-1};
     m_connectivity = false;
     m_tracks       = true;
     m_noise        = false;
     m_latency      = false;
+    m_staircase    = false;
   } else if (m_calibType=="MMCableNoise") {
     m_phases = {-1};
     m_connectivity = false;
     m_tracks       = false;
     m_noise        = true;
     m_latency      = false;
+    m_staircase    = false;
   } else if (m_calibType=="MMARTPhase") {
     m_phases = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
     m_connectivity = true;
     m_tracks       = false;
     m_noise        = false;
     m_latency      = false;
+    m_staircase    = false;
   } else if (m_calibType=="MML1ALatency") {
     m_phases = {-1};
     m_connectivity = false;
     m_tracks       = false;
     m_noise        = false;
     m_latency      = true;
+    m_staircase    = false;
+  } else if (m_calibType=="MMStaircase") {
+    m_phases = {-1};
+    m_connectivity = false;
+    m_tracks       = false;
+    m_noise        = false;
+    m_latency      = false;
+    m_staircase    = true;
   } else {
     throw std::runtime_error("Unknown calibration request. Can't set up MMTriggerCalib: " + m_calibType);
   }
@@ -55,7 +67,7 @@ void nsw::MMTriggerCalib::setup(std::string db) {
   setTotal((int)(m_patterns.size()));
   setToggle(1);
   setWait4swROD(0);
-  if (m_latency)
+  if (m_latency || m_staircase)
     setToggle(0);
 
   m_febs   = make_objects<nsw::FEBConfig> (db, "MMFE8");
@@ -95,7 +107,7 @@ void nsw::MMTriggerCalib::configure() {
     configure_tps(tr);
 
     // record some data?
-    if (m_latency)
+    if (m_latency || m_staircase)
       sleep(5);
   }
 
@@ -136,11 +148,11 @@ int nsw::MMTriggerCalib::configure_febs_from_ptree(ptree tr, bool unmask) {
   //
   auto phase = tr.get<int>("art_input_phase");
   if (unmask) {
-    if (phase != m_phases.front()) {
+    if (m_phases.size() > 0 && phase != m_phases.front()) {
       return 0;
     }
   } else {
-    if (phase != m_phases.back()) {
+    if (m_phases.size() > 0 && phase != m_phases.back()) {
       return 0;
     }
   }
@@ -167,17 +179,21 @@ int nsw::MMTriggerCalib::configure_febs_from_ptree(ptree tr, bool unmask) {
 }
 
 int nsw::MMTriggerCalib::configure_addcs_from_ptree(ptree tr) {
+  std::string name = tr.count("addc") ? tr.get<std::string>("addc") : "";
+  if (name != "")
+    ERS_INFO("Configuring " << name);
   auto phase = tr.get<int>("art_input_phase");
   if (phase != -1) {
-    if (phase == m_phases.front())
+    if (m_phases.size() > 0 && phase == m_phases.front())
       std::cout << "ART phase: " << std::endl;
     std::cout << std::hex << phase << std::dec << std::flush;
-    if (phase == m_phases.back())
+    if (m_phases.size() > 0 && phase == m_phases.back())
       std::cout << std::endl;
     for (auto & addc : m_addcs)
-      m_threads->push_back(std::async(std::launch::async,
-                                      &nsw::MMTriggerCalib::configure_art_input_phase, this,
-                                      addc, phase));
+      if (name == "" || addc.getAddress() == name)
+        m_threads->push_back(std::async(std::launch::async,
+                                        &nsw::MMTriggerCalib::configure_art_input_phase, this,
+                                        addc, phase));
     wait_until_done();
   }
   return 0;
@@ -257,6 +273,12 @@ int nsw::MMTriggerCalib::configure_vmms(nsw::FEBConfig feb, ptree febpatt, bool 
 
 int nsw::MMTriggerCalib::configure_art_input_phase(nsw::ADDCConfig addc, uint phase) {
   auto cs = std::make_unique<nsw::ConfigSender>();
+  if (m_staircase) {
+    ERS_LOG("Writing ADDC config: " << addc.getAddress());
+    if (!m_dry_run)
+      cs->sendAddcConfig(addc);
+    return 0;
+  }
   if (phase > std::pow(2, 4))
     throw std::runtime_error("Gave bad phase to configure_art_input_phase: " + std::to_string(phase));
   size_t art_size = 2;
@@ -268,6 +290,7 @@ int nsw::MMTriggerCalib::configure_art_input_phase(nsw::ADDCConfig addc, uint ph
   //           << std::hex << (uint)(this_phase) << std::dec << std::endl;
   for (auto art : addc.getARTs()) {
     auto name = sca_addr + "." + art.getName() + "Ps" + "." + art.getName() + "Ps";
+    ERS_LOG("Writing ART phase " << name << ": 0x" << std::hex << phase);
     for (auto reg : { 6,  7,  8,  9,
           21, 22, 23, 24,
           36, 37, 38, 39,
@@ -297,6 +320,40 @@ ptree nsw::MMTriggerCalib::patterns() {
       ptree top_patt;
       top_patt.put("tp_latency", -1);
       top_patt.put("art_input_phase", -1);
+      top_patt.add_child("febpattern_" + std::to_string(ifebpatt), feb_patt);
+      patts.add_child("pattern_" + std::to_string(ipatts), top_patt);
+      ipatts++;
+      ifebpatt++;
+    }
+  } else if (m_staircase) {
+    //
+    // staircase loop: reconfigure ADDCs in the order expected by TP.
+    //                 checks for fiber- and bundle-swapping.
+    //
+    std::vector<std::string> ordered_addcs = {
+      "ADDC_L1P6_IPR",
+      "ADDC_L1P3_IPL",
+      "ADDC_L1P3_IPR",
+      "ADDC_L1P6_IPL",
+      "ADDC_L4P6_IPR",
+      "ADDC_L4P3_IPL",
+      "ADDC_L4P3_IPR",
+      "ADDC_L4P6_IPL",
+      "ADDC_L4P6_HOR",
+      "ADDC_L4P3_HOL",
+      "ADDC_L4P3_HOR",
+      "ADDC_L4P6_HOL",
+      "ADDC_L1P6_HOR",
+      "ADDC_L1P3_HOL",
+      "ADDC_L1P3_HOR",
+      "ADDC_L1P6_HOL",
+    };
+    for (auto & addc: ordered_addcs) {
+      ptree feb_patt;
+      ptree top_patt;
+      top_patt.put("addc", addc);
+      top_patt.put("tp_latency", -1);
+      top_patt.put("art_input_phase", 0xf);
       top_patt.add_child("febpattern_" + std::to_string(ifebpatt), feb_patt);
       patts.add_child("pattern_" + std::to_string(ipatts), top_patt);
       ipatts++;
