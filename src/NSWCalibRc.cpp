@@ -11,6 +11,7 @@
 #include "NSWCalibration/sTGCTriggerCalib.h"
 #include "NSWCalibration/sTGCStripsTriggerCalib.h"
 #include "NSWCalibration/sTGCSFEBToRouter.h"
+#include "NSWCalibration/sTGCRouterToTP.h"
 #include "NSWCalibration/sTGCPadTriggerToSFEB.h"
 #include "NSWConfiguration/NSWConfig.h"
 
@@ -143,6 +144,8 @@ void nsw::NSWCalibRc::handler() {
     calib = std::make_unique<sTGCTriggerCalib>(m_calibType);
   } else if (m_calibType=="sTGCSFEBToRouter") {
     calib = std::make_unique<sTGCSFEBToRouter>(m_calibType);
+  } else if (m_calibType=="sTGCRouterToTP") {
+    calib = std::make_unique<sTGCRouterToTP>(m_calibType);
   } else if (m_calibType=="sTGCPadTriggerToSFEB") {
     calib = std::make_unique<sTGCPadTriggerToSFEB>(m_calibType);
   } else if (m_calibType=="sTGCFakeStripConnectivity") {
