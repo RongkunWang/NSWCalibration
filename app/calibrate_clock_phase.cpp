@@ -269,10 +269,6 @@ using ValueMap = std::map<std::string, std::map<std::string, std::vector<std::st
         }
     }
 
-    // TODO: delete me
-    //std::cout << i << '\n';
-    //boost::property_tree::write_json(std::cout, config);
-
     return nsw::FEBConfig{config};
 }
 
@@ -317,10 +313,10 @@ void printResult(const std::array<uint8_t, 8>& t_result)
         
         // Check registers (https://espace.cern.ch/ATLAS-NSW-ELX/_layouts/15/WopiFrame.aspx?sourcedoc=/ATLAS-NSW-ELX/Shared%20Documents/ROC/ROC_Reg_digital_analog_combined_annotated.xlsx&action=default)
         const auto fifo_bit{0b0001'0000};
-        const auto coherency_bit{0b0001'0000};
-        const auto decoder_bit{0b0001'0000};
-        const auto misalignment_bit{0b0001'0000};
-        const auto alignment_bit{0b0001'0000};
+        const auto coherency_bit{0b0000'1000};
+        const auto decoder_bit{0b0000'0100};
+        const auto misalignment_bit{0b000'0010};
+        const auto alignment_bit{0b0000'0001};
         if (val & fifo_bit)
         {
             std::cout << "FIFO full error, ";
@@ -377,7 +373,7 @@ void run(const Args& args)
             // check the result
             const auto result = checkVmmCaptureRegisters(adaptedConfig);
 
-            // print TODO: make this nice
+            // print
             printResult(result);
         }
     }
