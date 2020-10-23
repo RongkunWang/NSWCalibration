@@ -5,6 +5,7 @@
 #include <exception>
 #include <chrono>
 #include <thread>
+#include <fstream>
 
 #include <boost/program_options.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -34,6 +35,15 @@ struct Args
     //const std::string valuesFilename{""};
     const Mode mode{Mode::none};
     const bool help{false};
+};
+
+
+// struct holding best settings
+struct Settings
+{
+    std::string ePllPhase40MHz{""};
+    std::string ePllPhase160MHz_3_0{""};
+    std::string ePllPhase160MHz_4{""};
 };
 
 
@@ -145,6 +155,7 @@ using ValueMap = std::map<std::string, std::map<std::string, std::vector<std::st
             // copy first half into second half
             std::copy(vec.begin(), middle, middle);
 
+            //return std::vector<std::string>{"124"};
             return vec;
         }();
 
@@ -157,6 +168,7 @@ using ValueMap = std::map<std::string, std::map<std::string, std::vector<std::st
             std::generate(vec.begin(), middle, [] () { return "0"; });
             std::generate(middle, vec.end(), [] () { return "1"; });
 
+            //return std::vector<std::string>{"1"};
             return vec;
         }();
 
@@ -174,6 +186,7 @@ using ValueMap = std::map<std::string, std::map<std::string, std::vector<std::st
             // copy first half into second half
             std::copy(vec.begin(), middle, middle);
 
+            //return std::vector<std::string>{"12"};
             return vec;
         }();
 
@@ -205,6 +218,11 @@ using ValueMap = std::map<std::string, std::map<std::string, std::vector<std::st
         // TODO: Adapt this???
         for (const auto& name : t_names)
         {
+            std::cout << name << std::endl;
+            if (name == "MMFE8_0000")
+            {
+                std::cout << "GOOD" << std::endl;
+            }
             try
             {
                 if (nsw::getElementType(name) == "MMFE8")
@@ -223,6 +241,7 @@ using ValueMap = std::map<std::string, std::map<std::string, std::vector<std::st
             {
                 std::cout << "WARNING! Skipping FE " << name
                           << " - Problem constructing configuration due to : " << e.what() << '\n';
+                throw;
             }
         }
         return feb_configs;
@@ -273,43 +292,77 @@ using ValueMap = std::map<std::string, std::map<std::string, std::vector<std::st
 }
 
 
-void configure(const nsw::FEBConfig& t_config)
+void configure(nsw::FEBConfig t_config)
 {
     nsw::ConfigSender configSender;
-    configSender.sendRocConfig(t_config);
+    t_config.dump();
+    configSender.sendConfig(t_config);
+    //configSender.sendRocConfig(t_config);
+
+    const bool m_resetvmm{false};
+    if (m_resetvmm) {
+        std::vector<unsigned> reset_ori;
+        for (auto& vmm : t_config.getVmms()) {
+            reset_ori.push_back(vmm.getGlobalRegister("reset"));  // Set reset bits to 1
+            vmm.setGlobalRegister("reset", 3);  // Set reset bits to 1
+        }
+        configSender.sendVmmConfig(t_config);
+
+        size_t i = 0;
+        for (auto& vmm : t_config.getVmms()) {
+            vmm.setGlobalRegister("reset", reset_ori[i++]);  // Set reset bits to original
+        }
+        configSender.sendVmmConfig(t_config);
+    }
 }
 
 
-[[nodiscard]] std::array<uint8_t, 8> checkVmmCaptureRegisters(const nsw::FEBConfig& t_config)
+[[nodiscard]] std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>> checkVmmCaptureRegisters(const nsw::FEBConfig& t_config)
 {
     std::array<uint8_t, 8> result;
+    std::array<uint8_t, 8> resultParity;
     const auto opcIp = t_config.getOpcServerIp();
     // TODO: magic numbers
-    const int vmmCaptureAddressInitial = 32; 
+    const int vmmCaptureAddressInitial = 32;
+    const int vmmParityCounterAddressInitial = 45;
     nsw::ConfigSender configSender;
-    for (int vmmId = 0; vmmId <= 7; vmmId++)
+    for (int dummy = 0; dummy < 2; dummy++)
     {
-        // see NSWConfiguration/app/vmm_capture_status.cpp
-        const auto vmmCaptureStatus = configSender.readBackRoc(opcIp,
-                                                               t_config.getAddress() + ".gpio.bitBanger",
-                                                               17, // scl line
-                                                               18, // sda line
-                                                               static_cast<uint8_t>(vmmCaptureAddressInitial + vmmId), // reg number
-                                                               2); // delay
-        result[vmmId] = vmmCaptureStatus;
+        for (int vmmId = 0; vmmId <= 7; vmmId++)
+        {
+            // see NSWConfiguration/app/vmm_capture_status.cpp
+            const auto vmmCaptureStatus = configSender.readBackRoc(opcIp,
+                                                                   t_config.getAddress() + ".gpio.bitBanger",
+                                                                   17, // scl line
+                                                                   18, // sda line
+                                                                   static_cast<uint8_t>(vmmCaptureAddressInitial + vmmId), // reg number
+                                                                   2); // delay
+            result[vmmId] = vmmCaptureStatus;
+
+            const auto parityCounter = configSender.readBackRoc(opcIp,
+                                                                t_config.getAddress() + ".gpio.bitBanger",
+                                                                17, // scl line
+                                                                18, // sda line
+                                                                static_cast<uint8_t>(vmmParityCounterAddressInitial + vmmId), // reg number
+                                                                2); // delay
+            resultParity[vmmId] = parityCounter;
+        }
     }
 
-    return result;
+    return {result, resultParity};
 }
 
 
-void printResult(const std::array<uint8_t, 8>& t_result)
+void printResult(const std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>& t_result, int i)
 {
-    int counter = 0;
-    const int vmmCaptureAddressInitial = 32; 
-    for (const auto& val : t_result)
+    std::ofstream outfile;
+    outfile.open("log_myreadout.txt", std::ios_base::app);
+    outfile << "Iteration: " << i << '\n';
+    const auto status = t_result.first;
+    const auto parity = t_result.second;
+    for (int vmmId=0; vmmId < status.size(); vmmId++)
     {
-        std::cout << "Register " << vmmCaptureAddressInitial + counter++ << " : " << val << " (";
+        outfile << "VMM Status/Parity" << vmmId << " : " << unsigned(status[vmmId]) << '/' << unsigned(parity[vmmId]) << " (";
         
         // Check registers (https://espace.cern.ch/ATLAS-NSW-ELX/_layouts/15/WopiFrame.aspx?sourcedoc=/ATLAS-NSW-ELX/Shared%20Documents/ROC/ROC_Reg_digital_analog_combined_annotated.xlsx&action=default)
         const auto fifo_bit{0b0001'0000};
@@ -317,29 +370,101 @@ void printResult(const std::array<uint8_t, 8>& t_result)
         const auto decoder_bit{0b0000'0100};
         const auto misalignment_bit{0b000'0010};
         const auto alignment_bit{0b0000'0001};
-        if (val & fifo_bit)
+        if (status[vmmId] & fifo_bit)
         {
-            std::cout << "FIFO full error, ";
+            outfile << "FIFO full error, ";
         }
-        if (val & coherency_bit)
+        if (status[vmmId] & coherency_bit)
         {
-            std::cout << "Coherency error, ";
+            outfile << "Coherency error, ";
         }
-        if (val & decoder_bit)
+        if (status[vmmId] & decoder_bit)
         {
-            std::cout << "Decoder error, ";
+            outfile << "Decoder error, ";
         }
-        if (val & misalignment_bit)
+        if (status[vmmId] & misalignment_bit)
         {
-            std::cout << "Misalignment error, ";
+            outfile << "Misalignment error, ";
         }
-        if (not (val & alignment_bit))
+        if (not (status[vmmId] & alignment_bit))
         {
-            std::cout << "VMM not aligned";
+            outfile << "VMM not aligned, ";
         }
-        std::cout << ")\n";
+        if (parity[vmmId] > 0)
+        {
+            outfile << "Parity counter error = " << unsigned(parity[vmmId]);
+        }
+        outfile << ")\n";
     }
-    std::cout << '\n';
+    outfile << '\n';
+    outfile.close();
+}
+
+
+int analyzeResults(const std::vector<std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>>& t_results)
+{
+    std::vector<bool> testResults;
+    testResults.reserve(t_results.size());
+    std::transform(std::begin(t_results), std::end(t_results), std::back_inserter(testResults),
+        [] (const std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>& t_result)
+        {
+            const auto status{t_result.first};
+            const auto parity{t_result.second};
+            const auto statusOk = std::all_of(std::begin(status), std::end(status),
+                [noError = 0b0000'0001] (const auto t_val) { return t_val & noError; });
+            const auto parityOk = std::all_of(std::begin(parity), std::end(parity),
+                [] (const auto t_val) { return t_val == 0; });
+            return statusOk and parityOk;
+        }
+    );
+
+    const auto index = std::distance(std::begin(testResults), std::find_if(std::begin(testResults), std::end(testResults),
+        [firstElement = testResults.at(0)] (const bool val)
+        {
+            return val != firstElement;
+        }
+    ));
+
+    for (const auto& el : testResults)
+    {
+        std::cout << el << " ";
+    }
+    std::cout << std::endl;
+
+    // wrap around....
+    std::rotate(std::begin(testResults), std::begin(testResults) + index, std::end(testResults));
+
+    int counterGood = 0;
+    int maxCounterGood = 0;
+    int endGoodRegion = 0;
+    for (std::size_t i=0; i<testResults.size(); i++)
+    {
+        const auto& testResult = testResults[i];
+        if (testResult)
+        {
+            counterGood++;
+        }
+        if (not testResult or i == testResults.size() - 1)
+        {
+            if (counterGood > maxCounterGood)
+            {
+                maxCounterGood = counterGood;
+                endGoodRegion = i;
+            }
+            counterGood = 0;
+        }
+    }
+
+    // This definetely does not need any explanantion
+    return (endGoodRegion - maxCounterGood / 2 + index) % testResults.size();
+}
+
+
+Settings getBestSettings(const ValueMap& t_inputValues, const int t_bestIteration)
+{
+    return Settings{t_inputValues.at("reg115").at("ePllPhase40MHz_0").at(t_bestIteration),
+                    t_inputValues.at("reg118").at("ePllPhase160MHz_0[3:0]").at(t_bestIteration),
+                    t_inputValues.at("reg115").at("ePllPhase160MHz_0[4]").at(t_bestIteration)};
 }
 
 
@@ -349,9 +474,15 @@ void run(const Args& args)
     // const auto inputVals = parseInputVals(args.valuesFilename);
     const auto inputVals = getInputVals(args.mode);
 
+    // Ouput stream for result
+
     // loop over all boards
+    int debug_board_number = 0;
+
     for (const auto& config : splitConfigs(args.configFile, args.names))
     {
+        std::vector<std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>> allResults;
+        std::cout << "WORKING ON BORD NUMBER " << debug_board_number++ << std::endl;
         // iterate through settings (vector in map of map)
         for (std::size_t counter=0; counter<inputVals.begin()->second.begin()->second.size(); counter++)
         {
@@ -370,12 +501,23 @@ void run(const Args& args)
             // wait for one second
             std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
+            //readVMMROC_Status(adaptedConfig, counter);
             // check the result
             const auto result = checkVmmCaptureRegisters(adaptedConfig);
+            allResults.push_back(result);
 
             // print
-            printResult(result);
+            printResult(result, counter);
         }
+        const auto bestIteration = analyzeResults(allResults);
+        const auto bestSettings = getBestSettings(inputVals, bestIteration);
+        std::cout << "Best values (iteration) " << bestIteration << '\n'
+                  << "\t40MHz: " << bestSettings.ePllPhase40MHz << '\n'
+                  << "\t160MHz[3:0]: " << bestSettings.ePllPhase160MHz_3_0 << '\n'
+                  << "\t160MHz[4]: " << bestSettings.ePllPhase160MHz_4 << '\n';
+        const auto adaptedConfig = adaptConfig(config, inputVals, bestIteration);
+        configure(adaptedConfig);
+        break;
     }
 }
 
