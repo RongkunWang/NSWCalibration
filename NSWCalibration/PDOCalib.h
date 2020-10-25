@@ -47,7 +47,7 @@ namespace nsw {
 
       void configure(); //have to do smth about this func. name conflict...
 
-      void configure(int i_par, bool pdo, bool tdo, int chan);
+      void configure(int i_par, bool pdo, bool tdo, int chan, bool all_chan);
 
       void unconfigure();
 
@@ -56,13 +56,14 @@ namespace nsw {
      public:
       std::vector<nsw::FEBConfig> ReadPulsingConfig(std::string db_conf);
 
-      void send_pulsing_configs(int i_par, bool pdo, bool tdo, int pulse_this_chan);     
+      void send_pulsing_configs(int i_par, bool pdo, bool tdo, int pulse_this_chan, bool all_chan);     
       
       void disable_pulser();     
       
-      void setup_pulses(int which_feb, int i_tpdac, int pulse_this_chan);
+      void setup_pulses(int which_feb, int i_tpdac, int pulse_this_chan, bool all_chan);
 
-      void setup_pulse_delay(int which_feb, int i_delay);
+      //void setup_pulse_delay(int which_feb, int i_delay);
+      void setup_pulse_delay(int which_feb, int i_delay, int pulse_this_chan, bool all_chan);
 
       void turn_off_pulses(int which_feb);
 

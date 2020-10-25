@@ -48,6 +48,7 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     m_calibType = calibTypeFromIS();
     int init_trgCalKey = -1;
     publish4swrod(init_trgCalKey);
+    sleep(5);
     m_NSWConfig = std::make_unique<NSWConfig>(m_simulation);
     m_NSWConfig->readConf(nswApp);
 
@@ -117,15 +118,40 @@ void nsw::NSWCalibRc::handler(){
  
   bool pdo = false;
   bool tdo = false;
+  bool all_chan = true;
+  int Nchan = 1;
 
-  if(m_calibType == "PDOCalib"){pdo=true;}
-  if(m_calibType == "TDOCalib"){tdo=true;}
+  if(m_calibType == "PDOCalib"){
+    pdo=true;
+    //tdo=false;
+    //Nchan=1;
+  }
+  if(m_calibType == "PDOCalibSingleChan"){
+    pdo=true;
+    //tdo=false;
+    Nchan=64;
+    all_chan=false;
+  }
+  if(m_calibType == "TDOCalib"){
+    tdo=true;
+    //pdo=false;
+   // Nchan=1;
+  }
+  if(m_calibType == "TDOCalibSingleChan"){
+    tdo=true;
+    //pdo=false;
+    Nchan=64;
+    all_chan=false;
+  }
 
   calib = 0;
 //--------- add IS publication/reading when main loop operates -----
    ERS_INFO("Calibration type:"<<m_calibType);
    if(m_calibType=="PDOCalib" ||
- 		 m_calibType=="TDOCalib") {
+ 		 m_calibType=="TDOCalib" || 
+ 		 m_calibType=="PDOCalibSingleChan" || 
+ 		 m_calibType=="TDOCalibSingleChan") 
+   {
      calib = std::make_unique<PDOCalib>(m_calibType);
      ERS_INFO("unique pointer to PDOCalib made based on the IS calib type entry = " << m_calibType);
      if(calib!=0){ ERS_INFO("Calib pointer status is non zero");}
@@ -137,99 +163,131 @@ void nsw::NSWCalibRc::handler(){
  		 throw std::runtime_error(msg); 
    }
 
-//  ERS_INFO("Mark1.5: config << "<< config);
-//    calib = std::make_unique<PDOCalib>(m_calibType);
-   // calib->setup(dbcon);
-    calib->setup(config);
-//    ERS_INFO("calib wait4swrod: " << calib->wait4swrod());
-
-//    std::string reset_ecr = "rc_sender -p NSWCalibRcSender -n ALTI_RCD -c USER SendShortAsyncCommand 0x2";
-//    std::string reset_bcr = "rc_sender -p NSWCalibRcSender -n ALTI_RCD -c USER SendShortAsyncCommand 0x1";
-
+   try{
+      calib->setup(config);
+   }catch(std::exception &ex){
+      nsw::NSWCalibIssue issue(ERS_HERE, ex.what());
+   	  ers::error(issue);
+ 		  throw std::runtime_error(ex.what()); 
+   } 
+ 
     std::vector<std::string> v_hex_data_sr = { "0x8" };
     std::vector<std::string> v_hex_data_ecr = { "0x2" };
     std::vector<std::string> v_hex_data_bcr = { "0x1" };
     
 //    std::vector<int> tpdacs = {200,300,400,500,600,700,800,900,1000};// testing full range
-//    std::vector<int> tpdacs = {150,200,250,300,350,400,450,500};
-    std::vector<int> tpdacs = {150,200,250,300,350,400,450};
+    std::vector<int> tpdacs = {200,300,400,500};
 //    std::vector<int> delays = {0,1,2,3,4,5,6,7};// full range of delays
-    std::vector<int> delays = {1,2,3,4};
-    int i_counter = 0;
+    std::vector<int> delays = {0,1,2,3,4};
+//    int i_counter = 0;
+
     int n_delays = delays.size();
     int n_dacs = tpdacs.size();
     
     int loop_max;
     if(pdo){loop_max = n_dacs;}
     if(tdo){loop_max = n_delays;}
-///======== a small test before main loop ============
-//    alti_hold_trg();
-//    sleep(20);
-//
-//    ERS_INFO("Trying to stop pattern generator");
-//    alti_stop_pat();
-//
-//    alti_send_reset(v_hex_data_sr);
-//    sleep(2);
-//    alti_send_reset(v_hex_data_bcr);
-//    sleep(2);
-//    alti_send_reset(v_hex_data_ecr);
-//    sleep(2);
-//
-//    alti_start_pat();
-
 ///===================================================
 
-   for(int i_step=0; i_step<loop_max; i_step++){
-
-    for(int c=0; c<64; c++){
-
-       int i_par;
-       if(i_counter==0){alti_stop_pat();}
-       if(pdo){
-         i_par = tpdacs[i_step];
-         ERS_INFO("NSWCalib::handler::Calibrating PDO with pulser DAC = "<<tpdacs[i_step]);
-       }
-       if(tdo){
-         i_par = delays[i_step];
-         ERS_INFO("NSWCalib::handler::Calibrating TDO with delay = "<<delays[i_step]*3 <<" [ns]");
-       }
-  
-    	 //publish4swrod(i_par);
-       if(pdo){calib->configure(tpdacs[i_step], pdo, tdo, c);}
-       else if(tdo){calib->configure(delays[i_step], pdo, tdo, c);}
-       else{
-         ERS_INFO("Something went wrong...");
-         break;
-       } 
-  
-    	 publish4swrod(i_par);
-   
+    sleep(15);
+    alti_stop_pat();
+//    chan=0;
+    sleep(5);
+    ERS_INFO("Setting 6ns delay");
+  	publish4swrod(2);
+    sleep(5);
+    calib->configure(2, pdo, tdo, Nchan, all_chan);
        alti_send_reset(v_hex_data_sr);
-  		 sleep(2);
        alti_send_reset(v_hex_data_bcr);
-  		 sleep(2);
        alti_send_reset(v_hex_data_ecr);
-       sleep(1);
-       //int sleeptime = 10;
-       int sleeptime = 5;
-       ERS_INFO("NSWCalibRc::handler::Recording data for [ "<<sleeptime<<" ] sec");
-       alti_start_pat();
-  
-       sleep(sleeptime);
-  
-       alti_stop_pat();
-  //     sleep(0.5);
-  //     calib->unconfigure();
-       ERS_INFO("NSWCalib::handler:: "<<c);
-       i_counter++;
-      }// channel loop end here
-   
-   }// DAC/Delay loop vector ends
+
+    sleep(5);
+    alti_start_pat();
+    sleep(10);
+    alti_stop_pat();
+    sleep(10);
+    ERS_INFO("Setting 12ns delay");
+    calib->unconfigure();
+  	publish4swrod(4);
+    calib->configure(4, pdo, tdo, Nchan, all_chan);
+       alti_send_reset(v_hex_data_sr);
+       alti_send_reset(v_hex_data_bcr);
+       alti_send_reset(v_hex_data_ecr);
+
+    alti_start_pat();
+    sleep(10);
+    alti_stop_pat();
+
+///===================================================
 //   alti_stop_pat();
+//   for(int i_step=0; i_step<loop_max; i_step++){
+//
+//    for(int chan=0; chan<Nchan; chan++){
+//
+//       int i_par;
+//       if(i_counter==0){alti_stop_pat();}
+//       if(pdo){
+//         i_par = tpdacs[i_step];
+//         ERS_INFO("NSWCalib::handler::Calibrating PDO with pulser DAC = "<<tpdacs[i_step]);
+//       }
+//       if(tdo){
+//         i_par = delays[i_step];
+//         ERS_INFO("NSWCalib::handler::Calibrating TDO with delay = "<<delays[i_step]*3 <<" [ns]");
+//       }
+// 
+//        ERS_INFO("CHECK: ALLchan{"<<all_chan<<"} i_par{"<<i_par<<"} tdo{"<<tdo<<"} pdo{"<<pdo<<"}");
+//        sleep(5);
+//    	 publish4swrod(i_par);
+//       if(pdo){
+//         try{
+//          calib->configure(tpdacs[i_step], pdo, tdo, chan, all_chan);
+//          ERS_INFO("PDO calib config sent");
+//         }catch(std::exception &ex){
+//       	  nsw::NSWCalibIssue issue(ERS_HERE, ex.what());
+//   	      ers::error(issue);
+// 		      throw std::runtime_error(ex.what()); 
+//         } 
+//       }
+//       if(tdo){
+//         try{
+//          calib->configure(delays[i_step], pdo, tdo, chan, all_chan);
+//         }catch(std::exception &ex){
+//       	  nsw::NSWCalibIssue issue(ERS_HERE, ex.what());
+//   	      ers::error(issue);
+// 		      throw std::runtime_error(ex.what()); 
+//         }
+//         ERS_INFO("TDO calib config sent");
+//       }
+//       else{
+//         ERS_INFO("Something went wrong...");
+//         break;
+//       } 
+//      
+////       ERS_INFO("A");
+////    	 publish4swrod(i_par);
+////       ERS_INFO("B");
+//       sleep(3);   
+//       alti_send_reset(v_hex_data_sr);
+//       alti_send_reset(v_hex_data_bcr);
+//       alti_send_reset(v_hex_data_ecr);
+//       int sleeptime = 5;
+//       ERS_INFO("C");
+//       ERS_INFO("NSWCalibRc::handler::Recording data for [ "<<sleeptime<<" ] sec");
+//       alti_start_pat();
+//  
+////       ERS_INFO("D");
+//       sleep(sleeptime);
+//  
+//       alti_stop_pat();
+//
+////       ERS_INFO("E");
+//       ERS_INFO("NSWCalib::handler:: done with channel:"<<chan);
+//       i_counter++;
+//      }// channel loop end here
+//   
+//   }// DAC/Delay loop vector ends
    end_of_run = 1;
    ERS_INFO("NSWCalibRc::handler::calibrations done, pattern generator stopped");
-
 }
 
 // strating and stopping pattern generator explicitly
@@ -258,12 +316,9 @@ void nsw::NSWCalibRc::alti_send_reset(std::vector<std::string> hex_data){
     std::string app_name = "Alti_RCD";
     std::string cmd_name = "SendAsyncShortCommand";
     std::vector<std::string> cmd_args = {hex_data};
-//    daq::rc::UserCmd cmd(cmd_name, std::vector<std::string>());
     daq::rc::UserCmd cmd(cmd_name, cmd_args);
-    //daq::rc::UserCmd cmd(cmd_name, hex_data);
     daq::rc::CommandSender sendr(m_ipcpartition.name(), "NSWCalibRcSender");
     sendr.sendCommand(app_name, cmd);
-//    usleep(100e3);
     sleep(2);
 }
 //---------------- borrowed from master branch --------------------------
@@ -348,3 +403,4 @@ std::string nsw::NSWCalibRc::calibTypeFromIS() {
   is_dictionary->update("RunParams.RunParams", runParams);
   return calibType;
 }
+

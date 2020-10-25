@@ -28,7 +28,7 @@ namespace nsw {
       ~CalibAlg() {};
       virtual void setup(std::string db);
       virtual void configure();
-      virtual void configure(int i_par, bool pdo, bool tdo, int chan); // my addition...
+      virtual void configure(int i_par, bool pdo, bool tdo, int chan, bool all_chan); // my addition...
       virtual void unconfigure();
       bool next();
       bool wait4swrod() {return m_wait4swrod;}

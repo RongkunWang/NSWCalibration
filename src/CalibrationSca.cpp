@@ -1147,7 +1147,7 @@ void nsw::CalibrationSca::sca_calib( std::string config_filename,
 		{		
 			add_dac.push_back(extraDAC);
 		}
-		else if(extraDAC = 0){continue;}
+//		else if(extraDAC == 0){continue;}
 		else{		
 			continue;
 		}

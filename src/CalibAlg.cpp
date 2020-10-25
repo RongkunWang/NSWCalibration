@@ -14,7 +14,7 @@ void nsw::CalibAlg::configure() {
   ERS_INFO("configure");
 }
 
-void nsw::CalibAlg::configure(int i_par, bool pdo, bool tdo,int chan) { //my addition...
+void nsw::CalibAlg::configure(int i_par, bool pdo, bool tdo,int chan, bool all_chan) { //my addition...
   ERS_INFO("configure");
 }
 
