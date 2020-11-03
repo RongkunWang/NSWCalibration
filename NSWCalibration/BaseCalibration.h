@@ -11,7 +11,7 @@
 using ValueMap = std::map<std::string, std::map<std::string, std::vector<std::string>>>;
 
 
-template<typename Spezialized>
+template<typename Specialized>
 class BaseCalibration
 {
 public:
@@ -25,7 +25,7 @@ public:
 
 private:
     nsw::FEBConfig m_config;
-    Spezialized t_specialized;
+    Specialized t_specialized;
 };
 
 
