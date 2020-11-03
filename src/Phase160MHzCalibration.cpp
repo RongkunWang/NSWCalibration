@@ -1,6 +1,9 @@
 #include "NSWCalibration/Phase160MHzCalibration.h"
 #include "NSWCalibration/BaseCalibration.h"
 
+#include "NSWConfiguration/ConfigSender.h"
+#include "NSWConfiguration/FEBConfig.h"
+
 
 Phase160MHzCalibration::Phase160MHzCalibration(nsw::FEBConfig t_config) : 
     m_config(t_config),
@@ -88,8 +91,8 @@ void Phase160MHzCalibration::setRegisters(const int i) const
     nsw::ConfigSender configSender;
     const auto opcIp = m_config.getOpcServerIp();
     auto scaAddress = m_config.getAddress();
-    const auto adaptedConfig = BaseCalibration.adaptConfig(m_config, m_inputValues, i);
-    const auto analog = config.get_child("rocPllCoreAnalog");
+    const auto adaptedConfig = BaseCalibration::adaptConfig(m_config, m_inputValues, i);
+    const auto analog = m_config.get_child("rocPllCoreAnalog");
     for (const auto& entry : m_inputValues)
     {
         configSender.sendI2cMasterSingle(opcIp, scaAddress, analog, entry.first);
@@ -107,5 +110,5 @@ Settings Phase160MHzCalibration::getBestSettings(const int t_bestIteration) cons
 
 int Phase160MHzCalibration::getNumberOfConfigurations() const
 {
-    return m_inputVals.begin()->second.begin()->second.size();
+    return m_inputValues.begin()->second.begin()->second.size();
 }

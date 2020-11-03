@@ -26,7 +26,7 @@ public:
     Phase160MHzCalibration(nsw::FEBConfig t_config);
     [[nodiscard]] ValueMap getInputVals(nsw::FEBConfig t_config) const;
     void setRegisters(const int i) const;
-    Settings getBestSettings(const ValueMap& t_inputValues, const int t_bestIteration) const;
+    Settings getBestSettings(const int t_bestIteration) const;
     int getNumberOfConfigurations() const;
 
 private:

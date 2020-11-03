@@ -16,12 +16,12 @@ class BaseCalibration
 {
 public:
     BaseCalibration(nsw::FEBConfig t_config);
-    [[nodiscard]] static nsw::FEBConfig adaptConfig(const nsw::FEBConfig& t_config, const ValueMap t_vals, int i) const;
+    [[nodiscard]] static nsw::FEBConfig adaptConfig(const nsw::FEBConfig& t_config, const ValueMap t_vals, int i);
     void basicConfigure(nsw::FEBConfig t_config) const;
     [[nodiscard]] std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>> checkVmmCaptureRegisters(const nsw::FEBConfig& t_config) const;
     void printResult(const std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>& t_result, int i) const;
     int analyzeResults(const std::vector<std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>>& t_results) const;
-    void run(const Args& args) const;
+    void run(const bool t_dryRun) const;
 
 private:
     nsw::FEBConfig m_config;

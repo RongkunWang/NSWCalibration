@@ -194,15 +194,17 @@ int BaseCalibration::analyzeResults(const std::vector<std::pair<std::array<uint8
     return (endGoodRegion - maxCounterGood / 2 + index) % testResults.size();
 }
 
-void BaseCalibration::run(const bool dryRun) const
+void BaseCalibration::run(const bool t_dryRun) const
 {
     std::vector<std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>> allResults;
 
     // configure the whole board at the start
-    if (not dryRun)
+    if (not t_dryRun)
     {
-        basicConfigure(m_config);
+        return;
     }
+
+    basicConfigure(m_config);
 
     // iterate through settings (vector in map of map)
     for (std::size_t counter = 0; counter < t_specialized.getNumberOfConfigurations; counter++)
