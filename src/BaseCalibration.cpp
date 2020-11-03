@@ -214,9 +214,9 @@ void BaseCalibration<Specialized>::run(const bool t_dryRun) const
     basicConfigure(m_config);
 
     // iterate through settings (vector in map of map)
-    for (std::size_t counter = 0; counter < t_specialized.getNumberOfConfigurations; counter++)
+    for (std::size_t counter = 0; counter < m_specialized.getNumberOfConfigurations; counter++)
     {
-        t_specialized.setRegisters(counter);
+        m_specialized.setRegisters(counter);
 
         // check the result
         const auto result = checkVmmCaptureRegisters(m_config);
@@ -226,7 +226,7 @@ void BaseCalibration<Specialized>::run(const bool t_dryRun) const
         printResult(result, counter);
     }
     const auto bestIteration = analyzeResults(allResults);
-    const auto bestSettings = t_specialized.getBestSettings(bestIteration);
+    const auto bestSettings = m_specialized.getBestSettings(bestIteration);
     std::cout << "Best values (iteration) " << bestIteration << '\n'
               << "\t40MHz: " << bestSettings.ePllPhase40MHz << '\n'
               << "\t160MHz[3:0]: " << bestSettings.ePllPhase160MHz_3_0 << '\n'
