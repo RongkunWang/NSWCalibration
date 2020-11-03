@@ -4,8 +4,8 @@
 #include <array>
 #include <exception>
 
-#include "BaseCalibration.hpp"
-#include "Phase160MHzCalibration.hpp"
+#include "BaseCalibration.h"
+#include "Phase160MHzCalibration.h"
 
 #include <boost/program_options.hpp>
 #include <boost/property_tree/ptree.hpp>

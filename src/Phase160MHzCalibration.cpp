@@ -1,5 +1,5 @@
-#include "Phase160MHzCalibration.hpp"
-#include "BaseCalibration.hpp"
+#include "Phase160MHzCalibration.h"
+#include "BaseCalibration.h"
 
 
 Phase160MHzCalibration::Phase160MHzCalibration(nsw::FEBConfig t_config) : 
