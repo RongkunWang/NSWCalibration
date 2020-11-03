@@ -207,7 +207,7 @@ void BaseCalibration<Specialized>::run(const bool t_dryRun) const
     std::vector<std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>> allResults;
 
     // configure the whole board at the start
-    if (not t_dryRun)
+    if (t_dryRun)
     {
         return;
     }
