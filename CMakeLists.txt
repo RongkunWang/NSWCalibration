@@ -25,6 +25,8 @@ tdaq_add_library(nswcalib
         src/sTGCRouterToTP.cpp
         src/sTGCPadTriggerToSFEB.cpp
         src/NSWCalibRc.cpp
+        src/BaseCalibration.cpp
+        src/Phase160MHzCalibration.cpp
     INCLUDE_DIRECTORIES PRIVATE ${OPC_GENERATED_CLIENT_SRCS}
     LINK_LIBRARIES nswconfig NSWConfig nswcalibdal
         nswopcclient
@@ -74,6 +76,12 @@ tdaq_add_executable(NSWCalibRc_main app/NSWCalibRc_main.cpp src/NSWCalibRc.cpp
 )
 
 tdaq_add_executable(nsw_write_patterns app/write_patterns.cpp
+    LINK_LIBRARIES nswcalib tdaq::daq-df-dal tdaq::rc_ItemCtrl
+        tdaq-common::ers Boost::program_options nswcalibdal
+        tdaq::AltiModule
+)
+
+tdaq_add_executable(run_calibration app/run_calibration.cpp
     LINK_LIBRARIES nswcalib tdaq::daq-df-dal tdaq::rc_ItemCtrl
         tdaq-common::ers Boost::program_options nswcalibdal
         tdaq::AltiModule
