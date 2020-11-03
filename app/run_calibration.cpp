@@ -31,6 +31,7 @@ struct Args
     const std::vector<std::string> names{};
     //const std::string valuesFilename{""};
     const Mode mode{Mode::none};
+    const std::string outputFilename{""};
     const bool help{false};
 };
 
@@ -54,6 +55,8 @@ struct Args
         //    "All values for are changed simultaneously for all registernames. This means all value lists must have the same length");
         ("mode", po::value<std::string>()->required(),
             "Choose which calibration to run. Available options: [ClockPhase]");
+        ("output,o", po::value<std::string>()->
+            default_value("best_settings.txt"),"Name of outputfile for best settings")
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -80,8 +83,8 @@ struct Args
     return Args{vm["config_file"].as<std::string>(),
                 vm["dry-run"].as<bool>(),
                 vm["name"].as<std::vector<std::string>>(),
-                //vm["values"].as<std::string>(),
-                mode
+                mode,
+                vm["output"].as<std::string>()
                 };
 }
 
@@ -148,7 +151,7 @@ int main(int argc, char* argv[])
         if (args.mode == Mode::clockPhase)
         {
             BaseCalibration<Phase160MHzCalibration> calibrator(config);
-            calibrator.run(args.dryRun);
+            calibrator.run(args.dryRun, args.outputFilename);
         }
         break;
     }

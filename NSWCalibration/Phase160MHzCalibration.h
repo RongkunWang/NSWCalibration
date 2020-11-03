@@ -11,22 +11,13 @@
 using ValueMap = std::map<std::string, std::map<std::string, std::vector<std::string>>>;
 
 
-// struct holding best settings
-struct Settings
-{
-    std::string ePllPhase40MHz{""};
-    std::string ePllPhase160MHz_3_0{""};
-    std::string ePllPhase160MHz_4{""};
-};
-
-
 class Phase160MHzCalibration
 {
 public:
     Phase160MHzCalibration(nsw::FEBConfig t_config);
     [[nodiscard]] ValueMap getInputVals(nsw::FEBConfig t_config) const;
     void setRegisters(const int i) const;
-    Settings getBestSettings(const int t_bestIteration) const;
+    void saveBestSettings(const int t_bestIteration) const;
     std::size_t getNumberOfConfigurations() const;
 
 private:

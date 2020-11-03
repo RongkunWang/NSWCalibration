@@ -202,7 +202,7 @@ int BaseCalibration<Specialized>::analyzeResults(const std::vector<std::pair<std
 }
 
 template<typename Specialized>
-void BaseCalibration<Specialized>::run(const bool t_dryRun) const
+void BaseCalibration<Specialized>::run(const bool t_dryRun, const std::string& t_outputFilename) const
 {
     std::vector<std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>> allResults;
 
@@ -227,11 +227,7 @@ void BaseCalibration<Specialized>::run(const bool t_dryRun) const
         printResult(result, counter);
     }
     const auto bestIteration = analyzeResults(allResults);
-    const auto bestSettings = m_specialized.getBestSettings(bestIteration);
-    std::cout << "Best values (iteration) " << bestIteration << '\n'
-              << "\t40MHz: " << bestSettings.ePllPhase40MHz << '\n'
-              << "\t160MHz[3:0]: " << bestSettings.ePllPhase160MHz_3_0 << '\n'
-              << "\t160MHz[4]: " << bestSettings.ePllPhase160MHz_4 << '\n';
+    m_specialized.saveBestSettings(bestIteration, t_outputFilename);
 }
 
 // instantiate templates

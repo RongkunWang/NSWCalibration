@@ -4,13 +4,10 @@
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/FEBConfig.h"
 
-
-Phase160MHzCalibration::Phase160MHzCalibration(nsw::FEBConfig t_config) : 
-    m_config(t_config),
-    m_inputValues(getInputVals(t_config))
+Phase160MHzCalibration::Phase160MHzCalibration(nsw::FEBConfig t_config) : m_config(t_config),
+                                                                          m_inputValues(getInputVals(t_config))
 {
 }
-
 
 [[nodiscard]] ValueMap Phase160MHzCalibration::getInputVals(nsw::FEBConfig t_config) const
 {
@@ -85,29 +82,62 @@ Phase160MHzCalibration::Phase160MHzCalibration(nsw::FEBConfig t_config) :
              {{"ePllPhase160MHz_2[3:0]", valsePllPhase160MHz_3_0}}}};
 }
 
-
 void Phase160MHzCalibration::setRegisters(const int i) const
 {
     nsw::ConfigSender configSender;
-    const auto opcIp = m_config.getOpcServerIp();
-    auto scaAddress = m_config.getAddress();
     const auto adaptedConfig = BaseCalibration<Phase160MHzCalibration>::adaptConfig(m_config, m_inputValues, i);
-    //const auto analog = m_config.getRocAnalog();//.get_child("rocPllCoreAnalog");
+    const auto opcIp = adaptedConfig.getOpcServerIp();
+    const auto scaAddress = adaptedConfig.getAddress();
+    const auto analog = adaptedConfig.getRocAnalog();
+   
+    configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocCoreResetN", 0);
+    configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocPllResetN", 0);
+    configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocSResetN", 0);
+
+    configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocSResetN", 1);
+
+    configSender.sendI2cMasterConfig(opcIp, scaAddress, analog);
     //for (const auto& entry : m_inputValues)
     //{
+    //    std::cout << "SET REG " << entry.first << std::endl;
     //    configSender.sendI2cMasterSingle(opcIp, scaAddress, analog, entry.first);
+    //    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     //}
-    configSender.sendConfig(adaptedConfig);
+
+    configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocPllResetN", 1);
+
+    bool roc_locked = 0;
+    while (!roc_locked) {
+        bool rPll1 = configSender.readGPIO(opcIp, scaAddress + ".gpio.rocPllLocked");
+        bool rPll2 = configSender.readGPIO(opcIp, scaAddress + ".gpio.rocPllRocLocked");
+        roc_locked = rPll1 & rPll2;
+    }
+
+    configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocCoreResetN", 1);
+    //configSender.sendConfig(adaptedConfig);
 }
 
-
-Settings Phase160MHzCalibration::getBestSettings(const int t_bestIteration) const
+void Phase160MHzCalibration::saveBestSettings(const int t_bestIteration, const std::string &t_filename) const
 {
-    return Settings{m_inputValues.at("reg115").at("ePllPhase40MHz_0").at(t_bestIteration),
-                    m_inputValues.at("reg118").at("ePllPhase160MHz_0[3:0]").at(t_bestIteration),
-                    m_inputValues.at("reg115").at("ePllPhase160MHz_0[4]").at(t_bestIteration)};
+    const auto bestPhase40MHz = m_inputValues.at("reg115").at("ePllPhase40MHz_0").at(t_bestIteration);
+    const auto bestPhase160MHz_3_0 = m_inputValues.at("reg118").at("ePllPhase160MHz_0[3:0]").at(t_bestIteration);
+    const auto bestPhase40MHz_4 = m_inputValues.at("reg115").at("ePllPhase160MHz_0[4]").at(t_bestIteration);
+    std::cout << "Best values (iteration) " << bestIteration << '\n'
+              << "\t40MHz: " << bestPhase40MHz << '\n'
+              << "\t160MHz[3:0]: " << bestPhase160MHz_3_0 << '\n'
+              << "\t160MHz[4]: " << bestPhase40MHz_4 << '\n';
+    std::ofstream outfile;
+    outfile.open(t_filename);
+    for (const auto& [registerName, dict] : m_inputValues)
+    {
+        for (const auto& [subName, values] : dict)
+        {
+            outfile << "rocCoreAnalog." << registerName << '.' << subName << ':' << values[t_bestIteration] << '\n';
+        } 
+    }
+    outfile.close();
+    return bestSettings;
 }
-
 
 std::size_t Phase160MHzCalibration::getNumberOfConfigurations() const
 {
