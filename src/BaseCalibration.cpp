@@ -13,7 +13,7 @@
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/FEBConfig.h"
 
-#include "BaseCalibration.h"
+#include "NSWCalibration/BaseCalibration.h"
 
 BaseCalibration::BaseCalibration(nsw::FEBConfig t_config) : m_config(t_config),
                                                             m_specialized(t_config)
