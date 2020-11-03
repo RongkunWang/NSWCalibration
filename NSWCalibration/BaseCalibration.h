@@ -25,7 +25,7 @@ public:
 
 private:
     nsw::FEBConfig m_config;
-    Specialized t_specialized;
+    Specialized m_specialized;
 };
 
 
