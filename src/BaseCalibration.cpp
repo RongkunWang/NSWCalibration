@@ -14,6 +14,7 @@
 #include "NSWConfiguration/FEBConfig.h"
 
 #include "NSWCalibration/BaseCalibration.h"
+#include "NSWCalibration/Phase160MHzCalibration.h"
 
 template<typename Specialized>
 BaseCalibration<Specialized>::BaseCalibration(nsw::FEBConfig t_config) : m_config(t_config),
@@ -232,3 +233,6 @@ void BaseCalibration<Specialized>::run(const bool t_dryRun) const
               << "\t160MHz[3:0]: " << bestSettings.ePllPhase160MHz_3_0 << '\n'
               << "\t160MHz[4]: " << bestSettings.ePllPhase160MHz_4 << '\n';
 }
+
+// instantiate templates
+template class BaseCalibration<Phase160MHzCalibration>;
