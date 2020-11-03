@@ -15,12 +15,14 @@
 
 #include "NSWCalibration/BaseCalibration.h"
 
-BaseCalibration::BaseCalibration(nsw::FEBConfig t_config) : m_config(t_config),
+template<typename Specialized>
+BaseCalibration<Specialized>::BaseCalibration(nsw::FEBConfig t_config) : m_config(t_config),
                                                             m_specialized(t_config)
 {
 }
 
-[[nodiscard]] nsw::FEBConfig adaptConfig(const nsw::FEBConfig &t_config, const ValueMap t_vals, int i)
+template<typename Specialized>
+[[nodiscard]] nsw::FEBConfig BaseCalibration<Specialized>::adaptConfig(const nsw::FEBConfig &t_config, const ValueMap t_vals, int i)
 {
     // creates a copy...
     auto config = t_config.getConfig();
@@ -52,13 +54,15 @@ BaseCalibration::BaseCalibration(nsw::FEBConfig t_config) : m_config(t_config),
     return nsw::FEBConfig{config};
 }
 
-void BaseCalibration::basicConfigure(nsw::FEBConfig t_config) const
+template<typename Specialized>
+void BaseCalibration<Specialized>::basicConfigure(nsw::FEBConfig t_config) const
 {
     nsw::ConfigSender configSender;
     configSender.sendConfig(t_config);
 }
 
-[[nodiscard]] std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>> BaseCalibration::checkVmmCaptureRegisters(const nsw::FEBConfig &t_config) const
+template<typename Specialized>
+[[nodiscard]] std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>> BaseCalibration<Specialized>::checkVmmCaptureRegisters(const nsw::FEBConfig &t_config) const
 {
     std::array<uint8_t, 8> result;
     std::array<uint8_t, 8> resultParity;
@@ -93,7 +97,8 @@ void BaseCalibration::basicConfigure(nsw::FEBConfig t_config) const
     return {result, resultParity};
 }
 
-void BaseCalibration::printResult(const std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>> &t_result, int i) const
+template<typename Specialized>
+void BaseCalibration<Specialized>::printResult(const std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>> &t_result, int i) const
 {
     std::ofstream outfile;
     outfile.open("log_myreadout.txt", std::ios_base::app);
@@ -140,7 +145,8 @@ void BaseCalibration::printResult(const std::pair<std::array<uint8_t, 8>, std::a
     outfile.close();
 }
 
-int BaseCalibration::analyzeResults(const std::vector<std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>> &t_results) const
+template<typename Specialized>
+int BaseCalibration<Specialized>::analyzeResults(const std::vector<std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>> &t_results) const
 {
     std::vector<bool> testResults;
     testResults.reserve(t_results.size());
@@ -194,7 +200,8 @@ int BaseCalibration::analyzeResults(const std::vector<std::pair<std::array<uint8
     return (endGoodRegion - maxCounterGood / 2 + index) % testResults.size();
 }
 
-void BaseCalibration::run(const bool t_dryRun) const
+template<typename Specialized>
+void BaseCalibration<Specialized>::run(const bool t_dryRun) const
 {
     std::vector<std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>> allResults;
 
@@ -219,7 +226,7 @@ void BaseCalibration::run(const bool t_dryRun) const
         printResult(result, counter);
     }
     const auto bestIteration = analyzeResults(allResults);
-    const auto bestSettings = t_specialized.getBestSettings(inputVals, bestIteration);
+    const auto bestSettings = t_specialized.getBestSettings(bestIteration);
     std::cout << "Best values (iteration) " << bestIteration << '\n'
               << "\t40MHz: " << bestSettings.ePllPhase40MHz << '\n'
               << "\t160MHz[3:0]: " << bestSettings.ePllPhase160MHz_3_0 << '\n'
