@@ -4,6 +4,7 @@
 #include <array>
 #include <exception>
 
+#include "NSWConfiguration/ConfigReader.h"
 #include "NSWCalibration/BaseCalibration.h"
 #include "NSWCalibration/Phase160MHzCalibration.h"
 
