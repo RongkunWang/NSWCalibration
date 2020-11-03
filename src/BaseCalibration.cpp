@@ -106,7 +106,7 @@ void BaseCalibration<Specialized>::printResult(const std::pair<std::array<uint8_
     outfile << "Iteration: " << i << '\n';
     const auto status = t_result.first;
     const auto parity = t_result.second;
-    for (int vmmId = 0; vmmId < status.size(); vmmId++)
+    for (std::size_t vmmId = 0; vmmId < status.size(); vmmId++)
     {
         outfile << "VMM Status/Parity" << vmmId << " : " << unsigned(status[vmmId]) << '/' << unsigned(parity[vmmId]) << " (";
 

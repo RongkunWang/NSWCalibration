@@ -27,7 +27,7 @@ public:
     [[nodiscard]] ValueMap getInputVals(nsw::FEBConfig t_config) const;
     void setRegisters(const int i) const;
     Settings getBestSettings(const int t_bestIteration) const;
-    int getNumberOfConfigurations() const;
+    std::size_t getNumberOfConfigurations() const;
 
 private:
     nsw::FEBConfig m_config;

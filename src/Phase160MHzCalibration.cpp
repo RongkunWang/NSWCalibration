@@ -92,11 +92,12 @@ void Phase160MHzCalibration::setRegisters(const int i) const
     const auto opcIp = m_config.getOpcServerIp();
     auto scaAddress = m_config.getAddress();
     const auto adaptedConfig = BaseCalibration<Phase160MHzCalibration>::adaptConfig(m_config, m_inputValues, i);
-    const auto analog = m_config.getRocAnalog();//.get_child("rocPllCoreAnalog");
-    for (const auto& entry : m_inputValues)
-    {
-        configSender.sendI2cMasterSingle(opcIp, scaAddress, analog, entry.first);
-    }
+    //const auto analog = m_config.getRocAnalog();//.get_child("rocPllCoreAnalog");
+    //for (const auto& entry : m_inputValues)
+    //{
+    //    configSender.sendI2cMasterSingle(opcIp, scaAddress, analog, entry.first);
+    //}
+    configSender.sendConfig(adaptedConfig);
 }
 
 
@@ -108,7 +109,7 @@ Settings Phase160MHzCalibration::getBestSettings(const int t_bestIteration) cons
 }
 
 
-int Phase160MHzCalibration::getNumberOfConfigurations() const
+std::size_t Phase160MHzCalibration::getNumberOfConfigurations() const
 {
     return m_inputValues.begin()->second.begin()->second.size();
 }
