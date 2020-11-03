@@ -54,9 +54,9 @@ struct Args
         //    "JSON file containing a map {'registername1' : [values1], 'registername2' : [values2]}. "
         //    "All values for are changed simultaneously for all registernames. This means all value lists must have the same length");
         ("mode", po::value<std::string>()->required(),
-            "Choose which calibration to run. Available options: [ClockPhase]");
+            "Choose which calibration to run. Available options: [ClockPhase]")
         ("output,o", po::value<std::string>()->
-            default_value("best_settings.txt"),"Name of outputfile for best settings")
+            default_value("best_settings.txt"),"Name of outputfile for best settings");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
