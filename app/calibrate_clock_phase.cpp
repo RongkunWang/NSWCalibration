@@ -23,6 +23,7 @@ enum Mode
 {
     none=-1,
     clockPhase,
+    clockPhase40MHz,
 };
 
 
@@ -101,56 +102,25 @@ using ValueMap = std::map<std::string, std::map<std::string, std::vector<std::st
 }
 
 
-//[[nodiscard]] std::map<std::string, std::vector<std::string>> parseInputVals(const std::string& t_filename)
-[[nodiscard]] ValueMap getInputVals(const Mode& t_mode)
+[[nodiscard]] ValueMap getInputVals(const Mode& t_mode, nsw::FEBConfig t_config)
 {
-    //using boost::property_tree::ptree;
-    //ptree pt;
-    //read_json(t_filename, pt);
-    //std::map<std::string, std::vector<std::string>> result;
-
-    //// parse pt to map
-    //try
-    //{
-    //    for (const auto& [registerName, subpt] : pt)
-    //    {
-    //        result[registerName] = {};
-    //        result[registerName].reserve(subpt.size());
-    //        for (const auto& [dummy, value] : subpt)
-    //        {
-    //            result[registerName].push_back(value.data());
-    //        }
-    //    }
-    //}
-    //catch (const boost::property_tree::ptree_error&)
-    //{
-    //    std::cerr << "Wrong format of value json. Example format: "
-    //              << "{\n\t\"reg1\" : [1, 2, 3],\n"
-    //              << "\t\"reg2\" : [10, 12, 13],\n"
-    //              << "}\n";
-    //    throw;
-    //}
-
-    //// check size
-    //const auto required_size = result.begin()->second.size();
-    //if (not std::all_of(result.begin(), result.end(), [required_size] (const auto& pair) { return pair.second.size() == required_size; }))
-    //{
-    //    throw std::runtime_error("Not all lists in values json have the same length");
-    //}
+    auto config = t_config.getConfig();
+    const auto analog = config.get_child("rocPllCoreAnalog");
     if (t_mode == Mode::clockPhase)
     {
         // 160MHz clock has 32 possible different values
         const int nEntries{32};
 
-        const auto valsePllPhase40MHz = [nEntries] () {
+        const auto valsePllPhase40MHz = [nEntries, &analog] () {
             // 40MHz has values 112 - 127 (two times)
-            const int clock40MhzStart{112};
+            const auto clock40MHzDefault = analog.get<int>("reg115.ePllPhase40MHz_0");
+            const int clock40MHzStart{clock40MHzDefault & 0b1111'0000}; // xxxx 0000 (set last 4 bits to 0)
 
             auto vec = std::vector<std::string>(nEntries);
 
             // two times the same values -> generate half first
             const auto middle = vec.begin() + vec.size() / 2; // iterator behind middle one ( algorithm works on [begin, end) )
-            std::generate(vec.begin(), middle, [i=clock40MhzStart] () mutable { return std::to_string(i++); });
+            std::generate(vec.begin(), middle, [i=clock40MHzStart] () mutable { return std::to_string(i++); });
 
             // copy first half into second half
             std::copy(vec.begin(), middle, middle);
@@ -176,12 +146,12 @@ using ValueMap = std::map<std::string, std::map<std::string, std::vector<std::st
             auto vec = std::vector<std::string>(nEntries);
 
             // range: 0-15 (two times)
-            const int clock160MhzStart{0};
+            const int clock160MHzStart{0};
 
             const auto middle = vec.begin() + vec.size() / 2; // iterator behind middle one ( algorithm works on [begin, end) )
 
             // first half fourth bit is 0, then 1
-            std::generate(vec.begin(), middle, [i=clock160MhzStart] () mutable { return std::to_string(i++); });
+            std::generate(vec.begin(), middle, [i=clock160MHzStart] () mutable { return std::to_string(i++); });
 
             // copy first half into second half
             std::copy(vec.begin(), middle, middle);
@@ -204,6 +174,21 @@ using ValueMap = std::map<std::string, std::map<std::string, std::vector<std::st
                      {"ePllPhase160MHz_1[3:0]", valsePllPhase160MHz_3_0}}},
                 {"reg119",
                     {{"ePllPhase160MHz_2[3:0]", valsePllPhase160MHz_3_0}}}};
+    }
+    if (t_mode == Mode::clockPhase40MHz)
+    {
+        const int nEntries{16};
+        const auto valsePllPhase40MHz = [nEntries, &analog] () {
+            const auto clock40MHzDefault = analog.get<int>("reg115.ePllPhase40MHz_0");
+            const int clock40MHzStart{clock40MHzDefault & 0b0000'1111}; // 0000 xxxx (set first 4 bits to 0)
+
+            auto vec = std::vector<std::string>(nEntries);
+
+            // change first 4 bits and add last 4 bits of default value
+            std::generate(vec.begin(), vec.end(), [i=0, clock40MHzStart] () mutable { return std::to_string(clock40MHzStart + (i << 4)); });
+
+            return vec;
+        }();
     }
     return {};
 }
@@ -298,6 +283,34 @@ void configure(nsw::FEBConfig t_config)
     t_config.dump();
     configSender.sendConfig(t_config);
     //configSender.sendRocConfig(t_config);
+    // TEST
+//std::vector<uint8_t> nsw::ConfigSender::readI2cAtAddress(std::string opcserver_ipport,
+//    std::string node, uint8_t* address, size_t address_size, size_t number_of_bytes) {
+    const auto full_node_name = t_config.getAddress() + "." + t_config.getRocAnalog().getName() + "." + "reg115";  // Full I2C address
+    auto regAddrVec = nsw::hexStringToByteVector("0x02", 4, true);
+    const auto dataread1 = configSender.readI2c(t_config.getOpcServerIp(), full_node_name, 1);
+    const auto dataread = configSender.readI2c(t_config.getOpcServerIp(), full_node_name, 1);
+    //const auto dataread = configSender.readI2cAtAddress(t_config.getOpcServerIp(), full_node_name, regAddrVec.data(), regAddrVec.size(), 4);
+    std::cout << "SIZE " << dataread.size() << " " << full_node_name << std::endl;
+    for (const auto c : dataread)
+    {
+        std::cout <<  unsigned(c) << std::endl;
+    }
+    const auto result1 = configSender.readBackRoc(t_config.getOpcServerIp(),
+                                                           t_config.getAddress() + ".gpio.bitBanger",
+                                                           17, // scl line
+                                                           18, // sda line
+                                                           static_cast<uint8_t>(155), // reg number
+                                                           2); // delay
+    const auto result = configSender.readBackRoc(t_config.getOpcServerIp(),
+                                                           t_config.getAddress() + ".gpio.bitBanger",
+                                                           17, // scl line
+                                                           18, // sda line
+                                                           static_cast<uint8_t>(155), // reg number
+                                                           2); // delay
+    std::cout << "RESULT " << unsigned(result) << std::endl;
+    exit(0);
+
 
     const bool m_resetvmm{false};
     if (m_resetvmm) {
@@ -316,6 +329,13 @@ void configure(nsw::FEBConfig t_config)
     }
 }
 
+//void configure(const nsw::FEBConfig& t_config, const std::string& t_registerName)
+//{
+//    const auto full_node_name = t_config.getAddress() + "." + t_config.getName() + "." + t_registerName;  // Full I2C address
+//    const auto cfg = t_config.getRocAnalog();
+////void nsw::ConfigSender::sendI2cMasterSingle(std::string opcserver_ipport, std::string topnode,
+////                                            const nsw::I2cMasterConfig& cfg, std::string reg_address) {
+//}
 
 [[nodiscard]] std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>> checkVmmCaptureRegisters(const nsw::FEBConfig& t_config)
 {
@@ -470,17 +490,15 @@ Settings getBestSettings(const ValueMap& t_inputValues, const int t_bestIteratio
 
 void run(const Args& args)
 {
-    // parse the input json containing the values for the registers which are set
-    // const auto inputVals = parseInputVals(args.valuesFilename);
-    const auto inputVals = getInputVals(args.mode);
-
-    // Ouput stream for result
-
     // loop over all boards
     int debug_board_number = 0;
 
     for (const auto& config : splitConfigs(args.configFile, args.names))
     {
+        // parse the input json containing the values for the registers which are set
+        // const auto inputVals = parseInputVals(args.valuesFilename);
+        const auto inputVals = getInputVals(args.mode, config);
+
         std::vector<std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>> allResults;
         std::cout << "WORKING ON BORD NUMBER " << debug_board_number++ << std::endl;
         // iterate through settings (vector in map of map)
