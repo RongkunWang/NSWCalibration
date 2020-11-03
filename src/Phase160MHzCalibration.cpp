@@ -1,3 +1,5 @@
+#include <fstream>
+
 #include "NSWCalibration/Phase160MHzCalibration.h"
 #include "NSWCalibration/BaseCalibration.h"
 
@@ -122,7 +124,7 @@ void Phase160MHzCalibration::saveBestSettings(const int t_bestIteration, const s
     const auto bestPhase40MHz = m_inputValues.at("reg115").at("ePllPhase40MHz_0").at(t_bestIteration);
     const auto bestPhase160MHz_3_0 = m_inputValues.at("reg118").at("ePllPhase160MHz_0[3:0]").at(t_bestIteration);
     const auto bestPhase40MHz_4 = m_inputValues.at("reg115").at("ePllPhase160MHz_0[4]").at(t_bestIteration);
-    std::cout << "Best values (iteration) " << bestIteration << '\n'
+    std::cout << "Best values (iteration) " << t_bestIteration << '\n'
               << "\t40MHz: " << bestPhase40MHz << '\n'
               << "\t160MHz[3:0]: " << bestPhase160MHz_3_0 << '\n'
               << "\t160MHz[4]: " << bestPhase40MHz_4 << '\n';
@@ -136,7 +138,6 @@ void Phase160MHzCalibration::saveBestSettings(const int t_bestIteration, const s
         } 
     }
     outfile.close();
-    return bestSettings;
 }
 
 std::size_t Phase160MHzCalibration::getNumberOfConfigurations() const
