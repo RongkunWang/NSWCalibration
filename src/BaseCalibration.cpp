@@ -215,7 +215,7 @@ void BaseCalibration<Specialized>::run(const bool t_dryRun) const
     basicConfigure(m_config);
 
     // iterate through settings (vector in map of map)
-    for (std::size_t counter = 0; counter < m_specialized.getNumberOfConfigurations; counter++)
+    for (std::size_t counter = 0; counter < m_specialized.getNumberOfConfigurations(); counter++)
     {
         m_specialized.setRegisters(counter);
 
