@@ -62,6 +62,7 @@ class NSWCalibRc: public daq::rc::Controllable {
 
     // void onExit(daq::rc::FSM_STATE) noexcept override;
 
+
     //! Used to syncronize ROC/VMM configuration
     void subTransition(const daq::rc::SubTransitionCmd&) override;
 
@@ -82,7 +83,9 @@ class NSWCalibRc: public daq::rc::Controllable {
     std::string alti_monitoring(bool refresh = 0);
     enum alti_pg_enum {pg_orb, pg_creq, pg_ttyp, pg_bgo, pg_l1a_ttr, pg_mult, pg_size};
 
+
  private:
+
 
     std::unique_ptr<CalibAlg> calib;
     std::string m_calibType             = "";
