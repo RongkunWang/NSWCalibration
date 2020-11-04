@@ -156,7 +156,7 @@ int BaseCalibration<Specialized>::analyzeResults(const std::vector<std::pair<std
                        const auto status{t_result.first};
                        const auto parity{t_result.second};
                        const auto statusOk = std::all_of(std::begin(status), std::end(status),
-                                                         [noError = 0b0000'0001](const auto t_val) { return t_val & noError; });
+                                                         [noError = 1](const auto t_val) { return t_val == noError; });  // no error: 0000 0001 = 1
                        const auto parityOk = std::all_of(std::begin(parity), std::end(parity),
                                                          [](const auto t_val) { return t_val == 0; });
                        return statusOk and parityOk;
@@ -191,7 +191,7 @@ int BaseCalibration<Specialized>::analyzeResults(const std::vector<std::pair<std
             if (counterGood > maxCounterGood)
             {
                 maxCounterGood = counterGood;
-                endGoodRegion = i;
+                endGoodRegion = i - 1;
             }
             counterGood = 0;
         }
