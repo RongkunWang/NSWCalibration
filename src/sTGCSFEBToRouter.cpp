@@ -13,7 +13,10 @@ void nsw::sTGCSFEBToRouter::setup(std::string db) {
   m_dry_run = 0;
 
   // parse calib type
-  if (m_calibType=="sTGCSFEBToRouter") {
+  if (m_calibType=="sTGCSFEBToRouter"   ||
+      m_calibType=="sTGCSFEBToRouterQ1" ||
+      m_calibType=="sTGCSFEBToRouterQ2" ||
+      m_calibType=="sTGCSFEBToRouterQ3") {
     ERS_INFO("Calib type: " << m_calibType);
   } else {
     std::stringstream msg;
@@ -116,14 +119,40 @@ void nsw::sTGCSFEBToRouter::gather_sfebs() {
     m_sfebs_ordered.push_back("L4Q1_IP");
   } else {
     // 191
-    m_sfebs_ordered.push_back("L1Q1_IP");
-    m_sfebs_ordered.push_back("L2Q1_IP");
-    m_sfebs_ordered.push_back("L3Q1_IP");
-    m_sfebs_ordered.push_back("L4Q1_IP");
-    m_sfebs_ordered.push_back("L1Q1_HO");
-    m_sfebs_ordered.push_back("L2Q1_HO");
-    m_sfebs_ordered.push_back("L3Q1_HO");
-    m_sfebs_ordered.push_back("L4Q1_HO");
+    if (m_calibType=="sTGCSFEBToRouter" ||
+        m_calibType=="sTGCSFEBToRouterQ1") {
+      m_sfebs_ordered.push_back("L1Q1_IP");
+      m_sfebs_ordered.push_back("L2Q1_IP");
+      m_sfebs_ordered.push_back("L3Q1_IP");
+      m_sfebs_ordered.push_back("L4Q1_IP");
+      m_sfebs_ordered.push_back("L1Q1_HO");
+      m_sfebs_ordered.push_back("L2Q1_HO");
+      m_sfebs_ordered.push_back("L3Q1_HO");
+      m_sfebs_ordered.push_back("L4Q1_HO");
+    } else if (m_calibType=="sTGCSFEBToRouterQ2") {
+      m_sfebs_ordered.push_back("L1Q2_IP");
+      m_sfebs_ordered.push_back("L2Q2_IP");
+      m_sfebs_ordered.push_back("L3Q2_IP");
+      m_sfebs_ordered.push_back("L4Q2_IP");
+      m_sfebs_ordered.push_back("L1Q2_HO");
+      m_sfebs_ordered.push_back("L2Q2_HO");
+      m_sfebs_ordered.push_back("L3Q2_HO");
+      m_sfebs_ordered.push_back("L4Q2_HO");
+    } else if (m_calibType=="sTGCSFEBToRouterQ3") {
+      m_sfebs_ordered.push_back("L1Q3_IP");
+      m_sfebs_ordered.push_back("L2Q3_IP");
+      m_sfebs_ordered.push_back("L3Q3_IP");
+      m_sfebs_ordered.push_back("L4Q3_IP");
+      m_sfebs_ordered.push_back("L1Q3_HO");
+      m_sfebs_ordered.push_back("L2Q3_HO");
+      m_sfebs_ordered.push_back("L3Q3_HO");
+      m_sfebs_ordered.push_back("L4Q3_HO");
+    } else {
+      std::stringstream msg;
+      msg << "Unknown m_calib for sTGCSFEBToRouter::gather_sfebs: " << m_calibType << ". Crashing.";
+      ERS_INFO(msg.str());
+      throw std::runtime_error(msg.str());
+    }
   }
 }
 
