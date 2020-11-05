@@ -2,12 +2,11 @@
 #define MMTPINPUTPHASE_H_
 
 //
-// Derived class for testing Router to TP connections
+// Derived class for testing TP input phases
 //
 
 #include "NSWCalibration/CalibAlg.h"
-#include "NSWConfiguration/FEBConfig.h"
-#include "NSWConfiguration/PadTriggerSCAConfig.h"
+#include "NSWConfiguration/TPConfig.h"
 
 ERS_DECLARE_ISSUE(nsw,
                   NSWMMTPInputPhaseIssue,
