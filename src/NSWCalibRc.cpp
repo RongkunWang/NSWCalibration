@@ -32,6 +32,8 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     m_dbcon = nswApp->get_dbConnection();
     m_resetVMM = nswApp->get_resetVMM();
     m_resetTDS = nswApp->get_resetTDS();
+    m_scaIdTable = nswApp->get_scaIdTable();
+
     ERS_INFO("DB Configuration: " << m_dbcon);
     ERS_INFO("reset VMM: " << m_resetVMM);
     ERS_INFO("reset TDS: " << m_resetTDS);
@@ -141,9 +143,8 @@ void nsw::NSWCalibRc::handler() {
     calib = std::make_unique<sTGCTriggerCalib>(m_calibType);
   } else if (m_calibType=="sTGCFakeStripConnectivity") {
     calib = std::make_unique<sTGCStripsTriggerCalib>(m_calibType);
-  } else if (m_calibType == "SCAIDFetch" ||
-             m_calibType == "SCAIDTest") {
-    calib = std::make_unique<ScaIdCalib>(m_calibType);
+  } else if (m_calibType == "SCAIDCheck") {
+    calib = std::make_unique<ScaIdCalib>(m_scaIdTable);
   } else {
     std::string msg = "Unknown calibration request: " + m_calibType;
     nsw::NSWCalibIssue issue(ERS_HERE, msg);

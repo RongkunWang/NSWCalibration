@@ -88,6 +88,7 @@ class NSWCalibRc: public daq::rc::Controllable {
     std::string m_calibType             = "";
     std::string m_calibCounter          = "Monitoring.NSWCalibration.triggerCalibrationKey";
     std::string m_calibCounter_readback = "Monitoring.NSWCalibration.swrodCalibrationKey";
+    std::string m_scaIdTable;
     uint64_t m_alti_pg_duration = 0;
     std::string m_alti_monitoring = "";
 

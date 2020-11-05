@@ -33,7 +33,7 @@ namespace nsw {
   class ScaIdCalib: public CalibAlg {
 
   public:
-    ScaIdCalib(const std::string& calib_type);
+    ScaIdCalib(const std::string& sca_table_path);
     ~ScaIdCalib() {};
     
     // Reads all boards which contain an SCA chip from the configuration database `db`
@@ -47,14 +47,22 @@ namespace nsw {
     void unconfigure() override { }
   private:
     std::string m_calib_type;
+    std::string m_sca_table_path;
+
+    // K: Logical ID, V: SCA ID
+    std::unordered_map<std::string, unsigned int> m_static_ids;
+    // <name, SCAID>
+    std::unordered_map<std::string, unsigned int> m_queried_ids;
+
     // <name, SCAConfig>
     std::unordered_map<std::string, nsw::SCAConfig> m_boards;
-    // <name, SCAID>
-    std::unordered_map<std::string, unsigned int> m_ids;
-
 
     // Fetches SCA IDs from all boards defined in m_boards
     void fetch_sca_ids();
+
+    // Fetches SCA IDs from all boards defined in m_boards, and compares them against the SCA IDs
+    // found in m_static_ids.
+    void check_sca_ids() const;
     
     // Stores all boards and their SCA IDs in a json file given by `filepath`
     void write_sca_ids(const std::string& filepath) const;
