@@ -45,6 +45,7 @@ void nsw::MMTPInputPhase::configure() {
   //    6       0      3         1
   //    7       0      3         0
   //    8       0      4         1
+  // etc
   //
   ERS_INFO("MMTPInputPhase::configure " << counter());
   int phase_offset = counter() / m_nreads;
