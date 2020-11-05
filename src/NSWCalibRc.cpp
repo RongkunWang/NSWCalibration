@@ -146,7 +146,10 @@ void nsw::NSWCalibRc::handler() {
   } else if (m_calibType=="sTGCPadConnectivity" ||
              m_calibType=="sTGCPadLatency") {
     calib = std::make_unique<sTGCTriggerCalib>(m_calibType);
-  } else if (m_calibType=="sTGCSFEBToRouter") {
+  } else if (m_calibType=="sTGCSFEBToRouter"   ||
+             m_calibType=="sTGCSFEBToRouterQ1" ||
+             m_calibType=="sTGCSFEBToRouterQ2" ||
+             m_calibType=="sTGCSFEBToRouterQ3") {
     calib = std::make_unique<sTGCSFEBToRouter>(m_calibType);
   } else if (m_calibType=="sTGCRouterToTP") {
     calib = std::make_unique<sTGCRouterToTP>(m_calibType);
