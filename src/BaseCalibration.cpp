@@ -16,13 +16,13 @@
 #include "NSWCalibration/BaseCalibration.h"
 #include "NSWCalibration/Phase160MHzCalibration.h"
 
-template<typename Specialized>
+template <typename Specialized>
 BaseCalibration<Specialized>::BaseCalibration(nsw::FEBConfig t_config) : m_config(t_config),
-                                                            m_specialized(t_config)
+                                                                         m_specialized(t_config)
 {
 }
 
-template<typename Specialized>
+template <typename Specialized>
 [[nodiscard]] nsw::FEBConfig BaseCalibration<Specialized>::adaptConfig(const nsw::FEBConfig &t_config, const ValueMap t_vals, int i)
 {
     // creates a copy...
@@ -55,14 +55,14 @@ template<typename Specialized>
     return nsw::FEBConfig{config};
 }
 
-template<typename Specialized>
+template <typename Specialized>
 void BaseCalibration<Specialized>::basicConfigure(nsw::FEBConfig t_config) const
 {
     nsw::ConfigSender configSender;
     configSender.sendConfig(t_config);
 }
 
-template<typename Specialized>
+template <typename Specialized>
 [[nodiscard]] std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>> BaseCalibration<Specialized>::checkVmmCaptureRegisters(const nsw::FEBConfig &t_config) const
 {
     std::array<uint8_t, 8> result;
@@ -98,7 +98,7 @@ template<typename Specialized>
     return {result, resultParity};
 }
 
-template<typename Specialized>
+template <typename Specialized>
 void BaseCalibration<Specialized>::saveResult(const std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>> &t_result, std::ofstream &t_filestream, int i) const
 {
     const auto status = t_result.first;
@@ -115,14 +115,14 @@ void BaseCalibration<Specialized>::saveResult(const std::pair<std::array<uint8_t
         const auto failed_coherency = status[vmmId] & coherency_bit;
         const auto failed_decoder = status[vmmId] & decoder_bit;
         const auto failed_misalignment = status[vmmId] & misalignment_bit;
-        const auto failed_alignment = status[vmmId] & alignment_bit;
+        const auto failed_alignment = not status[vmmId] & alignment_bit;
         const auto failed_parity = parity[vmmId] > 0;
         t_filestream << i << ' ' << vmmId << ' ' << failed_fifo << ' ' << failed_coherency << ' '
                      << failed_decoder << ' ' << failed_misalignment << ' ' << failed_alignment << ' ' << failed_parity << '\n';
     }
 }
 
-template<typename Specialized>
+template <typename Specialized>
 [[nodiscard]] int BaseCalibration<Specialized>::analyzeResults(const std::vector<std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>> &t_results) const
 {
     std::vector<bool> testResults;
@@ -132,7 +132,7 @@ template<typename Specialized>
                        const auto status{t_result.first};
                        const auto parity{t_result.second};
                        const auto statusOk = std::all_of(std::begin(status), std::end(status),
-                                                         [noError = 1](const auto t_val) { return t_val == noError; });  // no error: 0000 0001 = 1
+                                                         [noError = 1](const auto t_val) { return t_val == noError; }); // no error: 0000 0001 = 1
                        const auto parityOk = std::all_of(std::begin(parity), std::end(parity),
                                                          [](const auto t_val) { return t_val == 0; });
                        return statusOk and parityOk;
@@ -152,6 +152,12 @@ template<typename Specialized>
     // wrap around....
     std::rotate(std::begin(testResults), std::begin(testResults) + index, std::end(testResults));
 
+    for (const auto &el : testResults)
+    {
+        std::cout << el << " ";
+    }
+    std::cout << std::endl;
+
     int counterGood = 0;
     int maxCounterGood = 0;
     int endGoodRegion = 0;
@@ -167,18 +173,23 @@ template<typename Specialized>
             if (counterGood > maxCounterGood)
             {
                 maxCounterGood = counterGood;
-                endGoodRegion = i - 1;
+                endGoodRegion = i;
+                if (i != testResults.size() - 1)
+                {
+                    endGoodRegion -= 1;
+                }
             }
             counterGood = 0;
         }
     }
 
     // This definetely does not need any explanantion
+    std::cout << endGoodRegion << " " << maxCounterGood << " " << index << " " << testResults.size() << '\n';
     return (endGoodRegion - maxCounterGood / 2 + index) % testResults.size();
 }
 
-template<typename Specialized>
-void BaseCalibration<Specialized>::run(const bool t_dryRun, const std::string& t_outputFilename) const
+template <typename Specialized>
+void BaseCalibration<Specialized>::run(const bool t_dryRun, const std::string &t_outputFilename) const
 {
     std::vector<std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>> allResults;
 
@@ -204,7 +215,7 @@ void BaseCalibration<Specialized>::run(const bool t_dryRun, const std::string& t
         allResults.push_back(result);
 
         // save
-        saveResult(result. outfile, counter);
+        saveResult(result, outfile, counter);
     }
     outfile.close();
 
