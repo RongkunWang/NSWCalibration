@@ -35,7 +35,7 @@ void ScaIdCalib::setup(std::string db) {
   for (const auto& name : element_names) {
     // TPs have no SCA chips
     if (name.find("MMTP") == std::string::npos && name.find("STGCTP") == std::string::npos)
-      m_boards.emplace(name, reader.readConfig(name));
+      m_boards.emplace_back(reader.readConfig(name));
   }
 }
 
@@ -49,22 +49,40 @@ void ScaIdCalib::configure() {
 void ScaIdCalib::fetch_sca_ids() {
   // Read SCA IDs from each board
   std::unordered_map<std::string, OpcClient> clients;
-  for (const auto& pair : m_boards) {
-    const auto& opc_ip = pair.second.getOpcServerIp();
+  
+  std::mutex clients_mutex;
+  std::vector<std::future<std::pair<std::string, unsigned int>>> runners;
+
+  auto get_id = [&](const SCAConfig& board) -> std::pair<std::string, unsigned int> {
+    const auto& opc_ip = board.getOpcServerIp();
+    // If we don't have an OpcClient already connected to this server, create one
     if (clients.find(opc_ip) == clients.end()) {
-      // Create new pairing: OPC server IP <-> OPC client (note the `emplace`)
+      // unordered_map writes NOT thread safe by default
+      std::lock_guard<std::mutex> guard(clients_mutex);
       try {
         clients.emplace(opc_ip, opc_ip);
       } catch (const std::exception& ex) {
-        NSWSCAIDCalibIssue issue(ERS_HERE, "Could not connect to OPC server " + pair.second.getOpcServerIp() + ": " + ex.what());
-        ers::error(issue);
+        throw std::runtime_error("Could not connect to OPC server " + board.getOpcServerIp() + ": " + ex.what());
       }
     }
+    // Map reads are thread-safe
     try {
-      auto id = clients.at(opc_ip).readScaID(pair.second.getAddress());
-      m_queried_ids.emplace(pair.first, id);
+      // Must be const, as to avoid data races in OpcClient
+      const auto& opc_client = clients.at(opc_ip);
+      return std::make_pair(board.getAddress(), opc_client.readScaID(board.getAddress()));
     } catch (const std::exception& ex) {
-      NSWSCAIDCalibIssue issue(ERS_HERE, "Could not read SCA ID of board at address " + pair.second.getAddress() + ": " + ex.what());
+        throw std::runtime_error("Could not read SCA ID of board at address " + board.getAddress() + ": " + ex.what());
+    }
+  };
+  // Launch runners
+  for (const auto& board : m_boards) {
+    runners.push_back(std::async(std::launch::async, get_id, board));
+  }
+  for (auto& runner : runners) {
+    try {
+      m_queried_ids.insert(runner.get());
+    } catch (const std::exception& ex) {
+      NSWSCAIDCalibIssue issue(ERS_HERE, ex.what());
       ers::error(issue);
     }
   }
@@ -77,12 +95,11 @@ void ScaIdCalib::write_sca_ids(const std::string& filepath) const {
   }
 
   boost::property_tree::ptree pt;
-  std::stringstream hex_stream;
   for (const auto& pair : m_queried_ids) {
     // SCA IDs are 24 bits (6 hex digits) long
+    std::stringstream hex_stream;
     hex_stream << "0x" << std::setfill('0') << std::setw(8) << std::hex << pair.second;
     pt.put(pair.first, hex_stream.str());
-    hex_stream.str("");   // clear the stream
   }
 
   try {

@@ -7,7 +7,9 @@
  * Author: Yuval Zach <yuval.zach@cern.ch> at WIS
 */
 
+#include <future>
 #include <iomanip>
+#include <mutex>
 #include <sstream>
 #include <unordered_map>
 #include <vector>
@@ -54,8 +56,7 @@ namespace nsw {
     // <name, SCAID>
     std::unordered_map<std::string, unsigned int> m_queried_ids;
 
-    // <name, SCAConfig>
-    std::unordered_map<std::string, nsw::SCAConfig> m_boards;
+    std::vector<nsw::SCAConfig> m_boards;
 
     // Fetches SCA IDs from all boards defined in m_boards
     void fetch_sca_ids();
