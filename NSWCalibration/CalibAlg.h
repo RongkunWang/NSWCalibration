@@ -34,10 +34,12 @@ namespace nsw {
     int total() {return m_total;};
     bool toggle() {return m_toggle;}
     bool wait4swrod() {return m_wait4swrod;}
+    bool simulation() {return m_simulation;}
     void setCounter(int ctr) {m_counter = ctr;}
     void setTotal(int tot) {m_total = tot;}
     void setToggle(bool tog) {m_toggle = tog;}
     void setWait4swROD(bool wait) {m_wait4swrod = wait;}
+    void setSimulation(bool sim) {m_simulation = sim;}
 
     // "progress bar"
     void setStartTime() {m_time_start = chr::system_clock::now();}
@@ -51,6 +53,7 @@ namespace nsw {
     int m_total;
     bool m_toggle = 1;
     bool m_wait4swrod = 0;
+    bool m_simulation = 0;
     chr::time_point<chr::system_clock> m_time_start;
     chr::duration<double> m_elapsed_seconds;
 

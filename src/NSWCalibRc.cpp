@@ -11,6 +11,9 @@
 #include "NSWCalibration/sTGCTriggerCalib.h"
 #include "NSWCalibration/sTGCStripsTriggerCalib.h"
 #include "NSWCalibration/SCAIDCalib.h"
+#include "NSWCalibration/sTGCSFEBToRouter.h"
+#include "NSWCalibration/sTGCRouterToTP.h"
+#include "NSWCalibration/sTGCPadTriggerToSFEB.h"
 #include "NSWConfiguration/NSWConfig.h"
 
 using boost::property_tree::ptree;
@@ -19,6 +22,7 @@ nsw::NSWCalibRc::NSWCalibRc(bool simulation):m_simulation {simulation} {
     ERS_LOG("Constructing NSWCalibRc instance");
     if (m_simulation) {
         ERS_INFO("Running in simulation mode, no configuration will be sent");
+        m_simulation_lock = 1;
     }
 }
 
@@ -48,8 +52,11 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     const std::string calibInfoName = g_info_server_name + "." + g_calibration_type + "CalibInfo";
 
     // Announce the current calibType, and
+    // retrieve simulation status, and
     // publish metadata to IS (in progress)
     m_calibType = calibTypeFromIS();
+    if (!m_simulation_lock)
+      m_simulation = simulationFromIS();
     publish4swrod();
 
     m_NSWConfig = std::make_unique<NSWConfig>(m_simulation);
@@ -136,11 +143,18 @@ void nsw::NSWCalibRc::handler() {
       m_calibType=="MMTrackPulserTest" ||
       m_calibType=="MMCableNoise" ||
       m_calibType=="MMARTPhase" ||
-      m_calibType=="MML1ALatency") {
+      m_calibType=="MML1ALatency" ||
+      m_calibType=="MMStaircase") {
     calib = std::make_unique<MMTriggerCalib>(m_calibType);
   } else if (m_calibType=="sTGCPadConnectivity" ||
              m_calibType=="sTGCPadLatency") {
     calib = std::make_unique<sTGCTriggerCalib>(m_calibType);
+  } else if (m_calibType=="sTGCSFEBToRouter") {
+    calib = std::make_unique<sTGCSFEBToRouter>(m_calibType);
+  } else if (m_calibType=="sTGCRouterToTP") {
+    calib = std::make_unique<sTGCRouterToTP>(m_calibType);
+  } else if (m_calibType=="sTGCPadTriggerToSFEB") {
+    calib = std::make_unique<sTGCPadTriggerToSFEB>(m_calibType);
   } else if (m_calibType=="sTGCFakeStripConnectivity") {
     calib = std::make_unique<sTGCStripsTriggerCalib>(m_calibType);
   } else if (m_calibType == "SCAIDCheck") {
@@ -154,11 +168,13 @@ void nsw::NSWCalibRc::handler() {
 
   // setup
   alti_setup();
+  calib->setSimulation(m_simulation);
   calib->setup(m_dbcon);
   ERS_INFO("calib counter:    " << calib->counter());
   ERS_INFO("calib total:      " << calib->total());
   ERS_INFO("calib toggle:     " << calib->toggle());
   ERS_INFO("calib wait4swrod: " << calib->wait4swrod());
+  ERS_INFO("calib simulation: " << calib->simulation());
 
   // calib loop
   while (calib->next()) {
@@ -402,4 +418,18 @@ std::string nsw::NSWCalibRc::calibTypeFromIS() {
   runParams.setAttributeValue<std::string>(8,calibType);
   is_dictionary->update("RunParams.RunParams", runParams);
   return calibType;
+}
+
+bool nsw::NSWCalibRc::simulationFromIS() {
+  // Grab the simulation bool from IS
+  // Can manually write to this variable from the command line:
+  // > is_write -p part-BB5-Calib -n Setup.NSW.simulation -t Boolean -v 1 -i 0
+  if(is_dictionary->contains("Setup.NSW.simulation") ){
+    ISInfoDynAny any;
+    is_dictionary->getValue("Setup.NSW.simulation", any);
+    auto val = any.getAttributeValue<bool>(0);
+    ERS_INFO("Simulation from IS: " << val);
+    return val;
+  }
+  return 0;
 }
