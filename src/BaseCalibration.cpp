@@ -99,55 +99,31 @@ template<typename Specialized>
 }
 
 template<typename Specialized>
-void BaseCalibration<Specialized>::printResult(const std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>> &t_result, int i) const
+void BaseCalibration<Specialized>::saveResult(const std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>> &t_result, std::ofstream &t_filestream, int i) const
 {
-    std::ofstream outfile;
-    outfile.open("log_myreadout.txt", std::ios_base::app);
-    outfile << "Iteration: " << i << '\n';
     const auto status = t_result.first;
     const auto parity = t_result.second;
     for (std::size_t vmmId = 0; vmmId < status.size(); vmmId++)
     {
-        outfile << "VMM Status/Parity" << vmmId << " : " << unsigned(status[vmmId]) << '/' << unsigned(parity[vmmId]) << " (";
-
         // Check registers (https://espace.cern.ch/ATLAS-NSW-ELX/_layouts/15/WopiFrame.aspx?sourcedoc=/ATLAS-NSW-ELX/Shared%20Documents/ROC/ROC_Reg_digital_analog_combined_annotated.xlsx&action=default)
         const auto fifo_bit{0b0001'0000};
         const auto coherency_bit{0b0000'1000};
         const auto decoder_bit{0b0000'0100};
         const auto misalignment_bit{0b000'0010};
         const auto alignment_bit{0b0000'0001};
-        if (status[vmmId] & fifo_bit)
-        {
-            outfile << "FIFO full error, ";
-        }
-        if (status[vmmId] & coherency_bit)
-        {
-            outfile << "Coherency error, ";
-        }
-        if (status[vmmId] & decoder_bit)
-        {
-            outfile << "Decoder error, ";
-        }
-        if (status[vmmId] & misalignment_bit)
-        {
-            outfile << "Misalignment error, ";
-        }
-        if (not(status[vmmId] & alignment_bit))
-        {
-            outfile << "VMM not aligned, ";
-        }
-        if (parity[vmmId] > 0)
-        {
-            outfile << "Parity counter error = " << unsigned(parity[vmmId]);
-        }
-        outfile << ")\n";
+        const auto failed_fifo = status[vmmId] & fifo_bit;
+        const auto failed_coherency = status[vmmId] & coherency_bit;
+        const auto failed_decoder = status[vmmId] & decoder_bit;
+        const auto failed_misalignment = status[vmmId] & misalignment_bit;
+        const auto failed_alignment = status[vmmId] & alignment_bit;
+        const auto failed_parity = parity[vmmId] > 0;
+        t_filestream << i << ' ' << vmmId << ' ' << failed_fifo << ' ' << failed_coherency << ' '
+                     << failed_decoder << ' ' << failed_misalignment << ' ' << failed_alignment << ' ' << failed_parity << '\n';
     }
-    outfile << '\n';
-    outfile.close();
 }
 
 template<typename Specialized>
-int BaseCalibration<Specialized>::analyzeResults(const std::vector<std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>> &t_results) const
+[[nodiscard]] int BaseCalibration<Specialized>::analyzeResults(const std::vector<std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>> &t_results) const
 {
     std::vector<bool> testResults;
     testResults.reserve(t_results.size());
@@ -214,6 +190,10 @@ void BaseCalibration<Specialized>::run(const bool t_dryRun, const std::string& t
 
     basicConfigure(m_config);
 
+    std::ofstream outfile;
+    // add _full before .*
+    outfile.open(t_outputFilename.substr(0, t_outputFilename.find('.')) + "_full" + t_outputFilename.substr(t_outputFilename.find('.')));
+
     // iterate through settings (vector in map of map)
     for (std::size_t counter = 0; counter < m_specialized.getNumberOfConfigurations(); counter++)
     {
@@ -223,9 +203,11 @@ void BaseCalibration<Specialized>::run(const bool t_dryRun, const std::string& t
         const auto result = checkVmmCaptureRegisters(m_config);
         allResults.push_back(result);
 
-        // print
-        printResult(result, counter);
+        // save
+        saveResult(result. outfile, counter);
     }
+    outfile.close();
+
     const auto bestIteration = analyzeResults(allResults);
     m_specialized.saveBestSettings(bestIteration, t_outputFilename);
 }
