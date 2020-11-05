@@ -115,7 +115,7 @@ void BaseCalibration<Specialized>::saveResult(const std::pair<std::array<uint8_t
         const auto failed_coherency = status[vmmId] & coherency_bit;
         const auto failed_decoder = status[vmmId] & decoder_bit;
         const auto failed_misalignment = status[vmmId] & misalignment_bit;
-        const auto failed_alignment = not status[vmmId] & alignment_bit;
+        const auto failed_alignment = not(status[vmmId] & alignment_bit);
         const auto failed_parity = parity[vmmId] > 0;
         t_filestream << i << ' ' << vmmId << ' ' << failed_fifo << ' ' << failed_coherency << ' '
                      << failed_decoder << ' ' << failed_misalignment << ' ' << failed_alignment << ' ' << failed_parity << '\n';
@@ -152,12 +152,6 @@ template <typename Specialized>
     // wrap around....
     std::rotate(std::begin(testResults), std::begin(testResults) + index, std::end(testResults));
 
-    for (const auto &el : testResults)
-    {
-        std::cout << el << " ";
-    }
-    std::cout << std::endl;
-
     int counterGood = 0;
     int maxCounterGood = 0;
     int endGoodRegion = 0;
@@ -184,7 +178,6 @@ template <typename Specialized>
     }
 
     // This definetely does not need any explanantion
-    std::cout << endGoodRegion << " " << maxCounterGood << " " << index << " " << testResults.size() << '\n';
     return (endGoodRegion - maxCounterGood / 2 + index) % testResults.size();
 }
 
