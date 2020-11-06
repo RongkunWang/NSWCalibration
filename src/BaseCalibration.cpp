@@ -111,12 +111,12 @@ void BaseCalibration<Specialized>::saveResult(const std::pair<std::array<uint8_t
         const auto decoder_bit{0b0000'0100};
         const auto misalignment_bit{0b000'0010};
         const auto alignment_bit{0b0000'0001};
-        const auto failed_fifo = status[vmmId] & fifo_bit;
-        const auto failed_coherency = status[vmmId] & coherency_bit;
-        const auto failed_decoder = status[vmmId] & decoder_bit;
-        const auto failed_misalignment = status[vmmId] & misalignment_bit;
-        const auto failed_alignment = not(status[vmmId] & alignment_bit);
-        const auto failed_parity = parity[vmmId] > 0;
+        const auto failed_fifo = static_cast<bool>(status[vmmId] & fifo_bit);
+        const auto failed_coherency = static_cast<bool>(status[vmmId] & coherency_bit);
+        const auto failed_decoder = static_cast<bool>(status[vmmId] & decoder_bit);
+        const auto failed_misalignment = static_cast<bool>(status[vmmId] & misalignment_bit);
+        const auto failed_alignment = static_cast<bool>(not(status[vmmId] & alignment_bit));
+        const auto failed_parity = static_cast<bool>(parity[vmmId] > 0);
         t_filestream << i << ' ' << vmmId << ' ' << failed_fifo << ' ' << failed_coherency << ' '
                      << failed_decoder << ' ' << failed_misalignment << ' ' << failed_alignment << ' ' << failed_parity << '\n';
     }
