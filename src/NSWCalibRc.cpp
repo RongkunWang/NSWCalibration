@@ -8,6 +8,7 @@
 #include "NSWCalibration/NSWCalibRc.h"
 #include "NSWCalibrationDal/NSWCalibApplication.h"
 #include "NSWCalibration/MMTriggerCalib.h"
+#include "NSWCalibration/MMTPInputPhase.h"
 #include "NSWCalibration/sTGCTriggerCalib.h"
 #include "NSWCalibration/sTGCStripsTriggerCalib.h"
 #include "NSWCalibration/sTGCSFEBToRouter.h"
@@ -143,6 +144,8 @@ void nsw::NSWCalibRc::handler() {
       m_calibType=="MML1ALatency" ||
       m_calibType=="MMStaircase") {
     calib = std::make_unique<MMTriggerCalib>(m_calibType);
+  } else if (m_calibType=="MMTPInputPhase") {
+    calib = std::make_unique<MMTPInputPhase>(m_calibType);
   } else if (m_calibType=="sTGCPadConnectivity" ||
              m_calibType=="sTGCPadLatency") {
     calib = std::make_unique<sTGCTriggerCalib>(m_calibType);

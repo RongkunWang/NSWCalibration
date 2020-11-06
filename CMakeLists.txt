@@ -19,6 +19,7 @@ tdaq_add_library(nswcalib
         src/CalibrationSca.cpp
         src/CalibAlg.cpp
         src/MMTriggerCalib.cpp
+        src/MMTPInputPhase.cpp
         src/sTGCTriggerCalib.cpp
         src/sTGCStripsTriggerCalib.cpp
         src/sTGCSFEBToRouter.cpp
