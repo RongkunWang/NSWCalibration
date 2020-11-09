@@ -91,7 +91,7 @@ void Phase160MHzCalibration::setRegisters(const int i) const
     const auto opcIp = adaptedConfig.getOpcServerIp();
     const auto scaAddress = adaptedConfig.getAddress();
     const auto analog = adaptedConfig.getRocAnalog();
-   
+
     configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocCoreResetN", 0);
     configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocPllResetN", 0);
     configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocSResetN", 0);
@@ -124,6 +124,11 @@ void Phase160MHzCalibration::saveBestSettings(const int t_bestIteration, const s
     const auto bestPhase40MHz = m_inputValues.at("reg115").at("ePllPhase40MHz_0").at(t_bestIteration);
     const auto bestPhase160MHz_3_0 = m_inputValues.at("reg118").at("ePllPhase160MHz_0[3:0]").at(t_bestIteration);
     const auto bestPhase40MHz_4 = m_inputValues.at("reg115").at("ePllPhase160MHz_0[4]").at(t_bestIteration);
+    ERS_INFO("Best values (iteration) " << t_bestIteration << '\n'
+              << "\t40MHz: " << bestPhase40MHz << '\n'
+              << "\t160MHz[3:0]: " << bestPhase160MHz_3_0 << '\n'
+              << "\t160MHz[4]: " << bestPhase40MHz_4 << '\n');
+
     std::cout << "Best values (iteration) " << t_bestIteration << '\n'
               << "\t40MHz: " << bestPhase40MHz << '\n'
               << "\t160MHz[3:0]: " << bestPhase160MHz_3_0 << '\n'
@@ -135,7 +140,7 @@ void Phase160MHzCalibration::saveBestSettings(const int t_bestIteration, const s
         for (const auto& [subName, values] : dict)
         {
             outfile << "rocCoreAnalog." << registerName << '.' << subName << ':' << values[t_bestIteration] << '\n';
-        } 
+        }
     }
     outfile.close();
 }

@@ -115,7 +115,7 @@ void BaseCalibration<Specialized>::printResult(const std::pair<std::array<uint8_
         const auto coherency_bit{0b0000'1000};
         const auto decoder_bit{0b0000'0100};
         const auto misalignment_bit{0b000'0010};
-        const auto alignment_bit{0b0000'0001};
+        const auto alignment_bit{0b0000'0001}; //for emacs syntax highlighting'
         if (status[vmmId] & fifo_bit)
         {
             outfile << "FIFO full error, ";
@@ -191,7 +191,11 @@ int BaseCalibration<Specialized>::analyzeResults(const std::vector<std::pair<std
             if (counterGood > maxCounterGood)
             {
                 maxCounterGood = counterGood;
-                endGoodRegion = i - 1;
+                endGoodRegion = i;
+		if (i != testResults.size() - 1)
+		  {
+                    endGoodRegion -= 1;
+		  }
             }
             counterGood = 0;
         }
@@ -217,6 +221,7 @@ void BaseCalibration<Specialized>::run(const bool t_dryRun, const std::string& t
     // iterate through settings (vector in map of map)
     for (std::size_t counter = 0; counter < m_specialized.getNumberOfConfigurations(); counter++)
     {
+        ERS_INFO("iteration = " << counter);
         m_specialized.setRegisters(counter);
 
         // check the result

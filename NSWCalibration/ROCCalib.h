@@ -28,7 +28,9 @@ namespace nsw {
     void unconfigure();
  
   private:
-    bool m_dry_run;
+    [[nodiscard]] std::map<std::string, nsw::FEBConfig> splitConfigs() const;
+    std::string m_db;
+    bool m_dry_run; 
     std::string m_calibType = "";
     std::vector<nsw::FEBConfig> m_pfebs = {};
     std::map<std::string, std::unique_ptr<nsw::ConfigSender> > m_senders = {};

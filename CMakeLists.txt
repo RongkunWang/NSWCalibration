@@ -26,7 +26,7 @@ tdaq_add_library(nswcalib
 	src/ROCCalib.cpp
         src/NSWCalibRc.cpp
         src/BaseCalibration.cpp
-        src/Phase160MHzCalibration
+        src/Phase160MHzCalibration.cpp
     INCLUDE_DIRECTORIES PRIVATE ${OPC_GENERATED_CLIENT_SRCS}
     LINK_LIBRARIES nswconfig NSWConfig nswcalibdal
         nswopcclient
@@ -35,6 +35,7 @@ tdaq_add_library(nswcalib
         Protobuf
         tdaq::rc_ItemCtrl
         tdaq-common::ers
+        stdc++fs
 )
 
 
@@ -70,7 +71,7 @@ tdaq_add_executable(calibratex3 app/calibrate_3offsets.cpp
 										nswconfig
 										nswopcclient
 										Boost::program_options
-
+)
 tdaq_add_executable(run_calibration app/run_calibration.cpp
     LINK_LIBRARIES nswcalib
         nswconfig
@@ -91,4 +92,3 @@ tdaq_add_executable(nsw_write_patterns app/write_patterns.cpp
 )
 
 tdaq_add_schema(schema/NSWCalib.schema.xml)
-
