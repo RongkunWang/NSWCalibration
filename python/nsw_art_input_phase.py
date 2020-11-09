@@ -109,8 +109,8 @@ def load_data():
     now_ph = -1
     now_ch = -1
 
-    prev_l1id = -1
-    l1id = -1
+    l1id_prev = -1
+    l1id_curr = -1
 
     # loop
     ents  = ttree.GetEntries()
@@ -120,23 +120,23 @@ def load_data():
         _ = ttree.GetEntry(ent)
         if ent % 5000 == 0:
             progress(time.time()-start, ent, ents)
-        prev_l1id = l1id
-        l1id = ttree.level1Id
+        l1id_prev = l1id_curr
+        l1id_curr = ttree.level1Id
 
         # warnings
-        if l1id > 100:
+        if l1id_curr > 100:
             print("")
             print_me = "Warning: weird. Ent = %s, L1ID = %s, previous L1ID = %s. Should have rolled over at 100. Skipping."
-            print(print_me % (ent, l1id, prev_l1id))
+            print(print_me % (ent, l1id_curr, l1id_prev))
             print("")
             continue
 
         # DELIMITER
         # but allow for occasional L1ID skips
         # `tup` is the expected layer, vmm, channel, phase
-        if (l1id % 100 == 0) or (prev_l1id > 90 and l1id < 10):
+        if (l1id_curr % 100 == 0) or (l1id_prev > 90 and l1id_curr < 10):
             if ops.debug:
-                print("Rolling over: Ent = %s, L1ID = %s, previous L1ID = %s." % (ent, l1id, prev_l1id))
+                print("Rolling over: Ent = %s, L1ID = %s, previous L1ID = %s." % (ent, l1id_curr, l1id_prev))
             patts.next()
             now_ph = patts.phase()
             now_ch = patts.channel()
@@ -146,7 +146,6 @@ def load_data():
         # tree data
         # ch_obs is the observed channel for that layer, vmm, phase
         # keep a list of ch_obs for each expectation
-        l1id      = ttree.level1Id
         layers    = list(ttree.v_artHit_octupletLayer)
         vmmposs   = list(ttree.v_artHit_vmmPosition)
         ch_obss   = list(ttree.v_artHit_ch)
@@ -157,7 +156,7 @@ def load_data():
             ch_obs   = ch_obss[ih]
             tup = (layer, vmmpos, now_ch, now_ph)
             if dataman.add(tup, ch_obs) == -1:
-                print("dataman.add failed on Ent = %s, L1ID = %s, previous L1ID = %s" % (ent, l1id, prev_l1id))
+                print("dataman.add failed on Ent = %s, L1ID = %s, previous L1ID = %s" % (ent, l1id_curr, l1id_prev))
 
     print("")
     return dataman
