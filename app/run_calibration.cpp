@@ -95,7 +95,7 @@ struct Args
     // takes either vector or set...
     nsw::ConfigReader reader(t_configFile);
     const auto func = [&reader] (const auto& t_names) {
-        std::vector<nsw::FEBConfig> feb_configs;
+        std::map<std::string, std::vector<nsw::FEBConfig>> feb_configs;
         // TODO: Adapt this???
         for (const auto& name : t_names)
         {
@@ -103,7 +103,7 @@ struct Args
             {
                 if (nsw::getElementType(name) == "MMFE8")
                 {
-                    feb_configs.emplace_back(reader.readConfig(name));
+                    feb_configs.emplace(name, reader.readConfig(name));
                     std::cout << "Adding: " << name << '\n';
                 }
                 else
