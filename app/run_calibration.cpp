@@ -145,8 +145,9 @@ int main(int argc, char* argv[])
     const auto configs = splitConfigs("json://" + args.configFile, args.names);
     std::vector<std::thread> threads;
     threads.reserve(configs.size());
-    for (const auto& [[[maybe_unused]] name, config] : configs)
+    for (const auto& element : configs)
     {
+        const auto& config = element.second;
         if (args.mode == Mode::clockPhase)
         {
             threads.push_back([] (const auto& t_config, const auto t_dryRun, const auto& t_outputFilename) {
@@ -157,7 +158,7 @@ int main(int argc, char* argv[])
         break;
     }
 
-    for (const auto& thread : threads)
+    for (auto& thread : threads)
     {
         thread.join();
     }
