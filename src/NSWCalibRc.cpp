@@ -1,16 +1,15 @@
-#include <utility>  // make_pair                                                                                                                                                                                    
-#include <string>                                                                                                                                                                                                   
-#include <memory>                                                                                                                                                                                                   
-                                                                                                                                                                                                                    
+#include <utility>  // make_pair                                                                                                                             
+#include <string>                                                                                                                                          
+#include <memory>                                                                                                                                                
 // Header to the RC online services                   
 
-#include "RunControl/Common/OnlineServices.h"                                                                                                                                                                       
-                                                                                                                                                                                                                    
+#include "RunControl/Common/OnlineServices.h"   
 #include "NSWCalibration/NSWCalibRc.h" 
-#include "NSWCalibrationDal/NSWCalibApplication.h"                                                                                                                                                                  
+#include "NSWCalibrationDal/NSWCalibApplication.h"               
 #include "NSWCalibration/CalibAlg.h"                     
 #include "NSWConfiguration/NSWConfig.h"                     
 #include "NSWCalibration/PDOCalib.h"                     
+#include "NSWCalibration/THRCalib.h"                     
  
 using boost::property_tree::ptree;
 
@@ -143,6 +142,8 @@ void nsw::NSWCalibRc::handler(){
     Nchan=64;
     all_chan=false;
   }
+  bool thresholds=false;
+  bool pulses=false;
 
   calib = 0;
 //--------- add IS publication/reading when main loop operates -----
@@ -150,11 +151,17 @@ void nsw::NSWCalibRc::handler(){
    if(m_calibType=="PDOCalib" ||
  		 m_calibType=="TDOCalib" || 
  		 m_calibType=="PDOCalibSingleChan" || 
- 		 m_calibType=="TDOCalibSingleChan") 
-   {
+ 		 m_calibType=="TDOCalibSingleChan"){ 
      calib = std::make_unique<PDOCalib>(m_calibType);
      ERS_INFO("unique pointer to PDOCalib made based on the IS calib type entry = " << m_calibType);
      if(calib!=0){ ERS_INFO("Calib pointer status is non zero");}
+     pulses=true;     
+   }
+   else if (m_calibType=="THRCalib"){
+     calib = std::make_unique<THRCalib>(m_calibType);
+     ERS_INFO("unique pointer to THRCalib made based on the IS calib type entry = " << m_calibType);
+     if(calib!=0){ ERS_INFO("Calib pointer status is non zero");}
+     thresholds=true;
    }
    else{ 
       std::string msg = m_calibType + "-> calibration type is not supported or does not exist";
@@ -179,7 +186,7 @@ void nsw::NSWCalibRc::handler(){
     std::vector<int> tpdacs = {200,300,400,500};
 //    std::vector<int> delays = {0,1,2,3,4,5,6,7};// full range of delays
     std::vector<int> delays = {0,1,2,3,4};
-//    int i_counter = 0;
+    int i_counter = 0;
 
     int n_delays = delays.size();
     int n_dacs = tpdacs.size();
@@ -187,107 +194,99 @@ void nsw::NSWCalibRc::handler(){
     int loop_max;
     if(pdo){loop_max = n_dacs;}
     if(tdo){loop_max = n_delays;}
-///===================================================
+    
+    if(thresholds){
+        ERS_INFO("Calibrating thresholds");   
+        calib->configure();
+    
+    }
 
-    sleep(15);
-    alti_stop_pat();
-//    chan=0;
-    sleep(5);
-    ERS_INFO("Setting 6ns delay");
-  	publish4swrod(2);
-    sleep(5);
-    calib->configure(2, pdo, tdo, Nchan, all_chan);
-       alti_send_reset(v_hex_data_sr);
-       alti_send_reset(v_hex_data_bcr);
-       alti_send_reset(v_hex_data_ecr);
-
-    sleep(5);
-    alti_start_pat();
-    sleep(10);
-    alti_stop_pat();
-    sleep(10);
-    ERS_INFO("Setting 12ns delay");
-    calib->unconfigure();
-  	publish4swrod(4);
-    calib->configure(4, pdo, tdo, Nchan, all_chan);
-       alti_send_reset(v_hex_data_sr);
-       alti_send_reset(v_hex_data_bcr);
-       alti_send_reset(v_hex_data_ecr);
-
-    alti_start_pat();
-    sleep(10);
-    alti_stop_pat();
-
-///===================================================
-//   alti_stop_pat();
-//   for(int i_step=0; i_step<loop_max; i_step++){
-//
-//    for(int chan=0; chan<Nchan; chan++){
-//
-//       int i_par;
-//       if(i_counter==0){alti_stop_pat();}
-//       if(pdo){
-//         i_par = tpdacs[i_step];
-//         ERS_INFO("NSWCalib::handler::Calibrating PDO with pulser DAC = "<<tpdacs[i_step]);
-//       }
-//       if(tdo){
-//         i_par = delays[i_step];
-//         ERS_INFO("NSWCalib::handler::Calibrating TDO with delay = "<<delays[i_step]*3 <<" [ns]");
-//       }
-// 
-//        ERS_INFO("CHECK: ALLchan{"<<all_chan<<"} i_par{"<<i_par<<"} tdo{"<<tdo<<"} pdo{"<<pdo<<"}");
-//        sleep(5);
-//    	 publish4swrod(i_par);
-//       if(pdo){
-//         try{
-//          calib->configure(tpdacs[i_step], pdo, tdo, chan, all_chan);
-//          ERS_INFO("PDO calib config sent");
-//         }catch(std::exception &ex){
-//       	  nsw::NSWCalibIssue issue(ERS_HERE, ex.what());
-//   	      ers::error(issue);
-// 		      throw std::runtime_error(ex.what()); 
-//         } 
-//       }
-//       if(tdo){
-//         try{
-//          calib->configure(delays[i_step], pdo, tdo, chan, all_chan);
-//         }catch(std::exception &ex){
-//       	  nsw::NSWCalibIssue issue(ERS_HERE, ex.what());
-//   	      ers::error(issue);
-// 		      throw std::runtime_error(ex.what()); 
-//         }
-//         ERS_INFO("TDO calib config sent");
-//       }
-//       else{
-//         ERS_INFO("Something went wrong...");
-//         break;
-//       } 
-//      
-////       ERS_INFO("A");
-////    	 publish4swrod(i_par);
-////       ERS_INFO("B");
-//       sleep(3);   
+        ERS_INFO("Done with thresholds");   
+/////===================================================
+//    ERS_INFO("Setting 6ns delay");
+//  	publish4swrod(2);
+//    sleep(5);
+//    calib->configure(2, pdo, tdo, Nchan, all_chan);
 //       alti_send_reset(v_hex_data_sr);
 //       alti_send_reset(v_hex_data_bcr);
 //       alti_send_reset(v_hex_data_ecr);
-//       int sleeptime = 5;
-//       ERS_INFO("C");
-//       ERS_INFO("NSWCalibRc::handler::Recording data for [ "<<sleeptime<<" ] sec");
-//       alti_start_pat();
-//  
-////       ERS_INFO("D");
-//       sleep(sleeptime);
-//  
-//       alti_stop_pat();
 //
-////       ERS_INFO("E");
-//       ERS_INFO("NSWCalib::handler:: done with channel:"<<chan);
-//       i_counter++;
-//      }// channel loop end here
-//   
-//   }// DAC/Delay loop vector ends
-   end_of_run = 1;
-   ERS_INFO("NSWCalibRc::handler::calibrations done, pattern generator stopped");
+//    sleep(5);
+//    alti_start_pat();
+//    sleep(10);
+//    alti_stop_pat();
+///===================================================
+//   alti_stop_pat();
+ if(pulses){ 
+  for(int i_step=0; i_step<loop_max; i_step++){
+
+    for(int chan=0; chan<Nchan; chan++){
+
+       int i_par;
+       if(i_counter==0){alti_stop_pat();}
+       if(pdo){
+         i_par = tpdacs[i_step];
+         ERS_INFO("NSWCalib::handler::Calibrating PDO with pulser DAC = "<<tpdacs[i_step]);
+       }
+       if(tdo){
+         i_par = delays[i_step];
+         ERS_INFO("NSWCalib::handler::Calibrating TDO with delay = "<<delays[i_step]*3 <<" [ns]");
+       }
+ 
+        ERS_INFO("CHECK: ALLchan{"<<all_chan<<"} i_par{"<<i_par<<"} tdo{"<<tdo<<"} pdo{"<<pdo<<"}");
+        sleep(5);
+    	 publish4swrod(i_par);
+       if(pdo){
+         try{
+          calib->configure(tpdacs[i_step], pdo, tdo, chan, all_chan);
+          ERS_INFO("PDO calib config sent");
+         }catch(std::exception &ex){
+       	  nsw::NSWCalibIssue issue(ERS_HERE, ex.what());
+   	      ers::error(issue);
+ 		      throw std::runtime_error(ex.what()); 
+         } 
+       }
+       if(tdo){
+         try{
+          calib->configure(delays[i_step], pdo, tdo, chan, all_chan);
+         }catch(std::exception &ex){
+       	  nsw::NSWCalibIssue issue(ERS_HERE, ex.what());
+   	      ers::error(issue);
+ 		      throw std::runtime_error(ex.what()); 
+         }
+         ERS_INFO("TDO calib config sent");
+       }
+       else{
+         ERS_INFO("Something went wrong...");
+         break;
+       } 
+      
+//       ERS_INFO("A");
+//    	 publish4swrod(i_par);
+//       ERS_INFO("B");
+       sleep(3);   
+       alti_send_reset(v_hex_data_sr);
+       alti_send_reset(v_hex_data_bcr);
+       alti_send_reset(v_hex_data_ecr);
+       int sleeptime = 5;
+       ERS_INFO("C");
+       ERS_INFO("NSWCalibRc::handler::Recording data for [ "<<sleeptime<<" ] sec");
+       alti_start_pat();
+  
+//       ERS_INFO("D");
+       sleep(sleeptime);
+  
+       alti_stop_pat();
+
+//       ERS_INFO("E");
+       ERS_INFO("NSWCalib::handler:: done with channel:"<<chan);
+       i_counter++;
+      }// channel loop end here
+   
+   }// DAC/Delay loop vector ends
+  }//if statement done
+  end_of_run = 1;
+  ERS_INFO("NSWCalibRc::handler::calibrations done, pattern generator stopped");
 }
 
 // strating and stopping pattern generator explicitly
