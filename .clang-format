@@ -1,0 +1,42 @@
+---
+Language:        Cpp
+BasedOnStyle:  Mozilla
+AccessModifierOffset: 0 ## modified from default (-2)
+AlignConsecutiveAssignments: true  ## modified from default
+AlignConsecutiveDeclarations: true ## modified from default
+AllowShortBlocksOnASingleLine: false ## available from clang10 false -> Never
+AlwaysBreakAfterDefinitionReturnType: None ## modified from default (TopLevel)
+AlwaysBreakAfterReturnType: None           ## modified from default (TopLevel)
+BreakBeforeBraces: Custom ## modified from default (Mozilla)
+BreakConstructorInitializers: AfterColon ## modified from default (BeforeComma)
+ColumnLimit:     80
+CommentPragmas:  '^ IWYU pragma:'
+ConstructorInitializerAllOnOneLineOrOnePerLine: true ## modified from default
+Cpp11BracedListStyle: true ## modified from default
+DerivePointerAlignment: true ## modified from default
+FixNamespaceComments: true ## modified from default
+IncludeIsMainRegex: '(Test)?$'
+IndentCaseLabels: true ## maybe change
+IndentPPDirectives: None ## maybe change to AfterHash
+IndentWidth:     2 ## maybe change per developer prefs
+KeepEmptyLinesAtTheStartOfBlocks: false ## modified from default
+MacroBlockBegin: '' ## maybe add, if TDAQ macros demand it
+MacroBlockEnd:   '' ## maybe add, if TDAQ macros demand it
+NamespaceIndentation: All ## modified from default (None)
+### May need to tweak the penalties for desired style
+PenaltyBreakAssignment: 2
+PenaltyBreakBeforeFirstCallParameter: 19
+PenaltyBreakComment: 300
+PenaltyBreakFirstLessLess: 120
+PenaltyBreakString: 1000
+PenaltyBreakTemplateDeclaration: 10
+PenaltyExcessCharacter: 1000000
+PenaltyReturnTypeOnItsOwnLine: 200
+PointerAlignment: Left ## maybe better as Right
+SortIncludes:    false ## modified from default
+SpaceBeforeCpp11BracedList: false ## maybe change
+SpacesBeforeTrailingComments: 2 ## modified from default
+SpacesInContainerLiterals: false ## modified from default
+Standard:        Cpp11 ## modified from default (Cpp11), available from clang10 Cpp11 -> Latest
+TabWidth:        2 ## modified from default (8)
+...
