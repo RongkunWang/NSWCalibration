@@ -90,12 +90,12 @@ struct Args
 }
 
 
-[[nodiscard]] std::map<std::string, std::vector<nsw::FEBConfig>> splitConfigs(const std::string& t_configFile, const std::vector<std::string>& t_names)
+[[nodiscard]] std::map<std::string, nsw::FEBConfig> splitConfigs(const std::string& t_configFile, const std::vector<std::string>& t_names)
 {
     // takes either vector or set...
     nsw::ConfigReader reader(t_configFile);
     const auto func = [&reader] (const auto& t_names) {
-        std::map<std::string, std::vector<nsw::FEBConfig>> feb_configs;
+        std::map<std::string, nsw::FEBConfig> feb_configs;
         // TODO: Adapt this???
         for (const auto& name : t_names)
         {
@@ -145,17 +145,21 @@ int main(int argc, char* argv[])
     const auto configs = splitConfigs("json://" + args.configFile, args.names);
     std::vector<std::thread> threads;
     threads.reserve(configs.size());
-    for (const auto& element : configs)
+    int i = 0;
+    for (const auto& [name, config]: configs)
     {
-        const auto& config = element.second;
+        if (i > 5)
+        {
+            break;
+        }
         if (args.mode == Mode::clockPhase)
         {
-            threads.push_back([] (const auto& t_config, const auto t_dryRun, const auto& t_outputFilename) {
+            threads.push_back(std::thread([] (const auto& t_config, const auto t_dryRun, const auto& t_outputFilename) {
                 BaseCalibration<Phase160MHzCalibration> calibrator(t_config);
                 calibrator.run(t_dryRun, t_outputFilename);
-            }, config, args.dryRun, args.outputFilename);
+            }, config, args.dryRun, name + '_' + args.outputFilename));
         }
-        break;
+        i++;
     }
 
     for (auto& thread : threads)

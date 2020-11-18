@@ -177,6 +177,12 @@ template <typename Specialized>
         }
     }
 
+    if (maxCounterGood == 0)
+    {
+        std::cout << "ERROR: No good setting found!\n";
+        // TODO: ERS Logging
+    }
+
     // This definetely does not need any explanantion
     return (endGoodRegion - maxCounterGood / 2 + index) % testResults.size();
 }
