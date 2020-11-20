@@ -158,7 +158,7 @@ void nsw::NSWCalibRc::handler() {
     calib = std::make_unique<sTGCRouterToTP>(m_calibType);
   } else if (m_calibType=="sTGCPadTriggerToSFEB") {
     calib = std::make_unique<sTGCPadTriggerToSFEB>(m_calibType);
-  } else if (m_calibType=="sTGCFakeStripConnectivity") {
+  } else if (m_calibType=="sTGCStripConnectivity") {
     calib = std::make_unique<sTGCStripsTriggerCalib>(m_calibType);
   } else {
     std::string msg = "Unknown calibration request: " + m_calibType;

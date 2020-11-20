@@ -28,18 +28,19 @@ namespace nsw {
     void unconfigure();
 
   public:
-    ptree patterns();
-    int configure_tds(ptree tr, bool unmask);
-    int configure_tds(nsw::FEBConfig feb, int i_tds, bool unmask);
+    int configure_tds(std::string name, std::vector<std::string> tdss, bool prbs_e);
+    int configure_tds(nsw::FEBConfig feb, std::string tds, bool prbs_e);
     void gather_sfebs();
-    int pattern_number(std::string name);
+    std::vector<std::pair <std::string, std::string > > router_recovery_tds();
+    bool dont_touch(std::string name, std::string tds);
+    std::string simplified(std::string name);
 
   private:
-    bool m_dry_run;
-    ptree m_patterns;
     std::string m_calibType = "";
     std::vector<std::string> m_sfebs_ordered = {};
     std::vector<nsw::FEBConfig> m_sfebs = {};
+    std::vector<std::pair <std::string, std::string > > m_router_recovery_tds = {};
+    std::vector< std::vector<std::string> > m_tdss = {};
 
   };
 
