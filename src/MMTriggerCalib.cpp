@@ -456,7 +456,7 @@ ptree nsw::MMTriggerCalib::patterns() {
             }
         }
         for (int cx = 0; cx < 8192; cx++) {
-            if (cx % 100 != 0)
+            if (cx % 300 != 0)
                 continue;
             for (int dif = -70; dif < 71; dif++) {
                 if (dif % 5 != 0)
