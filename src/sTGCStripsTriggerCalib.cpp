@@ -26,8 +26,6 @@ nsw::sTGCStripsTriggerCalib::sTGCStripsTriggerCalib(std::string calibType) {
 void nsw::sTGCStripsTriggerCalib::setup(std::string db) {
   ERS_INFO("setup " << db);
 
-  gather_sfebs();
-
   // parse calib type
   if (m_calibType=="sTGCStripConnectivity") {
     ERS_INFO(m_calibType);
@@ -49,7 +47,11 @@ void nsw::sTGCStripsTriggerCalib::setup(std::string db) {
     m_sfebs.push_back(feb);
   ERS_INFO("Found " << m_sfebs.size() << " sFEBs");
 
+  // sequence of SFEB to probe
+  gather_sfebs();
+
   // sequence of TDS to probe
+  m_tdss.clear();
   m_tdss.push_back( {"tds0"} );
   m_tdss.push_back( {"tds1"} );
   m_tdss.push_back( {"tds2"} );
@@ -134,54 +136,45 @@ std::string nsw::sTGCStripsTriggerCalib::simplified(std::string name) {
 }
 
 void nsw::sTGCStripsTriggerCalib::gather_sfebs() {
-  std::string partition(std::getenv("TDAQ_PARTITION"));
+  auto part = std::getenv("TDAQ_PARTITION");
+  if (!part)
+    throw std::runtime_error("Error: TDAQ_PARTITION not defined");
+  std::string partition(part);
   ERS_INFO("Gather sFEBs: found partition " << partition);
+  m_sfebs_ordered.clear();
   if (partition.find("VS") != std::string::npos) {
     // VS
     ERS_INFO("Gather sfebs: VS sfebs");
-    m_sfebs_ordered.push_back("SFEB_L3Q2_IP");
-    m_sfebs_ordered.push_back("SFEB_L1Q2_IP");
-    m_sfebs_ordered.push_back("SFEB_L3Q1_IP");
     m_sfebs_ordered.push_back("SFEB_L1Q1_IP");
-    m_sfebs_ordered.push_back("SFEB_L3Q3_IP");
-    m_sfebs_ordered.push_back("SFEB_L4Q3_IP");
-    m_sfebs_ordered.push_back("SFEB_L1Q3_IP");
-    m_sfebs_ordered.push_back("SFEB_L2Q3_IP");
-    m_sfebs_ordered.push_back("SFEB_L4Q2_IP");
-    m_sfebs_ordered.push_back("SFEB_L2Q2_IP");
     m_sfebs_ordered.push_back("SFEB_L2Q1_IP");
+    m_sfebs_ordered.push_back("SFEB_L3Q1_IP");
     m_sfebs_ordered.push_back("SFEB_L4Q1_IP");
   } else {
     // 191
-    m_sfebs_ordered.push_back("SFEB_L2Q3_IP");
-    m_sfebs_ordered.push_back("SFEB_L3Q1_HO");
-    m_sfebs_ordered.push_back("SFEB_L2Q3_HO");
-    m_sfebs_ordered.push_back("SFEB_L4Q3_HO");
-    // ---
-    m_sfebs_ordered.push_back("SFEB_L2Q2_IP");
-    m_sfebs_ordered.push_back("SFEB_L4Q2_IP");
-    m_sfebs_ordered.push_back("SFEB_L2Q2_HO");
-    m_sfebs_ordered.push_back("SFEB_L4Q2_HO");
-    // ---
-    m_sfebs_ordered.push_back("SFEB_L2Q1_IP");
-    m_sfebs_ordered.push_back("SFEB_L4Q1_IP");
-    m_sfebs_ordered.push_back("SFEB_L2Q1_HO");
-    m_sfebs_ordered.push_back("SFEB_L4Q1_HO");
-    // ---
-    m_sfebs_ordered.push_back("SFEB_L1Q3_IP");
-    m_sfebs_ordered.push_back("SFEB_L3Q3_IP");
-    m_sfebs_ordered.push_back("SFEB_L1Q3_HO");
-    m_sfebs_ordered.push_back("SFEB_L3Q3_HO");
-    // ---
-    m_sfebs_ordered.push_back("SFEB_L1Q2_IP");
-    m_sfebs_ordered.push_back("SFEB_L3Q2_IP");
-    m_sfebs_ordered.push_back("SFEB_L1Q2_HO");
-    m_sfebs_ordered.push_back("SFEB_L3Q2_HO");
-    // ---
     m_sfebs_ordered.push_back("SFEB_L1Q1_IP");
+    m_sfebs_ordered.push_back("SFEB_L1Q2_IP");
+    m_sfebs_ordered.push_back("SFEB_L1Q3_IP");
+    m_sfebs_ordered.push_back("SFEB_L2Q1_IP");
+    m_sfebs_ordered.push_back("SFEB_L2Q2_IP");
+    m_sfebs_ordered.push_back("SFEB_L2Q3_IP");
     m_sfebs_ordered.push_back("SFEB_L3Q1_IP");
-    m_sfebs_ordered.push_back("SFEB_L1Q1_HO");
+    m_sfebs_ordered.push_back("SFEB_L3Q2_IP");
+    m_sfebs_ordered.push_back("SFEB_L3Q3_IP");
+    m_sfebs_ordered.push_back("SFEB_L4Q1_IP");
+    m_sfebs_ordered.push_back("SFEB_L4Q2_IP");
     m_sfebs_ordered.push_back("SFEB_L4Q3_IP");
+    m_sfebs_ordered.push_back("SFEB_L1Q1_HO");
+    m_sfebs_ordered.push_back("SFEB_L1Q2_HO");
+    m_sfebs_ordered.push_back("SFEB_L1Q3_HO");
+    m_sfebs_ordered.push_back("SFEB_L2Q1_HO");
+    m_sfebs_ordered.push_back("SFEB_L2Q2_HO");
+    m_sfebs_ordered.push_back("SFEB_L2Q3_HO");
+    m_sfebs_ordered.push_back("SFEB_L3Q1_HO");
+    m_sfebs_ordered.push_back("SFEB_L3Q2_HO");
+    m_sfebs_ordered.push_back("SFEB_L3Q3_HO");
+    m_sfebs_ordered.push_back("SFEB_L4Q1_HO");
+    m_sfebs_ordered.push_back("SFEB_L4Q2_HO");
+    m_sfebs_ordered.push_back("SFEB_L4Q3_HO");
   }
 }
 
