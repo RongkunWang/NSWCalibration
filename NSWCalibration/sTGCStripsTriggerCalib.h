@@ -28,7 +28,7 @@ namespace nsw {
     void unconfigure();
 
   public:
-    int configure_tds(std::string name, std::vector<std::string> tdss, bool prbs_e);
+    int configure_tds(std::string name, std::vector<std::string> tdss, bool prbs_e, bool pause);
     int configure_tds(nsw::FEBConfig feb, std::string tds, bool prbs_e);
     void gather_sfebs();
     std::vector<std::pair <std::string, std::string > > router_recovery_tds();

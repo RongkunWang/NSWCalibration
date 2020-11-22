@@ -59,9 +59,10 @@ void nsw::sTGCStripsTriggerCalib::setup(std::string db) {
   m_tdss.push_back( {"tds1", "tds2", "tds3"} );
 
   // enable PRBS everywhere (except important TDS)
-  for (auto & sfeb: m_sfebs)
-   for (auto tds: {"tds0", "tds1", "tds2", "tds3"})
-     configure_tds(sfeb, tds, 1);
+  for (auto & name: m_sfebs_ordered)
+    for (auto tds: m_tdss)
+      if (tds.size() == 1)
+        configure_tds(name, tds, 1, 0);
 
   // set number of loops in the iteration
   setTotal((int)(m_sfebs_ordered.size() * m_tdss.size()));
@@ -74,19 +75,19 @@ void nsw::sTGCStripsTriggerCalib::configure() {
   ERS_INFO("sTGCStripsTriggerCalib::configure " << counter());
   int this_sfeb = counter() / m_tdss.size();
   int this_tdss = counter() % m_tdss.size();
-  configure_tds(m_sfebs_ordered.at(this_sfeb), m_tdss.at(this_tdss), 0);
+  configure_tds(m_sfebs_ordered.at(this_sfeb), m_tdss.at(this_tdss), 0, 1);
 }
 
 void nsw::sTGCStripsTriggerCalib::unconfigure() {
   ERS_INFO("sTGCStripsTriggerCalib::unconfigure " << counter());
   int this_sfeb = counter() / m_tdss.size();
   int this_tdss = counter() % m_tdss.size();
-  configure_tds(m_sfebs_ordered.at(this_sfeb), m_tdss.at(this_tdss), 1);
+  configure_tds(m_sfebs_ordered.at(this_sfeb), m_tdss.at(this_tdss), 1, 1);
 }
 
 int nsw::sTGCStripsTriggerCalib::configure_tds(std::string name,
                                                std::vector<std::string> tdss,
-                                               bool prbs_e) {
+                                               bool prbs_e, bool pause) {
   for (auto & sfeb: m_sfebs) {
     if (name == simplified(sfeb.getAddress())) {
       for (auto & tds: tdss) {
@@ -98,7 +99,12 @@ int nsw::sTGCStripsTriggerCalib::configure_tds(std::string name,
       }
     }
   }
-  usleep(prbs_e ? 1e6 : 1e6);
+  if (pause) {
+    if (simulation())
+      usleep(prbs_e ? 1e6 : 1e6);
+    else
+      usleep(prbs_e ? 10e6 : 10e6);
+  }
   return 0;
 }
 
