@@ -66,7 +66,7 @@ void nsw::sTGCStripsTriggerCalib::setup(std::string db) {
 
   // set number of loops in the iteration
   setTotal((int)(m_sfebs_ordered.size() * m_tdss.size()));
-  setToggle(simulation() ? 0 : 1);
+  setToggle(0);
   setWait4swROD(0);
   usleep(1e6);
 }
@@ -92,7 +92,7 @@ int nsw::sTGCStripsTriggerCalib::configure_tds(std::string name,
     if (name == simplified(sfeb.getAddress())) {
       for (auto & tds: tdss) {
         if (dont_touch(name, tds)) {
-          ERS_INFO("Skipping " << name << " " << tds);
+          ERS_INFO("Skipping " << name << " " << tds << " (Router clk)");
         } else {
           configure_tds(sfeb, tds, prbs_e);
         }
@@ -103,7 +103,7 @@ int nsw::sTGCStripsTriggerCalib::configure_tds(std::string name,
     if (simulation())
       usleep(prbs_e ? 1e6 : 1e6);
     else
-      usleep(prbs_e ? 10e6 : 10e6);
+      usleep(prbs_e ? 15e6 : 15e6);
   }
   return 0;
 }
@@ -114,19 +114,28 @@ int nsw::sTGCStripsTriggerCalib::configure_tds(nsw::FEBConfig feb,
   auto cs = std::make_unique<nsw::ConfigSender>();
   auto opc_ip = feb.getOpcServerIp();
   auto sca_address = feb.getAddress();
+  bool exists = 0;
   for (auto tdsi2c : feb.getTdss()) {
     if(tdsi2c.getName() != tds)
       continue;
+    exists = 1;
     ERS_INFO("Configuring" 
              << " " << opc_ip
              << " " << sca_address
-             << " " << tdsi2c.getName()
+             << " " << tds
              << " -> PRBS_e = " << prbs_e
              );
     tdsi2c.setRegisterValue("register12", "PRBS_e", (int)(prbs_e));
     if (!simulation())
       cs->sendI2cMasterSingle(opc_ip, sca_address, tdsi2c, "register12");
   }
+  if (!exists)
+    ERS_INFO("Not configuring"
+             << " " << opc_ip
+             << " " << sca_address
+             << " " << tds
+             << " (N/A)"
+             );
   return 0;
 }
 
