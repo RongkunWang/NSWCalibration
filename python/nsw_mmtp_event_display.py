@@ -33,11 +33,11 @@ def main():
     print("")
 
     for (ient, ent) in enumerate(tr):
-        if ient >= ops.n:
+        if ient >= ents:
             break
         if ient > 0 and ient % 10 == 0:
             progress(time.time()-start, ient, ents)
-        first, last = (ient == 0, ient == ops.n-1)
+        first, last = (ient == 0, ient == ents-1)
         display(ient, ent, ops.r, ops.o, first, last)
     progress(time.time()-start, ents, ents)
 
