@@ -4,7 +4,9 @@
 #include "NSWCalibration/BaseCalibration.h"
 
 #include "NSWConfiguration/ConfigSender.h"
+#include "NSWConfiguration/ConfigTranslation.h"
 #include "NSWConfiguration/FEBConfig.h"
+#include "NSWConfiguration/I2cMasterConfig.h"
 
 Phase160MHzCalibration::Phase160MHzCalibration(nsw::FEBConfig t_config) : m_config(t_config),
                                                                           m_inputValues(getInputVals(t_config))
@@ -37,68 +39,44 @@ Phase160MHzCalibration::Phase160MHzCalibration(nsw::FEBConfig t_config) : m_conf
         return vec;
     }();
 
-    const auto valsePllPhase160MHz_4 = [nEntries]() {
-        auto vec = std::vector<std::string>(nEntries);
-
-        const auto middle = vec.begin() + vec.size() / 2; // iterator behind middle one ( algorithm works on [begin, end) )
-
-        // first half fourth bit is 0, then 1
-        std::generate(vec.begin(), middle, []() { return "0"; });
-        std::generate(middle, vec.end(), []() { return "1"; });
-
-        //return std::vector<std::string>{"1"};
-        return vec;
-    }();
-
-    const auto valsePllPhase160MHz_3_0 = [nEntries]() {
+    const auto valsePllPhase160MHz = [nEntries]() {
         auto vec = std::vector<std::string>(nEntries);
 
         // range: 0-15 (two times)
         const int clock160MHzStart{0};
 
-        const auto middle = vec.begin() + vec.size() / 2; // iterator behind middle one ( algorithm works on [begin, end) )
-
         // first half fourth bit is 0, then 1
-        std::generate(vec.begin(), middle, [i = clock160MHzStart]() mutable { return std::to_string(i++); });
-
-        // copy first half into second half
-        std::copy(vec.begin(), middle, middle);
+        std::generate(vec.begin(), vec.end(), [i = clock160MHzStart]() mutable { return std::to_string(i++); });
 
         //return std::vector<std::string>{"12"};
         return vec;
     }();
 
-    return {{"reg115",
-             {{"ePllPhase160MHz_0[4]", valsePllPhase160MHz_4},
-              {"ePllPhase40MHz_0", valsePllPhase40MHz}}},
-            {"reg116",
-             {{"ePllPhase160MHz_1[4]", valsePllPhase160MHz_4},
-              {"ePllPhase40MHz_1", valsePllPhase40MHz}}},
-            {"reg117",
-             {{"ePllPhase160MHz_2[4]", valsePllPhase160MHz_4},
-              {"ePllPhase40MHz_2", valsePllPhase40MHz}}},
-            {"reg118",
-             {{"ePllPhase160MHz_0[3:0]", valsePllPhase160MHz_3_0},
-              {"ePllPhase160MHz_1[3:0]", valsePllPhase160MHz_3_0}}},
-            {"reg119",
-             {{"ePllPhase160MHz_2[3:0]", valsePllPhase160MHz_3_0}}}};
+    return {{"FIXME.ePllPhase160MHz_0", valsePllPhase160MHz},
+            {"FIXME.ePllPhase160MHz_1", valsePllPhase160MHz},
+            {"FIXME.ePllPhase160MHz_2", valsePllPhase160MHz},
+            {"FIXME.ePllPhase40MHz_0", valsePllPhase40MHz},
+            {"FIXME.ePllPhase40MHz_1", valsePllPhase40MHz},
+            {"FIXME.ePllPhase40MHz_2", valsePllPhase40MHz}};
 }
 
-void Phase160MHzCalibration::setRegisters(const int i) const
+void Phase160MHzCalibration::setRegisters(const int t_iteration) const
 {
     nsw::ConfigSender configSender;
-    const auto adaptedConfig = BaseCalibration<Phase160MHzCalibration>::adaptConfig(m_config, m_inputValues, i);
-    const auto opcIp = adaptedConfig.getOpcServerIp();
-    const auto scaAddress = adaptedConfig.getAddress();
-    const auto analog = adaptedConfig.getRocAnalog();
-   
+    const auto ptree = BaseCalibration<Phase160MHzCalibration>::createPtree(m_inputValues, t_iteration);
+    const auto configConverter = ConfigConverter(ptree, ConfigConverter::ConfigType::VALUE_BASED);
+    const auto translatedPtree = configConverter.getRegisterBasedConfigWithoutSubregisters(m_config.getRocAnalog());
+    const auto partialConfig = nsw::I2cMasterConfig(translatedPtree, ROC_ANALOG_NAME, ROC_ANALOG_REGISTERS, true);
+    const auto opcIp = m_config.getOpcServerIp();
+    const auto scaAddress = m_config.getAddress();
+
     configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocCoreResetN", 0);
     configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocPllResetN", 0);
     configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocSResetN", 0);
 
     configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocSResetN", 1);
 
-    configSender.sendI2cMasterConfig(opcIp, scaAddress, analog);
+    configSender.sendI2cMasterConfig(opcIp, scaAddress, partialConfig);
     //for (const auto& entry : m_inputValues)
     //{
     //    std::cout << "SET REG " << entry.first << std::endl;
@@ -121,26 +99,21 @@ void Phase160MHzCalibration::setRegisters(const int i) const
 
 void Phase160MHzCalibration::saveBestSettings(const int t_bestIteration, const std::string &t_filename) const
 {
-    const auto bestPhase40MHz = m_inputValues.at("reg115").at("ePllPhase40MHz_0").at(t_bestIteration);
-    const auto bestPhase160MHz_3_0 = m_inputValues.at("reg118").at("ePllPhase160MHz_0[3:0]").at(t_bestIteration);
-    const auto bestPhase40MHz_4 = m_inputValues.at("reg115").at("ePllPhase160MHz_0[4]").at(t_bestIteration);
+    const auto bestPhase40MHz = m_inputValues.at("FIXME.ePllPhase40MHz_0").at(t_bestIteration);
+    const auto bestPhase160MHz = m_inputValues.at("FIXME.ePllPhase160MHz_0").at(t_bestIteration);
     std::cout << "Best values (iteration) " << t_bestIteration << '\n'
-              << "\t40MHz: " << bestPhase40MHz << '\n'
-              << "\t160MHz[3:0]: " << bestPhase160MHz_3_0 << '\n'
-              << "\t160MHz[4]: " << bestPhase40MHz_4 << '\n';
+              << "\t40MHz:  " << bestPhase40MHz << '\n'
+              << "\t160MHz: " << bestPhase160MHz << '\n';
     std::ofstream outfile;
     outfile.open(t_filename);
-    for (const auto& [registerName, dict] : m_inputValues)
+    for (const auto& [registerName, values] : m_inputValues)
     {
-        for (const auto& [subName, values] : dict)
-        {
-            outfile << "rocCoreAnalog." << registerName << '.' << subName << ':' << values[t_bestIteration] << '\n';
-        } 
+        outfile << "rocCoreAnalog." << registerName << ':' << values[t_bestIteration] << '\n';
     }
     outfile.close();
 }
 
 std::size_t Phase160MHzCalibration::getNumberOfConfigurations() const
 {
-    return m_inputValues.begin()->second.begin()->second.size();
+    return m_inputValues.begin()->second.size();
 }
