@@ -3,6 +3,7 @@
 #include <vector>
 #include <array>
 #include <exception>
+#include <thread>
 
 #include "NSWConfiguration/ConfigReader.h"
 #include "NSWCalibration/BaseCalibration.h"
@@ -89,25 +90,20 @@ struct Args
 }
 
 
-[[nodiscard]] std::vector<nsw::FEBConfig> splitConfigs(const std::string& t_configFile, const std::vector<std::string>& t_names)
+[[nodiscard]] std::map<std::string, nsw::FEBConfig> splitConfigs(const std::string& t_configFile, const std::vector<std::string>& t_names)
 {
     // takes either vector or set...
-    nsw::ConfigReader reader("json://" + t_configFile);
+    nsw::ConfigReader reader(t_configFile);
     const auto func = [&reader] (const auto& t_names) {
-        std::vector<nsw::FEBConfig> feb_configs;
+        std::map<std::string, nsw::FEBConfig> feb_configs;
         // TODO: Adapt this???
         for (const auto& name : t_names)
         {
-            std::cout << name << std::endl;
-            if (name == "MMFE8_0000")
-            {
-                std::cout << "GOOD" << std::endl;
-            }
             try
             {
                 if (nsw::getElementType(name) == "MMFE8")
                 {
-                    feb_configs.emplace_back(reader.readConfig(name));
+                    feb_configs.emplace(name, reader.readConfig(name));
                     std::cout << "Adding: " << name << '\n';
                 }
                 else
@@ -146,14 +142,29 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    for (const auto& config : splitConfigs(args.configFile, args.names))
+    const auto configs = splitConfigs("json://" + args.configFile, args.names);
+    std::vector<std::thread> threads;
+    threads.reserve(configs.size());
+    int i = 0;
+    for (const auto& [name, config]: configs)
     {
+        if (i > 0)
+        {
+            break;
+        }
         if (args.mode == Mode::clockPhase)
         {
-            BaseCalibration<Phase160MHzCalibration> calibrator(config);
-            calibrator.run(args.dryRun, args.outputFilename);
+            threads.push_back(std::thread([] (const auto& t_config, const auto t_dryRun, const auto& t_outputFilename) {
+                BaseCalibration<Phase160MHzCalibration> calibrator(t_config);
+                calibrator.run(t_dryRun, t_outputFilename);
+            }, config, args.dryRun, name + '_' + args.outputFilename));
         }
-        break;
+        i++;
+    }
+
+    for (auto& thread : threads)
+    {
+        thread.join();
     }
 
     return 0;

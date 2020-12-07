@@ -23,39 +23,6 @@ BaseCalibration<Specialized>::BaseCalibration(nsw::FEBConfig t_config) : m_confi
 }
 
 template <typename Specialized>
-[[nodiscard]] nsw::FEBConfig BaseCalibration<Specialized>::adaptConfig(const nsw::FEBConfig &t_config, const ValueMap t_vals, int i)
-{
-    // creates a copy...
-    auto config = t_config.getConfig();
-
-    // loop over registers
-    for (const auto &[registerName, settings] : t_vals)
-    {
-        // loop over names in registers
-        for (const auto &[key, values] : settings)
-        {
-            // Set value TODO: digital?
-            const std::string analogName{"rocPllCoreAnalog"};
-            const std::string settingName{analogName + '.' + registerName + '.' + key};
-            // Check if value exists
-            try
-            {
-                config.get<std::string>(settingName);
-            }
-            catch (const std::exception &e)
-            {
-                std::cerr << "Did not find key " << settingName << "in config\n";
-                throw;
-            }
-
-            config.put(settingName, values[i]);
-        }
-    }
-
-    return nsw::FEBConfig{config};
-}
-
-template <typename Specialized>
 void BaseCalibration<Specialized>::basicConfigure(nsw::FEBConfig t_config) const
 {
     nsw::ConfigSender configSender;
@@ -179,6 +146,12 @@ template <typename Specialized>
         }
     }
 
+    if (maxCounterGood == 0)
+    {
+        std::cout << "ERROR: No good setting found!\n";
+        // TODO: ERS Logging
+    }
+
     // This definetely does not need any explanantion
     return (endGoodRegion - maxCounterGood / 2 + index) % testResults.size();
 }
@@ -217,6 +190,18 @@ void BaseCalibration<Specialized>::run(const bool t_dryRun, const std::string &t
 
     const auto bestIteration = analyzeResults(allResults);
     m_specialized.saveBestSettings(bestIteration, t_outputFilename);
+}
+
+template <typename Specialized>
+ptree BaseCalibration<Specialized>::createPtree(const ValueMap& t_inputValues, const int t_iteration)
+{
+    ptree tree;
+    std::for_each(std::begin(t_inputValues), std::end(t_inputValues), [&tree, t_iteration] (const auto& t_pair) {
+        const auto& name = t_pair.first;
+        const auto& value = t_pair.second[t_iteration];
+        tree.put(name, value);
+    });
+    return tree;
 }
 
 // instantiate templates
