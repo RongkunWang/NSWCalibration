@@ -111,6 +111,7 @@ def load_data():
 
     l1id_prev = -1
     l1id_curr = -1
+    l1id_fuck = False
 
     # loop
     ents  = ttree.GetEntries()
@@ -118,7 +119,7 @@ def load_data():
     for ent in range(ents):
 
         _ = ttree.GetEntry(ent)
-        if ent % 5000 == 0:
+        if ent % 1000 == 0:
             progress(time.time()-start, ent, ents)
         l1id_prev = l1id_curr
         l1id_curr = ttree.level1Id
@@ -134,14 +135,28 @@ def load_data():
         # DELIMITER
         # but allow for occasional L1ID skips
         # `tup` is the expected layer, vmm, channel, phase
-        if (l1id_curr % 100 == 0) or (l1id_prev > 90 and l1id_curr < 10):
-            if ops.debug:
+        if (ent == 0) or (l1id_curr == 0 and l1id_prev == 99) or (l1id_curr == 0 and l1id_prev != 99 and l1id_fuck):
+            l1id_fuck = False
+            if True:
                 print("Rolling over: Ent = %s, L1ID = %s, previous L1ID = %s." % (ent, l1id_curr, l1id_prev))
             patts.next()
             now_ph = patts.phase()
             now_ch = patts.channel()
             for tup in patts.hits():
                 dataman.create(tup)
+        elif (l1id_curr == 0 and l1id_prev != 99 and not l1id_fuck):
+            if True:
+                print("NOT rolling over: Ent = %s, L1ID = %s, previous L1ID = %s." % (ent, l1id_curr, l1id_prev))
+            l1id_fuck = True
+
+        # if (l1id_curr % 100 == 0) or (l1id_prev > 90 and l1id_curr < 10):
+        #     if True:
+        #         print("Rolling over: Ent = %s, L1ID = %s, previous L1ID = %s." % (ent, l1id_curr, l1id_prev))
+        #     patts.next()
+        #     now_ph = patts.phase()
+        #     now_ch = patts.channel()
+        #     for tup in patts.hits():
+        #         dataman.create(tup)
 
         # tree data
         # ch_obs is the observed channel for that layer, vmm, phase
@@ -474,7 +489,7 @@ class DataManager:
             msg += " = %s was encountered." % (str(tup))
             msg += " This can indicate fishy data was acquired."
             msg += " Please check the BoardVsLevel1Id plot."
-            print("\n %s \n" % (msg))
+            print("%s" % (msg))
             return -1
         self.hits[tup].append(ch_obs)
     def fatal(self, msg):
