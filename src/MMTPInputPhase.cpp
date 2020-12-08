@@ -116,8 +116,9 @@ int nsw::MMTPInputPhase::read_tp(const nsw::TPConfig & tp, int phase, int offset
   m_myfile << strf_time() << " " << phase << " " << offset << " ";
 
   // write the alignment
-  for (auto byte : data_align)
-    m_myfile << std::bitset<8>(byte);
+  // NB: bytes are returned in reverse order
+  for (auto byte = data_align.rbegin(); byte != data_align.rend(); ++byte)
+    m_myfile << std::bitset<8>(*byte);
   m_myfile << " ";
 
   // write the bcids

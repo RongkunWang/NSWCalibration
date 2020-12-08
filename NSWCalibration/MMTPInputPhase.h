@@ -35,7 +35,7 @@ namespace nsw {
     std::ofstream m_myfile;
 
     /// number of times to read the TP SCAX registers
-    int m_nreads = 50;
+    int m_nreads = 20;
 
     /// number of input phases available (register 0x0B)
     int m_nphases = 8;
