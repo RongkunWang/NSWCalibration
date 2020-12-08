@@ -55,7 +55,7 @@ void nsw::sTGCSFEBToRouter::configure() {
     if (sfeb.getAddress().find(name) != std::string::npos)
       configure_tds(sfeb, 1);
   configure_routers();
-  usleep(5e6);
+  usleep(15e6);
 }
 
 void nsw::sTGCSFEBToRouter::unconfigure() {
@@ -65,7 +65,7 @@ void nsw::sTGCSFEBToRouter::unconfigure() {
     if (sfeb.getAddress().find(name) != std::string::npos)
       configure_tds(sfeb, 0);
   configure_routers();
-  usleep(5e6);
+  usleep(15e6);
 }
 
 int nsw::sTGCSFEBToRouter::configure_routers() {
