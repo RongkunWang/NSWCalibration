@@ -33,11 +33,11 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     daq::rc::OnlineServices& rcSvc = daq::rc::OnlineServices::instance();
     const daq::core::RunControlApplicationBase& rcBase = rcSvc.getApplication();
     const nsw::dal::NSWCalibApplication* nswApp = rcBase.cast<nsw::dal::NSWCalibApplication>();
-    m_name     = nswApp->getName();
+    m_appname  = rcSvc.applicationName();
     m_dbcon    = nswApp->get_dbConnection();
     m_resetVMM = nswApp->get_resetVMM();
     m_resetTDS = nswApp->get_resetTDS();
-    ERS_INFO("app name: "  << m_name);
+    ERS_INFO("App name: "  << m_appname);
     ERS_INFO("DB Config: " << m_dbcon);
     ERS_INFO("reset VMM: " << m_resetVMM);
     ERS_INFO("reset TDS: " << m_resetTDS);
@@ -171,7 +171,7 @@ void nsw::NSWCalibRc::handler() {
 
   // setup
   alti_setup();
-  calib->setApplicationName(m_name);
+  calib->setApplicationName(m_appname);
   calib->setSimulation(m_simulation);
   calib->setup(m_dbcon);
   ERS_INFO("calib counter:    " << calib->counter());
