@@ -25,6 +25,21 @@ void nsw::MMTPInputPhase::setup(std::string db) {
   m_tps = nsw::ConfigReader::makeObjects<nsw::TPConfig> (db, "TP");
   ERS_INFO("Found " << m_tps.size() << " MMTPs");
 
+  // make output
+  m_now = strf_time();
+  std::string rname = "tpscax_" + applicationName() + "_" + m_now + ".root";
+  m_rfile = std::make_unique< TFile >(rname.c_str(), "recreate");
+  m_rtree = std::make_shared< TTree >("nsw", "nsw");
+  m_align = std::make_unique< std::vector<bool> >();
+  m_bcid  = std::make_unique< std::vector<int> >();
+  m_fiber = std::make_unique< std::vector<int> >();
+  m_rtree->Branch("time",         &m_now);
+  m_rtree->Branch("phase",        &m_phase);
+  m_rtree->Branch("offset",       &m_offset);
+  m_rtree->Branch("fiber_align",  m_align.get());
+  m_rtree->Branch("fiber_bcid",   m_bcid.get());
+  m_rtree->Branch("fiber_index",  m_fiber.get());
+
   // set number of iterations
   setTotal(m_nreads * m_nphases * m_noffsets);
   setToggle(1);
@@ -91,7 +106,12 @@ int nsw::MMTPInputPhase::read_tp(const nsw::TPConfig & tp, int phase, int offset
   auto ip   = tp.getOpcServerIp();
   auto addr = tp.getAddress();
   if (counter() == 0)
-    m_myfile.open("tpscax_" + strf_time() + ".txt");
+    m_myfile.open("tpscax_" + applicationName() + "_" + strf_time() + ".txt");
+
+  // clear
+  m_align->clear();
+  m_bcid ->clear();
+  m_fiber->clear();
 
   auto fiber_alignment            = nsw::hexStringToByteVector("0x02", 4, true);
   std::vector<std::string> bxlsb  = {"0x04", "0x05", "0x06", "0x07"};
@@ -114,6 +134,9 @@ int nsw::MMTPInputPhase::read_tp(const nsw::TPConfig & tp, int phase, int offset
 
   // write the header
   m_myfile << strf_time() << " " << phase << " " << offset << " ";
+  m_now    = strf_time();
+  m_phase  = phase;
+  m_offset = offset;
 
   // write the alignment
   // NB: bytes are returned in reverse order
@@ -126,10 +149,35 @@ int nsw::MMTPInputPhase::read_tp(const nsw::TPConfig & tp, int phase, int offset
     m_myfile << std::hex << std::setfill('0') << std::setw(2) << unsigned(byte) << std::dec;
   m_myfile << std::endl;
 
+  // write the alignment and bcids
+  for (size_t fiber = 0; fiber < 8*data_align.size(); fiber++) {
+    m_fiber->push_back((int)(fiber));
+
+    // alignment
+    auto byte   = data_align.at(fiber / 8);
+    auto bitpos = fiber % 8;
+    auto align  = (byte >> bitpos) & 1;
+    m_align->push_back(align);
+
+    // bcid
+    // TODO(AT): char ordering
+    byte = data_bcids_total.at(fiber / 2);
+    int bcid = 0;
+    if (fiber % 2 == 0)
+      bcid = (byte >> 0) & 0xf;
+    else
+      bcid = (byte >> 4) & 0xf;
+    m_bcid->push_back(bcid);
+  }
+  m_rtree->Fill();
+
   // close output file
   // on last iteration
-  if (counter() == total()-1)
+  if (counter() == total()-1) {
     m_myfile.close();
+    m_rtree->Write();
+    m_rfile->Close();
+  }
 
   return 0;
 }

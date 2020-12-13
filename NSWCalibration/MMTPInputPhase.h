@@ -7,6 +7,8 @@
 
 #include "NSWCalibration/CalibAlg.h"
 #include "NSWConfiguration/TPConfig.h"
+#include "TFile.h"
+#include "TTree.h"
 
 ERS_DECLARE_ISSUE(nsw,
                   NSWMMTPInputPhaseIssue,
@@ -33,6 +35,16 @@ namespace nsw {
   private:
     /// output text file of TP SCAX reads
     std::ofstream m_myfile;
+    std::unique_ptr<TFile> m_rfile = 0;
+    std::shared_ptr<TTree> m_rtree = 0;
+
+    /// output root file of TP SCAX reads
+    std::string m_now = "";
+    int m_phase = 0;
+    int m_offset = 0;
+    std::unique_ptr< std::vector<bool> > m_align = 0;
+    std::unique_ptr< std::vector<int>  > m_bcid  = 0;
+    std::unique_ptr< std::vector<int>  > m_fiber = 0;
 
     /// number of times to read the TP SCAX registers
     int m_nreads = 20;
