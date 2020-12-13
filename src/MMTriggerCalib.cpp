@@ -626,28 +626,28 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
 
   // output file and announce
   auto now = strf_time();
-  auto sector = nsw::guessSector(applicationName());
-  std::string fname = "addc_alignment_" + sector + "_" + now + ".txt";
-  std::string rname = "addc_alignment_" + sector + "_" + now + ".root";
+  std::string fname = "addc_alignment_" + applicationName() + "_" + now + ".txt";
+  std::string rname = "addc_alignment_" + applicationName() + "_" + now + ".root";
   std::ofstream myfile;
   myfile.open(fname);
   ERS_INFO("ADDC-TP watchdog. Output: " << fname << ". Sleep: " << slp << "s");
   ERS_INFO("ADDC-TP watchdog. Output: " << rname << ". Sleep: " << slp << "s");
-  auto rfile        = std::make_unique< TFile >(rname, "recreate");
-  auto rtree        = std::make_unique< TTree >("addc", "addc");
+  auto rfile        = std::make_unique< TFile >(rname.c_str(), "recreate");
+  auto rtree        = std::make_shared< TTree >("nsw", "nsw");
   auto addc_address = std::make_unique< std::vector<std::string> >();
   auto art_name     = std::make_unique< std::vector<std::string> >();
-  auto art_fiber    = std::make_unique< int >();
-  auto art_aligned  = std::make_unique< bool >();
-  rtree->Branch("addc_address", addc_address);
-  rtree->Branch("art_name",     art_name);
-  rtree->Branch("art_fiber",    art_fiber);
-  rtree->Branch("art_aligned",  art_aligned);
+  auto art_fiber    = std::make_unique< std::vector<int> >();
+  auto art_aligned  = std::make_unique< std::vector<bool> >();
+  rtree->Branch("time",         &now);
+  rtree->Branch("addc_address", addc_address.get());
+  rtree->Branch("art_name",     art_name.get());
+  rtree->Branch("art_fiber",    art_fiber.get());
+  rtree->Branch("art_aligned",  art_aligned.get());
 
   // monitor
   try {
     while (counter() < total()) {
-      auto now = strf_time();
+      now = strf_time();
       myfile << "Time " << now << std::endl;
       addc_address->clear();
       art_name    ->clear();
