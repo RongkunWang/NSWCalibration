@@ -1,4 +1,7 @@
 #include "NSWCalibration/MMTriggerCalib.h"
+#include "NSWConfiguration/Utility.h"
+#include "TFile.h"
+#include "TTree.h"
 using boost::property_tree::ptree;
 
 nsw::MMTriggerCalib::MMTriggerCalib(std::string calibType) {
@@ -622,41 +625,72 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
   auto regAddrVec = nsw::hexStringToByteVector("0x02", 4, true);
 
   // output file and announce
-  std::string fname = "addc_alignment_" + strf_time() + ".txt";
+  auto now = strf_time();
+  auto sector = nsw::guessSector(applicationName());
+  std::string fname = "addc_alignment_" + sector + "_" + now + ".txt";
+  std::string rname = "addc_alignment_" + sector + "_" + now + ".root";
   std::ofstream myfile;
   myfile.open(fname);
   ERS_INFO("ADDC-TP watchdog. Output: " << fname << ". Sleep: " << slp << "s");
+  ERS_INFO("ADDC-TP watchdog. Output: " << rname << ". Sleep: " << slp << "s");
+  auto rfile        = std::make_unique< TFile >(rname, "recreate");
+  auto rtree        = std::make_unique< TTree >("addc", "addc");
+  auto addc_address = std::make_unique< std::vector<std::string> >();
+  auto art_name     = std::make_unique< std::vector<std::string> >();
+  auto art_fiber    = std::make_unique< int >();
+  auto art_aligned  = std::make_unique< bool >();
+  rtree->Branch("addc_address", addc_address);
+  rtree->Branch("art_name",     art_name);
+  rtree->Branch("art_fiber",    art_fiber);
+  rtree->Branch("art_aligned",  art_aligned);
 
   // monitor
-  while (counter() < total()) {
-    myfile << "Time " << strf_time() << std::endl;
-    for (auto tp : tps) {
-      while (m_tpscax_busy)
-        usleep(1e5);
-      m_tpscax_busy = 1;
-      auto outdata = m_dry_run ? std::vector<uint8_t>(4) :
-        cs.readI2cAtAddress(tp.first, tp.second, regAddrVec.data(), regAddrVec.size(), 4);
-      m_tpscax_busy = 0;
-      for (auto & addc : m_addcs) {
-        for (auto art : addc.getARTs()) {
-          if (art.IsMyTP(tp.first, tp.second)) {
-            auto aligned = art.IsAlignedWithTP(outdata);
-            std::stringstream result;
-            result << addc.getAddress()         << " "
-                   << art.getName()             << " "
-                   << art.TP_GBTxAlignmentBit() << " "
-                   << aligned << std::endl;
-            myfile << result.str();
+  try {
+    while (counter() < total()) {
+      auto now = strf_time();
+      myfile << "Time " << now << std::endl;
+      addc_address->clear();
+      art_name    ->clear();
+      art_fiber   ->clear();
+      art_aligned ->clear();
+      for (auto tp : tps) {
+        while (m_tpscax_busy)
+          usleep(1e5);
+        m_tpscax_busy = 1;
+        auto outdata = m_dry_run ? std::vector<uint8_t>(4) :
+          cs.readI2cAtAddress(tp.first, tp.second, regAddrVec.data(), regAddrVec.size(), 4);
+        m_tpscax_busy = 0;
+        for (auto & addc : m_addcs) {
+          for (auto art : addc.getARTs()) {
+            if (art.IsMyTP(tp.first, tp.second)) {
+              auto aligned = art.IsAlignedWithTP(outdata);
+              std::stringstream result;
+              result << addc.getAddress()         << " "
+                     << art.getName()             << " "
+                     << art.TP_GBTxAlignmentBit() << " "
+                     << aligned << std::endl;
+              myfile << result.str();
+              addc_address->push_back(addc.getAddress());
+              art_name    ->push_back(art.getName());
+              art_fiber   ->push_back(art.TP_GBTxAlignmentBit());
+              art_aligned ->push_back(aligned);
+            }
           }
         }
       }
+      rtree->Fill();
+      sleep(slp);
     }
-    sleep(slp);
+  } catch (std::exception & e) {
+    ERS_INFO("ADDC-TP watchdog. Caught exception: " << e.what() << ". Exiting.");
   }
 
   // close
   ERS_INFO("Closing " << fname);
+  ERS_INFO("Closing " << rname);
   myfile.close();
+  rtree->Write();
+  rfile->Close();
   return 0;
 }
 

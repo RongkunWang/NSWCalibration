@@ -1,5 +1,7 @@
 tdaq_package()
 
+find_package(ROOT REQUIRED COMPONENTS Core Tree RIO)
+
 tdaq_generate_dal(schema/NSWCalib.schema.xml
   NAMESPACE nsw::dal
   INCLUDE_DIRECTORIES DFConfiguration dal
@@ -32,6 +34,9 @@ tdaq_add_library(nswcalib
     rt
     Protobuf
     tdaq::AltiModule
+    ROOT::Core
+    ROOT::Tree
+    ROOT::RIO
 )
 
 
