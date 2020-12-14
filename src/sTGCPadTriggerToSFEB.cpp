@@ -126,7 +126,7 @@ std::vector<uint32_t> nsw::sTGCPadTriggerToSFEB::sfeb_register15(const nsw::FEBC
         regs.push_back(reg_32);
         break;
       } catch (std::exception & e) {
-        ERS_INFO("Catching " << sca_addr << " on attempt " << attempt);
+        ERS_INFO("Catching " << sca_addr << "." << tds.getName() << " on attempt " << attempt);
       }
     }
 

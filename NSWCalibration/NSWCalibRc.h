@@ -69,6 +69,7 @@ class NSWCalibRc: public daq::rc::Controllable {
     std::atomic<bool> end_of_run;
     std::future<void> handler_thread;
     std::string calibTypeFromIS();
+    bool simulationFromIS();
     void handler();
     void alti_toggle_pattern();
     void alti_setup();
@@ -93,6 +94,7 @@ class NSWCalibRc: public daq::rc::Controllable {
 
     // Run the program in simulation mode, don't send any configuration
     bool                        m_simulation;
+    bool                        m_simulation_lock = 0;
     std::unique_ptr<NSWConfig>  m_NSWConfig;
     std::string                 m_dbcon;
     bool                        m_resetVMM;

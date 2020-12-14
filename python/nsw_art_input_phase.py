@@ -109,28 +109,58 @@ def load_data():
     now_ph = -1
     now_ch = -1
 
+    l1id_prev = -1
+    l1id_curr = -1
+    l1id_fuck = False
+
     # loop
     ents  = ttree.GetEntries()
     start = time.time()
     for ent in range(ents):
 
         _ = ttree.GetEntry(ent)
-        if ent % 5000 == 0:
+        if ent % 1000 == 0:
             progress(time.time()-start, ent, ents)
+        l1id_prev = l1id_curr
+        l1id_curr = ttree.level1Id
+
+        # warnings
+        if l1id_curr > 100:
+            print("")
+            print_me = "Warning: weird. Ent = %s, L1ID = %s, previous L1ID = %s. Should have rolled over at 100. Skipping."
+            print(print_me % (ent, l1id_curr, l1id_prev))
+            print("")
+            continue
 
         # DELIMITER
+        # but allow for occasional L1ID skips
         # `tup` is the expected layer, vmm, channel, phase
-        if ttree.level1Id % 100 == 0:
+        if (ent == 0) or (l1id_curr == 0 and l1id_prev == 99) or (l1id_curr == 0 and l1id_prev != 99 and l1id_fuck):
+            l1id_fuck = False
+            if True:
+                print("Rolling over: Ent = %s, L1ID = %s, previous L1ID = %s." % (ent, l1id_curr, l1id_prev))
             patts.next()
             now_ph = patts.phase()
             now_ch = patts.channel()
             for tup in patts.hits():
                 dataman.create(tup)
+        elif (l1id_curr == 0 and l1id_prev != 99 and not l1id_fuck):
+            if True:
+                print("NOT rolling over: Ent = %s, L1ID = %s, previous L1ID = %s." % (ent, l1id_curr, l1id_prev))
+            l1id_fuck = True
+
+        # if (l1id_curr % 100 == 0) or (l1id_prev > 90 and l1id_curr < 10):
+        #     if True:
+        #         print("Rolling over: Ent = %s, L1ID = %s, previous L1ID = %s." % (ent, l1id_curr, l1id_prev))
+        #     patts.next()
+        #     now_ph = patts.phase()
+        #     now_ch = patts.channel()
+        #     for tup in patts.hits():
+        #         dataman.create(tup)
 
         # tree data
         # ch_obs is the observed channel for that layer, vmm, phase
         # keep a list of ch_obs for each expectation
-        l1id      = ttree.level1Id
         layers    = list(ttree.v_artHit_octupletLayer)
         vmmposs   = list(ttree.v_artHit_vmmPosition)
         ch_obss   = list(ttree.v_artHit_ch)
@@ -140,7 +170,8 @@ def load_data():
             vmmpos   = vmmposs[ih]
             ch_obs   = ch_obss[ih]
             tup = (layer, vmmpos, now_ch, now_ph)
-            dataman.add(tup, ch_obs)
+            if dataman.add(tup, ch_obs) == -1:
+                print("dataman.add failed on Ent = %s, L1ID = %s, previous L1ID = %s" % (ent, l1id_curr, l1id_prev))
 
     print("")
     return dataman
@@ -458,8 +489,8 @@ class DataManager:
             msg += " = %s was encountered." % (str(tup))
             msg += " This can indicate fishy data was acquired."
             msg += " Please check the BoardVsLevel1Id plot."
-            print("\n %s \n" % (msg))
-            return
+            print("%s" % (msg))
+            return -1
         self.hits[tup].append(ch_obs)
     def fatal(self, msg):
         sys.exit("Fatal error: %s" % (msg))
