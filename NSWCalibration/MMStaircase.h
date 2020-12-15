@@ -16,7 +16,7 @@ ERS_DECLARE_ISSUE(nsw,
 **/
 
 namespace nsw {
-
+ 
   class MMStaircase: public CalibAlg {
 
   public:
@@ -25,11 +25,7 @@ namespace nsw {
     void setup(std::string db);
     void configure();
     void unconfigure();
-
-  public:
-    int configure_addc(const nsw::ADDCConfig & addc, int hold_reset);
-    std::string strf_time();
-
+  
   private:
     bool m_dry_run;
     std::string m_calibType = "";
