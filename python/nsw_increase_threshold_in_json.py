@@ -1,5 +1,5 @@
 """
-setupATLAS && lsetup 'lcgenv -p LCG_96python3 x86_64-centos7-gcc8-opt Python'
+setupATLAS && lsetup 'views LCG_98python3 x86_64-centos7-gcc8-opt'
 """
 import argparse
 import collections

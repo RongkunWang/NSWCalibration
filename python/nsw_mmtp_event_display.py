@@ -2,7 +2,7 @@
 A script for converting a MMTP L1A ROOT file into event displays.
 
 Run like:
-> setupATLAS && lsetup 'lcgenv -p LCG_96python3 x86_64-centos7-gcc8-opt ROOT'
+> setupATLAS && lsetup 'views LCG_98python3 x86_64-centos7-gcc8-opt'
 > python nsw_mmtp_event_display.py -i MY_FILE.root
 """
 import argparse
