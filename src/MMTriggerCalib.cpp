@@ -73,9 +73,9 @@ void nsw::MMTriggerCalib::setup(std::string db) {
   if (m_latency || m_staircase)
     setToggle(0);
 
-  m_febs   = make_objects<nsw::FEBConfig> (db, "MMFE8");
-  m_addcs  = make_objects<nsw::ADDCConfig>(db, "ADDC");
-  m_tps    = make_objects<nsw::TPConfig>  (db, "TP");
+  m_febs   = nsw::ConfigReader::makeObjects<nsw::FEBConfig> (db, "MMFE8");
+  m_addcs  = nsw::ConfigReader::makeObjects<nsw::ADDCConfig>(db, "ADDC");
+  m_tps    = nsw::ConfigReader::makeObjects<nsw::TPConfig>  (db, "TP");
 
   ERS_INFO("Found " << m_febs.size()     << " MMFE8s");
   ERS_INFO("Found " << m_addcs.size()    << " ADDCs");
@@ -626,8 +626,8 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
 
   // output file and announce
   auto now = strf_time();
-  std::string fname = "addc_alignment_" + applicationName() + "_" + now + ".txt";
-  std::string rname = "addc_alignment_" + applicationName() + "_" + now + ".root";
+  std::string fname = "addc_alignment." + std::to_string(runNumber()) + "." + applicationName() + "." + now + ".txt";
+  std::string rname = "addc_alignment." + std::to_string(runNumber()) + "." + applicationName() + "." + now + ".root";
   std::ofstream myfile;
   myfile.open(fname);
   ERS_INFO("ADDC-TP watchdog. Output: " << fname << ". Sleep: " << slp << "s");
@@ -682,7 +682,7 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
       sleep(slp);
     }
   } catch (std::exception & e) {
-    ERS_INFO("ADDC-TP watchdog. Caught exception: " << e.what() << ". Exiting.");
+    ERS_INFO("ADDC-TP watchdog. Caught exception: " << e.what());
   }
 
   // close
@@ -692,61 +692,5 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
   rtree->Write();
   rfile->Close();
   return 0;
-}
-
-template <class T>
-std::vector<T> nsw::MMTriggerCalib::make_objects(std::string cfg, std::string element_type, std::string name) {
-
-  // create config reader
-  nsw::ConfigReader reader1(cfg);
-  try {
-    auto config1 = reader1.readConfig();
-  }
-  catch (std::exception & e) {
-    std::cout << "Make sure the json is formed correctly. "
-              << "Can't read config file due to : " << e.what() << std::endl;
-    std::cout << "Exiting..." << std::endl;
-    exit(0);
-  }
-
-  // parse input names
-  std::set<std::string> names;
-  if (name != "") {
-    if (std::count(name.begin(), name.end(), ',')) {
-      std::istringstream ss(name);
-      while (!ss.eof()) {
-        std::string buf;
-        std::getline(ss, buf, ',');
-        if (buf != "")
-          names.emplace(buf);
-      }
-    } else {
-      names.emplace(name);
-    }
-  } else {
-    names = reader1.getAllElementNames();
-  }
-
-  // make objects
-  std::vector<T> configs;
-  std::cout << "Adding:" << std::endl;
-  for (auto & nm : names) {
-    try {
-      if (nsw::getElementType(nm) == element_type) {
-        configs.emplace_back(reader1.readConfig(nm));
-        std::cout << " " << nm;
-        if (configs.size() % 4 == 0)
-          std::cout << std::endl;
-      }
-    }
-    catch (std::exception & e) {
-      std::cout << nm << " - ERROR: Skipping this FE!"
-                << " - Problem constructing configuration due to : " << e.what() << std::endl;
-    }
-  }
-  std::cout << std::endl;
-
-  return configs;
-
 }
 
