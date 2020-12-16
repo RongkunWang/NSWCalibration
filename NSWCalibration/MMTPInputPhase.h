@@ -42,9 +42,9 @@ namespace nsw {
     std::string m_now = "";
     int m_phase = 0;
     int m_offset = 0;
-    std::unique_ptr< std::vector<bool> > m_align = 0;
-    std::unique_ptr< std::vector<int>  > m_bcid  = 0;
-    std::unique_ptr< std::vector<int>  > m_fiber = 0;
+    std::unique_ptr< std::vector<int> > m_align = 0;
+    std::unique_ptr< std::vector<int> > m_bcid  = 0;
+    std::unique_ptr< std::vector<int> > m_fiber = 0;
 
     /// number of times to read the TP SCAX registers
     int m_nreads = 20;

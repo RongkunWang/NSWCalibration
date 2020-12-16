@@ -30,7 +30,7 @@ void nsw::MMTPInputPhase::setup(std::string db) {
   std::string rname = "tpscax." + std::to_string(runNumber()) + "." + applicationName() + "." + m_now + ".root";
   m_rfile = std::make_unique< TFile >(rname.c_str(), "recreate");
   m_rtree = std::make_shared< TTree >("nsw", "nsw");
-  m_align = std::make_unique< std::vector<bool> >();
+  m_align = std::make_unique< std::vector<int> >();
   m_bcid  = std::make_unique< std::vector<int> >();
   m_fiber = std::make_unique< std::vector<int> >();
   m_rtree->Branch("time",         &m_now);
@@ -157,7 +157,7 @@ int nsw::MMTPInputPhase::read_tp(const nsw::TPConfig & tp, int phase, int offset
     auto byte   = data_align.at(fiber / 8);
     auto bitpos = fiber % 8;
     auto align  = (byte >> bitpos) & 1;
-    m_align->push_back(align);
+    m_align->push_back((int)(align));
 
     // bcid
     // TODO(AT): char ordering

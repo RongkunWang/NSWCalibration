@@ -637,7 +637,7 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
   auto addc_address = std::make_unique< std::vector<std::string> >();
   auto art_name     = std::make_unique< std::vector<std::string> >();
   auto art_fiber    = std::make_unique< std::vector<int> >();
-  auto art_aligned  = std::make_unique< std::vector<bool> >();
+  auto art_aligned  = std::make_unique< std::vector<int> >();
   rtree->Branch("time",         &now);
   rtree->Branch("addc_address", addc_address.get());
   rtree->Branch("art_name",     art_name.get());
@@ -673,7 +673,7 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
               addc_address->push_back(addc.getAddress());
               art_name    ->push_back(art.getName());
               art_fiber   ->push_back(art.TP_GBTxAlignmentBit());
-              art_aligned ->push_back(aligned);
+              art_aligned ->push_back((int)(aligned));
             }
           }
         }
