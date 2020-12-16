@@ -70,6 +70,7 @@ class NSWCalibRc: public daq::rc::Controllable {
     std::future<void> handler_thread;
     std::string calibTypeFromIS();
     bool simulationFromIS();
+    uint32_t runNumberFromIS();
     void handler();
     void alti_toggle_pattern();
     void alti_setup();
