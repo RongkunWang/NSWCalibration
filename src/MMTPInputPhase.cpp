@@ -27,7 +27,7 @@ void nsw::MMTPInputPhase::setup(std::string db) {
 
   // make output
   m_now = strf_time();
-  std::string rname = "tpscax_" + applicationName() + "_" + m_now + ".root";
+  std::string rname = "tpscax." + std::to_string(runNumber()) + "." + applicationName() + "." + m_now + ".root";
   m_rfile = std::make_unique< TFile >(rname.c_str(), "recreate");
   m_rtree = std::make_shared< TTree >("nsw", "nsw");
   m_align = std::make_unique< std::vector<bool> >();
@@ -106,7 +106,7 @@ int nsw::MMTPInputPhase::read_tp(const nsw::TPConfig & tp, int phase, int offset
   auto ip   = tp.getOpcServerIp();
   auto addr = tp.getAddress();
   if (counter() == 0)
-    m_myfile.open("tpscax_" + applicationName() + "_" + strf_time() + ".txt");
+    m_myfile.open("tpscax." + std::to_string(runNumber()) + "." + applicationName() + "." + m_now + ".txt");
 
   // clear
   m_align->clear();
