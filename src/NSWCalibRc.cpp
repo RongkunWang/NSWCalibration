@@ -197,8 +197,7 @@ void nsw::NSWCalibRc::handler(){
     
     if(thresholds){
         ERS_INFO("Calibrating thresholds");   
-        calib->configure();
-    
+        calib->configure(); 
     }
 
         ERS_INFO("Done with thresholds");   

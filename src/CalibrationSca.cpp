@@ -1457,21 +1457,27 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
   	for (int vmm_id = 0; vmm_id < n_vmms; vmm_id++) {
 
 		std::vector<short unsigned int> results;
+		//std::vector<short unsigned int> results_raw;
 
 		auto t0 = std::chrono::high_resolution_clock::now();
 		int fault_chan = 0, noisy_channels = 0;
 
     	for (int channel_id = 0; channel_id < 64; channel_id++) {
 							
-				feb.getVmm(vmm_id).setMonitorOutput(channel_id, nsw::vmm::ChannelMonitor);
+			feb.getVmm(vmm_id).setMonitorOutput(channel_id, nsw::vmm::ChannelMonitor);
     		feb.getVmm(vmm_id).setChannelMOMode(channel_id, nsw::vmm::ChannelAnalogOutput);
+    		//auto results_raw = cs.readVmmPdoConsecutiveSamples(feb, vmm_id, n_samples*10);
     		auto results = cs.readVmmPdoConsecutiveSamples(feb, vmm_id, n_samples*10);
 
-	//			for(auto & result :results)
-	//			{
-	//			//	full_bl<<fe_name<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(result)<<std::endl;  
-	//				full_bl<<fe_name<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(result)<<"\t"<<cm.sample_to_mV(rms)<<std::endl;  
-	//			}
+//	           	std::vector<short unsigned int> results;
+
+//                for(auto & result :results_raw)
+//				{
+//  			//	full_bl<<fe_name<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(result)<<std::endl;  
+//  			//	full_bl<<fe_name<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(result)<<"\t"<<cm.sample_to_mV(rms)<<std::endl;  
+//                 if(result <= 400 || result >= 1000){continue;}
+//                 else{results.push_back(result);}
+//                }
 				float sum    = std::accumulate(results.begin(), results.end(), 0.0);
      	  float mean   = sum / results.size();	
 				float median = cm.take_median(results); 
@@ -1500,14 +1506,15 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 					}
 				}
 //-------------- searching for max and min deviation in samples -----------------------------------------------------------	   
-			  float max_dev;
-			  float min_dev;
-			
+			  //float max_dev;
+			  //float min_dev;
+			    //unsigned int max_dev, min_dev;
+                
 				std::sort(results.begin(),results.end());
-			 	max_dev = results.at(n_samples-1);
-			 	min_dev = results.at(0);
+			 	float max_dev = results.at(n_samples-1);
+			 	float min_dev = results.at(0);
 				float sample_dev = max_dev - min_dev;
-			
+//######### comment this block later ###############			
 //				if(remainder(channel_id,2)!=0){
 //				std::cout<<"-----------------------------------------------------------------------------------------------------------------------------------"<<std::endl;
 //					std::sort(results.begin(),results.end());
@@ -1518,16 +1525,21 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 //				std::cout<<"\n\n-----------------------------------------------------------------------------------------------------------------------------------"<<std::endl;
 //				std::cout<<"{mode"<<mode<<"}"<<std::endl;
 //				}	
-	   	  if(conn_check)
+//############################
+                if(conn_check)
 				{
+  //                  std::cout<<"type: "<<fetype<<std::endl;  
 					std::cout<<"INFO - "<<fe_name<<" VMM_"<<vmm_id<<" CH:"<<channel_id<<" - |BL(median) "<<cm.sample_to_mV(median, fetype)<<" |BL(mean) "<<cm.sample_to_mV(mean,fetype)<<" |BL(mode) "<<cm.sample_to_mV(mode,fetype)<<" - RMS: "<<cm.sample_to_mV(rms, fetype)<<", spread: "<<cm.sample_to_mV(sample_dev, fetype)<<std::endl;
+//					std::cout<<"INFO - "<<fe_name<<" VMM_"<<vmm_id<<" CH:"<<channel_id<<" - |BL(median) "<<median<<" |BL(mean) "<<mean<<" |BL(mode) "<<mode<<" - RMS: "<<rms<<", spread: "<<sample_dev<<std::endl;
 				//	if(cm.sample_to_mV(sample_dev)>60)
 				//	{
 				//		printf("this channel %i sample deviation above 60mV (masking...?)\n",channel_id);
 				//	}
 				}
-		}//channel loop ends
-  	results.clear(); 
+               // results.clear();
+        }//channel loop ends
+  	    //results_raw.clear(); 
+  	    results.clear(); 
 		fault_chan_total += fault_chan;
 		vmm_fchan.push_back(fault_chan);		
 		auto t1 = std::chrono::high_resolution_clock::now();
@@ -1583,7 +1595,7 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
   namespace pt = boost::property_tree;
   pt::ptree input_data;
   pt::read_json(io_config_path,input_data);
-  std::string tp_path = input_data.get<std::string>("tp_data_output");
+  //std::string tp_path = input_data.get<std::string>("tp_data_output");
   std::string tp_path2 = input_data.get<std::string>("tp_data_output2");
  //--------------------------------------------------------------------
  // std::vector<int> tp_dac_points;
@@ -1598,12 +1610,12 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 	bool fetype = FebName.find("FEB")!=std::string::npos; 
 //-------------------------------------------------------------
     std::ofstream tp_file(tp_path2+fe_name+"_tp_sample_data.txt");
-    std::ofstream tp_var_file(tp_path+fe_name+"tp_data.txt");
+//    std::ofstream tp_var_file(tp_path+fe_name+"tp_data.txt");
  
     for (int vmm_id = 0; vmm_id < n_vmms; vmm_id++) {
  
- //       tp_file.is_open();
-        tp_var_file.is_open();
+        tp_file.is_open();
+   //     tp_var_file.is_open();
  
         std::vector<float> sample_mean_v;
  
@@ -1620,13 +1632,13 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
            if(fetype){sample_mean_mV = sample_mean*1000.*1.5/4095.0;}
            else{sample_mean_mV = sample_mean*1000./4095.0;}
  	
-					 for(auto & res: results){
-						tp_file<<fe_name<<"\t"<<vmm_id<<"\t"<<tp_dac_points[i]<<"\t"<<res<<"\t"<<cm.sample_to_mV(res, fetype)<<std::endl;
-					 }
+		   for(auto & res: results){
+		 	  tp_file<<fe_name<<"\t"<<vmm_id<<"\t"<<tp_dac_points[i]<<"\t"<<res<<"\t"<<cm.sample_to_mV(res, fetype)<<std::endl;
+		   }
 			
            sample_mean_v.push_back(sample_mean);
  
-           tp_var_file<<fe_name<<"\t"<<vmm_id<<"\t"<<tp_dac_points[i]<<"\t"<<sample_mean<<"\t"<<sample_mean_mV<<std::endl;
+      //     tp_var_file<<fe_name<<"\t"<<vmm_id<<"\t"<<tp_dac_points[i]<<"\t"<<sample_mean<<"\t"<<sample_mean_mV<<std::endl;
            if(debug){std::cout<<fe_name<<"\t"<<vmm_id<<"\t"<<tp_dac_points[i]<<"\t"<<sample_mean<<"\t"<<sample_mean_mV<<std::endl;}
         }
  
@@ -1647,8 +1659,8 @@ void nsw::CalibrationSca::read_baseline_full(std::string config_filename,
 
         std::cout<<"\nINFO - linear fit for "<<fe_name<<" VMM_"<<vmm_id<<" - yields: "<<"[a = "<<intercept<<"] - [b = "<< slope<<"]"<<std::endl;
     }
- //    tp_file.close();
-     tp_var_file.close();
+     tp_file.close();
+ //    tp_var_file.close();
  
  }
 

@@ -159,12 +159,15 @@ namespace nsw{
                          int fe_name_sorted,
                          bool debug);
     
-    void merge_json(std::string &mod_json, std::string io_config_path, std::string config_filename, int rms, bool split_config);
+    void merge_json(std::string &mod_json, std::string io_config_path, std::string config_filename, int rms);
+    //void merge_json(std::string &mod_json, std::string io_config_path, std::string config_filename, int rms, bool split_config);
     
  private:
 
  std::string m_calibType = "";
-        
+ 
+ std::string config_filename;
+
  std::vector<nsw::FEBConfig> feconfigs = {};
  std::set<std::string> fenames = {};
  std::vector<std::string> fe_names_v = {};
@@ -178,7 +181,8 @@ namespace nsw{
  int n_samples = 10;
  int rms_factor = 9;
 
- std::string io_config_path = "/home/Labor03/mm-stgc-daq/nswdaq/NSWCalibration/lxplus_input_data.json";
+ //std::string io_config_path = "/home/Labor03/mm-stgc-daq/nswdaq/NSWCalibration/lxplus_input_data.json";
+ std::string io_config_path = "/home/Labor03/vlad_daq/nswdaq/NSWCalibration/lxplus_input_data.json";
 
  };
 }

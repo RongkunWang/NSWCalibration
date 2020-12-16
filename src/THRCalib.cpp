@@ -31,13 +31,37 @@ nsw::THRCalib::THRCalib(std::string calibType){
 void nsw::THRCalib::setup(std::string db){
 
   read_config(db);
-
+  
+  config_filename = db;
+    
   ERS_INFO("THRCalib::Reading frontend configuration");
 
 }
 void nsw::THRCalib::configure(){
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-ERS_INFO("Starting threshold readout");
+try{
+    ERS_INFO("BASELINE RUN");
+    for(unsigned int thrd=0; thrd<feconfigs.size(); thrd++){
+      conf_threads.push_back(std::thread(&nsw::THRCalib::read_baseline_full, this, io_config_path, n_samples, thrd, debug));
+      ERS_INFO("Started thread nr "<< thrd ); 
+    }//baseline for loop
+  }catch(std::exception &e){
+     std::string errmsg = e.what();
+     throw std::runtime_error("THRCalib::configure::ERROR - "+errmsg);
+  }
+  ERS_INFO("Config sending loop ended");
+  for(unsigned int thrd=0; thrd<feconfigs.size(); thrd++){
+    conf_threads[thrd].join();
+  }
+  ERS_INFO("threads joined");
+  
+  conf_threads.clear();
+
+  ERS_INFO("BASELINE RUN FINISHED");
+  sleep(2);
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//ERS_INFO("Starting threshold readout");
 try{
     for(unsigned int thrd=0; thrd<feconfigs.size(); thrd++){
       conf_threads.push_back(std::thread(&nsw::THRCalib::read_thresholds, this, io_config_path, n_samples, thrd, debug));
@@ -72,6 +96,12 @@ try{
   
   conf_threads.clear();
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
+    std::string mod_json_prefix = "run_config_";
+    merge_json(mod_json_prefix, io_config_path, config_filename, rms_factor);
+ 
+  conf_threads.clear();
+///////////////////////////////////////////////////////////////////////////////////////////////////////  
+
 }
 
 void nsw::THRCalib::unconfigure(){
@@ -1410,7 +1440,7 @@ void nsw::THRCalib::read_thresholds(
       if(debug){std::cout<<feb.getAddress()<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(mean, fetype)<<"\t"<<cm.sample_to_mV(max_dev,fetype)<<"\t"<<cm.sample_to_mV(min_dev,fetype)<<std::endl;}  
       thr_test<<feb.getAddress()<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(mean,fetype)<<"\t"<<cm.sample_to_mV(max_dev,fetype)<<"\t"<<cm.sample_to_mV(min_dev,fetype)<<std::endl;  
         
-    ERS_INFO(fe_name << vmm_id << channel_id<< cm.sample_to_mV(mean, fetype));
+    //ERS_INFO(fe_name << vmm_id << channel_id<< cm.sample_to_mV(mean, fetype));
   }//channel loop ends
   bad_thr_tot += dev_thr;
   std::cout<<fe_name<<" VMM_"<<vmm_id<<" thresholds done"<<std::endl;
@@ -1494,7 +1524,7 @@ void nsw::THRCalib::read_baseline_full(
  //    full_bl<<fe_name<<"\t"<<vmm_id<<"\t"<<channel_id<<"\t"<<cm.sample_to_mV(result)<<"\t"<<cm.sample_to_mV(rms)<<std::endl;  
  //   }
     float sum    = std::accumulate(results.begin(), results.end(), 0.0);
-        float mean   = sum / results.size(); 
+    float mean   = sum / results.size(); 
     float median = cm.take_median(results); 
     float rms = cm.take_rms(results,mean); 
     float mode = cm.take_mode(results);   
@@ -1506,7 +1536,6 @@ void nsw::THRCalib::read_baseline_full(
     }
   
     if(cm.sample_to_mV(rms,fetype)>30){noisy_channels++;}
-    
     if(conn_check)
     {
      if(cm.sample_to_mV(mean,fetype)>180)
@@ -1562,7 +1591,7 @@ void nsw::THRCalib::read_baseline_full(
    calibrep<<fe_name<<" VMM_"<<vmm_id<<" >>"<<fault_chan<<"<< noisy channels\n"<<std::endl;
    mtx.unlock();
   }
-
+  ERS_INFO("Done with "<<fe_name<<" VMM_"<<vmm_id);
   std::cout<<fe_name<<" VMM_"<<vmm_id<<" done"<<std::endl;
 
   if(fault_chan>10 and fault_chan<32){
@@ -1583,7 +1612,8 @@ void nsw::THRCalib::read_baseline_full(
   calibrep<<fe_name<<" - NR of unusable channels = ["<<fault_chan_total<<"/512]\n"<<std::endl;
   mtx.unlock();
  }
- 
+ ERS_INFO("WARNING - High number of faulty channels - ["<<fault_chan_total<<"/512]");
+
  calibrep.close(); 
  full_bl.close();
  vmm_fchan.clear();
@@ -1674,7 +1704,7 @@ void nsw::THRCalib::read_baseline_full(
  }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void nsw::THRCalib::merge_json(std::string & mod_json, std::string io_config_path, std::string config_filename, int rms, bool split_config)
+void nsw::THRCalib::merge_json(std::string & mod_json, std::string io_config_path, std::string config_filename, int rms) /*, bool split_config)*/
 {
  namespace pt = boost::property_tree;
  pt::ptree input_data;
@@ -1683,6 +1713,7 @@ void nsw::THRCalib::merge_json(std::string & mod_json, std::string io_config_pat
  std::string json_dir = input_data.get<std::string>("json_data_output");
 
  std::cout<<"\nMerging generated and common configuration trees\n"<<std::endl;
+ ERS_INFO("Merging generates common configuration trees");
  
  std::string main_path = input_data.get<std::string>("config_dir");
  
@@ -1715,100 +1746,109 @@ void nsw::THRCalib::merge_json(std::string & mod_json, std::string io_config_pat
   
  int fsize=in_files.size();
  std::printf("directory has [[ %i ]] json files\n",fsize); 
-
+ ERS_INFO("JSON directory has ["<<fsize<<"] files"); 
+// ERS_INFO("----AI-----");
 //========== trying to modify already existing json==========================================================
  pt::ptree prev_conf;
+ ERS_INFO("--config-filename-- : "<<config_filename);
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
  //std::string start_configuration = input_data.get<std::string>("configuration_json");
- std::string start_configuration = config_filename;
+ std::string start_configuration = config_filename.erase(0,7);
  //pt::read_json(main_path+start_configuration, prev_conf);
- pt::read_json(config_filename, prev_conf);
+// pt::read_json(config_filename, prev_conf);
+ 
+// ERS_INFO("----AI-2----");
+ pt::read_json(start_configuration, prev_conf);
 
-  pt::ptree hol1l2_conf;
-  pt::ptree hol3l4_conf;
-  pt::ptree ipl1l2_conf;
-  pt::ptree ipl3l4_conf;
+ ERS_INFO("--config-filename-- : "<<start_configuration);
+//  pt::ptree hol1l2_conf;
+//  pt::ptree hol3l4_conf;
+//  pt::ptree ipl1l2_conf;
+//  pt::ptree ipl3l4_conf;
 
   pt::ptree vmm_conf = prev_conf.get_child("vmm_common_config");
 //  pt::write_json(std::cout, vmm_conf);
   pt::ptree roc_conf = prev_conf.get_child("roc_common_config");
   pt::ptree tds_conf = prev_conf.get_child("tds_common_config");
 
- if(split_config)
- {
-  hol1l2_conf.add_child("vmm_common_config",vmm_conf);
-  hol1l2_conf.add_child("roc_common_config",roc_conf);
-  hol1l2_conf.add_child("tds_common_config",tds_conf);
- 
-  hol3l4_conf.add_child("vmm_common_config",vmm_conf);
-  hol3l4_conf.add_child("roc_common_config",roc_conf);
-  hol3l4_conf.add_child("tds_common_config",tds_conf);
- 
-  ipl1l2_conf.add_child("vmm_common_config",vmm_conf);
-  ipl1l2_conf.add_child("roc_common_config",roc_conf);
-  ipl1l2_conf.add_child("tds_common_config",tds_conf);
- 
-  ipl3l4_conf.add_child("vmm_common_config",vmm_conf);
-  ipl3l4_conf.add_child("roc_common_config",roc_conf);
-  ipl3l4_conf.add_child("tds_common_config",tds_conf);
-
- 
-  pt::ptree mmfe;
-  for(auto & feb_node: prev_conf)
-  {
-   std::string name = feb_node.first;
-   //pt::ptree mmfe = prev_conf.get_child(name);
-   mmfe = prev_conf.get_child(name);
-   //std::cout<<name<<std::endl;
-   //pt::write_json(std::cout, mmfe);
-
-   //if(name.find("HO")!=std::string::npos and name.find("L1")!=std::string::npos){hol1l2_conf.put(name,prev_conf.get<std::string>(name));} 
-   if(name.find("HO")!=std::string::npos){
-//   std::cout<<"\nNASOOOOOOOOOL - "<<name<<" JOPTA!\n"<<std::endl;
-    if(name.find("L1")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; hol1l2_conf.add_child(name,mmfe); mmfe.clear();}
-    if(name.find("L2")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; hol1l2_conf.add_child(name,mmfe); mmfe.clear();}
-    if(name.find("L3")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; hol3l4_conf.add_child(name,mmfe); mmfe.clear();}
-    if(name.find("L4")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; hol3l4_conf.add_child(name,mmfe); mmfe.clear();}
-   } 
-
-   if(name.find("IP")!=std::string::npos){
-//   std::cout<<"\nNASOOOOOOOOOL - "<<name<<" JOPTA!\n"<<std::endl;
-    if(name.find("L1")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; ipl1l2_conf.add_child(name,mmfe); mmfe.clear();}
-    if(name.find("L2")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; ipl1l2_conf.add_child(name,mmfe); mmfe.clear();}
-    if(name.find("L3")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; ipl3l4_conf.add_child(name,mmfe); mmfe.clear();}
-    if(name.find("L4")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; ipl3l4_conf.add_child(name,mmfe); mmfe.clear();}
-   } 
-   else{continue;}
-  }
- }
+// ERS_INFO("----BLYA-----");
+// if(split_config)
+// {
+//  hol1l2_conf.add_child("vmm_common_config",vmm_conf);
+//  hol1l2_conf.add_child("roc_common_config",roc_conf);
+//  hol1l2_conf.add_child("tds_common_config",tds_conf);
+// 
+//  hol3l4_conf.add_child("vmm_common_config",vmm_conf);
+//  hol3l4_conf.add_child("roc_common_config",roc_conf);
+//  hol3l4_conf.add_child("tds_common_config",tds_conf);
+// 
+//  ipl1l2_conf.add_child("vmm_common_config",vmm_conf);
+//  ipl1l2_conf.add_child("roc_common_config",roc_conf);
+//  ipl1l2_conf.add_child("tds_common_config",tds_conf);
+// 
+//  ipl3l4_conf.add_child("vmm_common_config",vmm_conf);
+//  ipl3l4_conf.add_child("roc_common_config",roc_conf);
+//  ipl3l4_conf.add_child("tds_common_config",tds_conf);
+//
+// 
+//  pt::ptree mmfe;
+//  for(auto & feb_node: prev_conf)
+//  {
+//   std::string name = feb_node.first;
+//   //pt::ptree mmfe = prev_conf.get_child(name);
+//   mmfe = prev_conf.get_child(name);
+//   //std::cout<<name<<std::endl;
+//   //pt::write_json(std::cout, mmfe);
+//
+//   //if(name.find("HO")!=std::string::npos and name.find("L1")!=std::string::npos){hol1l2_conf.put(name,prev_conf.get<std::string>(name));} 
+//   if(name.find("HO")!=std::string::npos){
+////   std::cout<<"\nNASOOOOOOOOOL - "<<name<<" JOPTA!\n"<<std::endl;
+//    if(name.find("L1")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; hol1l2_conf.add_child(name,mmfe); mmfe.clear();}
+//    if(name.find("L2")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; hol1l2_conf.add_child(name,mmfe); mmfe.clear();}
+//    if(name.find("L3")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; hol3l4_conf.add_child(name,mmfe); mmfe.clear();}
+//    if(name.find("L4")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; hol3l4_conf.add_child(name,mmfe); mmfe.clear();}
+//   } 
+//
+//   if(name.find("IP")!=std::string::npos){
+////   std::cout<<"\nNASOOOOOOOOOL - "<<name<<" JOPTA!\n"<<std::endl;
+//    if(name.find("L1")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; ipl1l2_conf.add_child(name,mmfe); mmfe.clear();}
+//    if(name.find("L2")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; ipl1l2_conf.add_child(name,mmfe); mmfe.clear();}
+//    if(name.find("L3")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; ipl3l4_conf.add_child(name,mmfe); mmfe.clear();}
+//    if(name.find("L4")!=std::string::npos){std::cout<<"found - "<<name<<std::endl; ipl3l4_conf.add_child(name,mmfe); mmfe.clear();}
+//   } 
+//   else{continue;}
+//  }
+// }
 //======================= using config reader to get the nr of vmms =========================================
- std::vector<nsw::FEBConfig> front_conf; 
- std::set<std::string> fenames;
+// std::vector<nsw::FEBConfig> front_conf; 
+// std::set<std::string> fenames;
+//
+// //nsw::ConfigReader reader1("json://"+config_filename);
+// nsw::ConfigReader reader1(config_filename);
+//  try { 
+//    auto config1 = reader1.readConfig(); 
+//  } catch (std::exception & e) { 
+//    std::cout << "Make sure the json is formed correctly. " 
+//              << "Can't read config file due to : " << e.what() << std::endl; 
+//    std::cout << "Exiting..." << std::endl; 
+//    exit(0); 
+//  } 
+//
+//  fenames = reader1.getAllElementNames(); 
+//
+//  for (auto & name : fenames) { 
+//    try { 
+//      front_conf.emplace_back(reader1.readConfig(name)); 
+//    } catch (std::exception & e) { 
+//      std::cout << name << " - ERROR: Skipping this FE!" 
+//                << " - Problem constructing configuration due to : [" << e.what() <<"]"<< std::endl; 
+//    } 
+//    // feconfigs.back().dump(); 
+//  }
 
- //nsw::ConfigReader reader1("json://"+main_path+start_configuration);
- nsw::ConfigReader reader1("json://"+config_filename);
-  try { 
-    auto config1 = reader1.readConfig(); 
-  } catch (std::exception & e) { 
-    std::cout << "Make sure the json is formed correctly. " 
-              << "Can't read config file due to : " << e.what() << std::endl; 
-    std::cout << "Exiting..." << std::endl; 
-    exit(0); 
-  } 
-
-  fenames = reader1.getAllElementNames(); 
-
-  for (auto & name : fenames) { 
-    try { 
-      front_conf.emplace_back(reader1.readConfig(name)); 
-    } catch (std::exception & e) { 
-      std::cout << name << " - ERROR: Skipping this FE!" 
-                << " - Problem constructing configuration due to : [" << e.what() <<"]"<< std::endl; 
-    } 
-    // feconfigs.back().dump(); 
-  }
  std::map<std::string, int> feb_vmms;
- for(auto feb : front_conf)
+ //for(auto feb : front_conf)
+ for(auto feb : feconfigs)
  {
   auto vmm_configs = feb.getVmms();
   feb_vmms[feb.getAddress()] = vmm_configs.size();
@@ -1816,6 +1856,7 @@ void nsw::THRCalib::merge_json(std::string & mod_json, std::string io_config_pat
  }
 //====================================================================================================
 
+// ERS_INFO("----YA-----");
  for(long unsigned int i=0; i<in_files.size(); i++){
   std::ifstream in_file_check;
   in_file_check.open(json_dir+in_files[i], std::ios::in);
@@ -1831,6 +1872,7 @@ void nsw::THRCalib::merge_json(std::string & mod_json, std::string io_config_pat
 
   int vmms_in_febconfig = feb_vmms[fename];
 
+// ERS_INFO("----MASLINU-----");
   //for(int nth_vmm=0; nth_vmm<8; nth_vmm++)
   for(int nth_vmm=0; nth_vmm<vmms_in_febconfig; nth_vmm++)
   {
@@ -1840,44 +1882,46 @@ void nsw::THRCalib::merge_json(std::string & mod_json, std::string io_config_pat
    if(mmfe_conf.count(vmm)==0){std::cout<<"Failed"<<std::endl;continue;}
    else{std::cout<<"Success"<<std::endl;}
    prev_conf.add_child(child_name, mmfe_conf.get_child(vmm));
-   if(split_config){ 
-    if(child_name.find("HO")!=std::string::npos and child_name.find("L1")!=std::string::npos){hol1l2_conf.add_child(child_name, mmfe_conf.get_child(vmm));} 
-    if(child_name.find("HO")!=std::string::npos and child_name.find("L2")!=std::string::npos){hol1l2_conf.add_child(child_name, mmfe_conf.get_child(vmm));} 
-    if(child_name.find("HO")!=std::string::npos and child_name.find("L3")!=std::string::npos){hol3l4_conf.add_child(child_name, mmfe_conf.get_child(vmm));} 
-    if(child_name.find("HO")!=std::string::npos and child_name.find("L4")!=std::string::npos){hol3l4_conf.add_child(child_name, mmfe_conf.get_child(vmm));} 
-    if(child_name.find("IP")!=std::string::npos and child_name.find("L1")!=std::string::npos){ipl1l2_conf.add_child(child_name, mmfe_conf.get_child(vmm));} 
-    if(child_name.find("IP")!=std::string::npos and child_name.find("L2")!=std::string::npos){ipl1l2_conf.add_child(child_name, mmfe_conf.get_child(vmm));} 
-    if(child_name.find("IP")!=std::string::npos and child_name.find("L3")!=std::string::npos){ipl3l4_conf.add_child(child_name, mmfe_conf.get_child(vmm));} 
-    if(child_name.find("IP")!=std::string::npos and child_name.find("L4")!=std::string::npos){ipl3l4_conf.add_child(child_name, mmfe_conf.get_child(vmm));} 
-    else{continue;}
-   }
+//   if(split_config){ 
+//    if(child_name.find("HO")!=std::string::npos and child_name.find("L1")!=std::string::npos){hol1l2_conf.add_child(child_name, mmfe_conf.get_child(vmm));} 
+//    if(child_name.find("HO")!=std::string::npos and child_name.find("L2")!=std::string::npos){hol1l2_conf.add_child(child_name, mmfe_conf.get_child(vmm));} 
+//    if(child_name.find("HO")!=std::string::npos and child_name.find("L3")!=std::string::npos){hol3l4_conf.add_child(child_name, mmfe_conf.get_child(vmm));} 
+//    if(child_name.find("HO")!=std::string::npos and child_name.find("L4")!=std::string::npos){hol3l4_conf.add_child(child_name, mmfe_conf.get_child(vmm));} 
+//    if(child_name.find("IP")!=std::string::npos and child_name.find("L1")!=std::string::npos){ipl1l2_conf.add_child(child_name, mmfe_conf.get_child(vmm));} 
+//    if(child_name.find("IP")!=std::string::npos and child_name.find("L2")!=std::string::npos){ipl1l2_conf.add_child(child_name, mmfe_conf.get_child(vmm));} 
+//    if(child_name.find("IP")!=std::string::npos and child_name.find("L3")!=std::string::npos){ipl3l4_conf.add_child(child_name, mmfe_conf.get_child(vmm));} 
+//    if(child_name.find("IP")!=std::string::npos and child_name.find("L4")!=std::string::npos){ipl3l4_conf.add_child(child_name, mmfe_conf.get_child(vmm));} 
+//    else{continue;}
+//   }
    printf("\nadded %s VMM%i node", fename.c_str(), nth_vmm);
   }
  }
+// ERS_INFO("----PAIMAL-----");
  //pt::write_json(main_path+mod_json+"_sdsm_appended.json", prev_conf);
  pt::write_json(main_path+mod_json+"_sdsm_app_RMS_"+std::to_string(rms)+".json", prev_conf);
 //==============================================================
 // printf("\n new configuration file is -> %s\n",mod_json.c_str());
  printf("\n new configuration file is -> %s_sdsm_app_RMS_%i.json",mod_json.c_str(), rms);
+ ERS_INFO("New configuration file is ->"<<mod_json<<"_sdsm_app_RMS_"<<rms<<".json");
  printf("\n Its location is -> %s",main_path.c_str());
 //=============================================================
-if(split_config){
-
- pt::write_json(main_path+mod_json+"_HO_L1L2_sdsm_app_RMS_"+std::to_string(rms)+".json", hol1l2_conf);
- printf("\n written configuration file -> %s_HO_L1L2_sdsm_app_RMS_%i.json",mod_json.c_str(), rms);
-
- pt::write_json(main_path+mod_json+"_HO_L3L4_sdsm_app_RMS_"+std::to_string(rms)+".json", hol3l4_conf);
- printf("\n written configuration file-> %s_HO_L3L4_sdsm_app_RMS_%i.json",mod_json.c_str(), rms);
+//if(split_config){
 //
- pt::write_json(main_path+mod_json+"_IP_L1L2_sdsm_app_RMS_"+std::to_string(rms)+".json", ipl1l2_conf);
- printf("\n written configuration file -> %s_IP_L1L2_sdsm_app_RMS_%i.json",mod_json.c_str(), rms);
+// pt::write_json(main_path+mod_json+"_HO_L1L2_sdsm_app_RMS_"+std::to_string(rms)+".json", hol1l2_conf);
+// printf("\n written configuration file -> %s_HO_L1L2_sdsm_app_RMS_%i.json",mod_json.c_str(), rms);
 //
- pt::write_json(main_path+mod_json+"_IP_L3L4_sdsm_app_RMS_"+std::to_string(rms)+".json", ipl3l4_conf);
- printf("\n written configuration file -> %s_IP_L3L4_sdsm_app_RMS_%i.json",mod_json.c_str(), rms);
- 
- printf("\n Splitted file location is -> %s",main_path.c_str());
-
-}
+// pt::write_json(main_path+mod_json+"_HO_L3L4_sdsm_app_RMS_"+std::to_string(rms)+".json", hol3l4_conf);
+// printf("\n written configuration file-> %s_HO_L3L4_sdsm_app_RMS_%i.json",mod_json.c_str(), rms);
+////
+// pt::write_json(main_path+mod_json+"_IP_L1L2_sdsm_app_RMS_"+std::to_string(rms)+".json", ipl1l2_conf);
+// printf("\n written configuration file -> %s_IP_L1L2_sdsm_app_RMS_%i.json",mod_json.c_str(), rms);
+////
+// pt::write_json(main_path+mod_json+"_IP_L3L4_sdsm_app_RMS_"+std::to_string(rms)+".json", ipl3l4_conf);
+// printf("\n written configuration file -> %s_IP_L3L4_sdsm_app_RMS_%i.json",mod_json.c_str(), rms);
+// 
+// printf("\n Splitted file location is -> %s",main_path.c_str());
+//
+//}
 //------------here`s the end-------------
 
 }
