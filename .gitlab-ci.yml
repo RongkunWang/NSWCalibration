@@ -1,0 +1,33 @@
+# .gitlab-ci.yml
+# Configuration for CI/CD for NSWCalibration
+
+variables:
+    GIT_STRATEGY: fetch
+    GIT_SUBMODULE_STRATEGY: recursive
+    GIT_SSL_NO_VERIFY: "true"
+    TDAQ_RELEASE: tdaq-09-02-01
+    COMPILER_PROFILE: x86_64-centos7-gcc8-opt
+    MAKE_OPTIONS: -j4
+    CMAKE_JOB_OPTIONS: -DBUILD_NSW_STANDALONE=OFF
+
+stages:
+    - build
+    - test
+    - quality
+    - reports
+
+include:
+  ## Unable to build standalone, needs NSWConfiguration
+  # - project: 'atlas-muon-nsw-daq/nsw-build-scripts'
+  #   ref: master
+  #   file: '.gitlab/ci/build.yml'
+  - project: 'atlas-muon-nsw-daq/nsw-build-scripts'
+    ref: master
+    file: '.gitlab/ci/code-quality.yml'
+  ## Not currently implemented
+  # - .gitlab/ci/test.yml
+
+workflow:
+  rules:
+    - if: $CI_JOB_ID
+    - when: always

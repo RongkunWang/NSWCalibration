@@ -1,0 +1,8 @@
+---
+Checks:          '-*,boost*,bugprone*,clang*,cppcore*,hicpp*,llvm*,misc*,modernize*,performance*,portability*,readability*,'
+WarningsAsErrors: ''
+HeaderFilterRegex: ''
+AnalyzeTemporaryDtors: false
+FormatStyle:     'file'
+User:            sturdy
+...
