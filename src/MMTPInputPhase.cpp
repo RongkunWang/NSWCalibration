@@ -27,12 +27,15 @@ void nsw::MMTPInputPhase::setup(std::string db) {
 
   // make output
   m_now = strf_time();
-  std::string rname = "tpscax." + std::to_string(runNumber()) + "." + applicationName() + "." + m_now + ".root";
-  m_rfile = std::make_unique< TFile >(rname.c_str(), "recreate");
-  m_rtree = std::make_shared< TTree >("nsw", "nsw");
-  m_align = std::make_unique< std::vector<int> >();
-  m_bcid  = std::make_unique< std::vector<int> >();
-  m_fiber = std::make_unique< std::vector<int> >();
+  std::string rname = "tpscax." + std::to_string(runNumber()) + "."
+    + applicationName() + "." + m_now + ".root";
+  m_phase  = 0;
+  m_offset = 0;
+  m_rfile  = std::make_unique< TFile >(rname.c_str(), "recreate");
+  m_rtree  = std::make_shared< TTree >("nsw", "nsw");
+  m_align  = std::make_unique< std::vector<int> >();
+  m_bcid   = std::make_unique< std::vector<int> >();
+  m_fiber  = std::make_unique< std::vector<int> >();
   m_rtree->Branch("time",         &m_now);
   m_rtree->Branch("phase",        &m_phase);
   m_rtree->Branch("offset",       &m_offset);
