@@ -4,7 +4,7 @@ And lo, if death is for us, who can be against us?
 Recommendation: python3, and any ROOT version.
 
 Run like:
-> setupATLAS && lsetup 'lcgenv -p LCG_96python3 x86_64-centos7-gcc8-opt ROOT'
+> setupATLAS && lsetup 'views LCG_98python3 x86_64-centos7-gcc8-opt'
 > python nsw_art_input_phase.py -i my_run.root -r -n
 
 NB: partial runs can still be analyzed, but the -n option crashes.
@@ -111,7 +111,6 @@ def load_data():
 
     l1id_prev = -1
     l1id_curr = -1
-    l1id_fuck = False
 
     # loop
     ents  = ttree.GetEntries()
@@ -133,30 +132,14 @@ def load_data():
             continue
 
         # DELIMITER
-        # but allow for occasional L1ID skips
-        # `tup` is the expected layer, vmm, channel, phase
-        if (ent == 0) or (l1id_curr == 0 and l1id_prev == 99) or (l1id_curr == 0 and l1id_prev != 99 and l1id_fuck):
-            l1id_fuck = False
-            if True:
+        if (l1id_curr % 100 == 0) or (l1id_prev > 90 and l1id_curr < 10):
+            if ops.debug:
                 print("Rolling over: Ent = %s, L1ID = %s, previous L1ID = %s." % (ent, l1id_curr, l1id_prev))
             patts.next()
             now_ph = patts.phase()
             now_ch = patts.channel()
             for tup in patts.hits():
                 dataman.create(tup)
-        elif (l1id_curr == 0 and l1id_prev != 99 and not l1id_fuck):
-            if True:
-                print("NOT rolling over: Ent = %s, L1ID = %s, previous L1ID = %s." % (ent, l1id_curr, l1id_prev))
-            l1id_fuck = True
-
-        # if (l1id_curr % 100 == 0) or (l1id_prev > 90 and l1id_curr < 10):
-        #     if True:
-        #         print("Rolling over: Ent = %s, L1ID = %s, previous L1ID = %s." % (ent, l1id_curr, l1id_prev))
-        #     patts.next()
-        #     now_ph = patts.phase()
-        #     now_ch = patts.channel()
-        #     for tup in patts.hits():
-        #         dataman.create(tup)
 
         # tree data
         # ch_obs is the observed channel for that layer, vmm, phase

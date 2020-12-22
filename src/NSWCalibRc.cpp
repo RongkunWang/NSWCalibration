@@ -33,10 +33,12 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     daq::rc::OnlineServices& rcSvc = daq::rc::OnlineServices::instance();
     const daq::core::RunControlApplicationBase& rcBase = rcSvc.getApplication();
     const nsw::dal::NSWCalibApplication* nswApp = rcBase.cast<nsw::dal::NSWCalibApplication>();
-    m_dbcon = nswApp->get_dbConnection();
+    m_appname  = rcSvc.applicationName();
+    m_dbcon    = nswApp->get_dbConnection();
     m_resetVMM = nswApp->get_resetVMM();
     m_resetTDS = nswApp->get_resetTDS();
-    ERS_INFO("DB Configuration: " << m_dbcon);
+    ERS_INFO("App name: "  << m_appname);
+    ERS_INFO("DB Config: " << m_dbcon);
     ERS_INFO("reset VMM: " << m_resetVMM);
     ERS_INFO("reset TDS: " << m_resetTDS);
     // Retrieve the ipc partition
@@ -169,6 +171,8 @@ void nsw::NSWCalibRc::handler() {
 
   // setup
   alti_setup();
+  calib->setApplicationName(m_appname);
+  calib->setRunNumber(runNumberFromIS());
   calib->setSimulation(m_simulation);
   calib->setup(m_dbcon);
   ERS_INFO("calib counter:    " << calib->counter());
@@ -176,6 +180,7 @@ void nsw::NSWCalibRc::handler() {
   ERS_INFO("calib toggle:     " << calib->toggle());
   ERS_INFO("calib wait4swrod: " << calib->wait4swrod());
   ERS_INFO("calib simulation: " << calib->simulation());
+  ERS_INFO("calib run number: " << calib->runNumber());
 
   // calib loop
   while (calib->next()) {
@@ -431,6 +436,17 @@ bool nsw::NSWCalibRc::simulationFromIS() {
     auto val = any.getAttributeValue<bool>(0);
     ERS_INFO("Simulation from IS: " << val);
     return val;
+  }
+  return 0;
+}
+
+uint32_t nsw::NSWCalibRc::runNumberFromIS() {
+  try {
+    ISInfoDynAny runParams;
+    is_dictionary->getValue("RunParams.RunParams", runParams);
+    return runParams.getAttributeValue<uint32_t>("run_number");
+  } catch(daq::is::Exception& ex) {
+    ers::error(ex);
   }
   return 0;
 }
