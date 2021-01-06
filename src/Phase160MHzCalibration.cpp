@@ -4,7 +4,7 @@
 #include "NSWCalibration/BaseCalibration.h"
 
 #include "NSWConfiguration/ConfigSender.h"
-#include "NSWConfiguration/ConfigTranslation.h"
+#include "NSWConfiguration/ConfigConverter.h"
 #include "NSWConfiguration/FEBConfig.h"
 #include "NSWConfiguration/I2cMasterConfig.h"
 
@@ -64,7 +64,7 @@ void Phase160MHzCalibration::setRegisters(const int t_iteration) const
 {
     nsw::ConfigSender configSender;
     const auto ptree = BaseCalibration<Phase160MHzCalibration>::createPtree(m_inputValues, t_iteration);
-    const auto configConverter = ConfigConverter(ptree, ConfigConverter::ConfigType::VALUE_BASED);
+    const auto configConverter = ConfigConverter(ptree, ConfigConverter::RegisterAddressSpace::ROC_ANALOG, ConfigConverter::ConfigType::VALUE_BASED);
     const auto translatedPtree = configConverter.getRegisterBasedConfigWithoutSubregisters(m_config.getRocAnalog());
     const auto partialConfig = nsw::I2cMasterConfig(translatedPtree, ROC_ANALOG_NAME, ROC_ANALOG_REGISTERS, true);
     const auto opcIp = m_config.getOpcServerIp();
