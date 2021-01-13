@@ -36,8 +36,7 @@ void nsw::sTGCPadTriggerToSFEB::setup(std::string db) {
   // protect against no sFEBs
   if (m_sfebs.size() == 0) {
     std::string msg = "Error in sTGCPadTriggerToSFEB: No sFEBs in this config!";
-    nsw::NSWCalibIssue issue(ERS_HERE, msg);
-    ers::error(issue);
+    ERS_INFO(msg.str());
     throw std::runtime_error(msg);
   }
 
@@ -69,7 +68,7 @@ int nsw::sTGCPadTriggerToSFEB::sfeb_watchdog() {
   //
   // read sTDS monitoring registers
   //
-  if (m_sfebs.size() == 0)
+  if (m_sfebs.size() == 0) {
     ERS_INFO("Error in sTGCPadTriggerToSFEB: No sFEBs in this config!");
     return 0;
   }
