@@ -36,7 +36,7 @@ void nsw::sTGCPadTriggerToSFEB::setup(std::string db) {
   // protect against no sFEBs
   if (m_sfebs.size() == 0) {
     std::string msg = "Error in sTGCPadTriggerToSFEB: No sFEBs in this config!";
-    ERS_INFO(msg.str());
+    ERS_INFO(msg);
     throw std::runtime_error(msg);
   }
 
