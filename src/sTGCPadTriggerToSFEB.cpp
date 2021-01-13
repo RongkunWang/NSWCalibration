@@ -33,6 +33,14 @@ void nsw::sTGCPadTriggerToSFEB::setup(std::string db) {
     m_sfebs.push_back(feb);
   ERS_INFO("Found " << m_sfebs.size() << " SFEBs");
 
+  // protect against no sFEBs
+  if (m_sfebs.size() == 0) {
+    std::string msg = "Error in sTGCPadTriggerToSFEB: No sFEBs in this config!";
+    nsw::NSWCalibIssue issue(ERS_HERE, msg);
+    ers::error(issue);
+    throw std::runtime_error(msg);
+  }
+
   // start dog
   m_watchdog = std::async(std::launch::async, &nsw::sTGCPadTriggerToSFEB::sfeb_watchdog, this);
 
@@ -62,7 +70,9 @@ int nsw::sTGCPadTriggerToSFEB::sfeb_watchdog() {
   // read sTDS monitoring registers
   //
   if (m_sfebs.size() == 0)
+    ERS_INFO("Error in sTGCPadTriggerToSFEB: No sFEBs in this config!");
     return 0;
+  }
 
   // sleep time
   size_t slp = 1e6;
