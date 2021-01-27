@@ -8,6 +8,8 @@
 #include "NSWConfiguration/ConfigReader.h"
 #include "NSWCalibration/BaseCalibration.h"
 #include "NSWCalibration/Phase160MHzCalibration.h"
+#include "NSWCalibration/Phase160MHzVmmCalibration.h"
+#include "NSWCalibration/Phase40MHzVmmCalibration.h"
 
 #include <boost/program_options.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -20,7 +22,8 @@ enum Mode
 {
     none=-1,
     clockPhase,
-    clockPhase40MHz,
+    Phase160MHzVmm,
+    Phase40MHzVmm
 };
 
 
@@ -33,6 +36,7 @@ struct Args
     //const std::string valuesFilename{""};
     const Mode mode{Mode::none};
     const std::string outputFilename{""};
+    const std::vector<int> values{};
     const bool help{false};
 };
 
@@ -51,6 +55,8 @@ struct Args
         ("name,n", po::value<std::vector<std::string>>()->multitoken()->default_value(std::vector<std::string>(), ""),
             "The names of frontend to read ROC register.\n If this option is left empty, "
             "all front end elements in the config file will be calibrated.")
+        ("values", po::value<std::vector<int>>()->multitoken()->default_value(std::vector<int>(), ""),
+            "Input values passed to the calibration. Calibration will only run over those values")
         //("values", po::value<std::string>()->required(),
         //    "JSON file containing a map {'registername1' : [values1], 'registername2' : [values2]}. "
         //    "All values for are changed simultaneously for all registernames. This means all value lists must have the same length");
@@ -75,6 +81,14 @@ struct Args
         {
             return Mode::clockPhase;
         }
+        else if (cfgValMode == "Phase160MHzVmm")
+        {
+            return Mode::Phase160MHzVmm;
+        }
+        else if (cfgValMode == "Phase40MHzVmm")
+        {
+            return Mode::Phase40MHzVmm;
+        }
         else
         {
             throw std::runtime_error("Value for mode '" + cfgValMode + "' is not accepted");
@@ -85,7 +99,8 @@ struct Args
                 vm["dry-run"].as<bool>(),
                 vm["name"].as<std::vector<std::string>>(),
                 mode,
-                vm["output"].as<std::string>()
+                vm["output"].as<std::string>(),
+                vm["values"].as<std::vector<int>>()
                 };
 }
 
@@ -101,7 +116,7 @@ struct Args
         {
             try
             {
-                if (nsw::getElementType(name) == "MMFE8")
+                if (nsw::getElementType(name) == "MMFE8" or nsw::getElementType(name) == "PFEB" or nsw::getElementType(name) == "SFEB6")
                 {
                     feb_configs.emplace(name, reader.readConfig(name));
                     std::cout << "Adding: " << name << '\n';
@@ -154,10 +169,24 @@ int main(int argc, char* argv[])
         }
         if (args.mode == Mode::clockPhase)
         {
-            threads.push_back(std::thread([] (const auto& t_config, const auto t_dryRun, const auto& t_outputFilename) {
-                BaseCalibration<Phase160MHzCalibration> calibrator(t_config);
+            threads.push_back(std::thread([] (const auto& t_config, const auto t_dryRun, const auto& t_outputFilename, const auto& t_values) {
+                BaseCalibration<Phase160MHzCalibration> calibrator(t_config, t_values);
                 calibrator.run(t_dryRun, t_outputFilename);
-            }, config, args.dryRun, name + '_' + args.outputFilename));
+            }, config, args.dryRun, name + '_' + args.outputFilename, args.values));
+        }
+        if (args.mode == Mode::Phase160MHzVmm)
+        {
+            threads.push_back(std::thread([] (const auto& t_config, const auto t_dryRun, const auto& t_outputFilename, const auto& t_values) {
+                BaseCalibration<Phase160MHzVmmCalibration> calibrator(t_config, t_values);
+                calibrator.run(t_dryRun, t_outputFilename);
+            }, config, args.dryRun, name + '_' + args.outputFilename, args.values));
+        }
+        if (args.mode == Mode::Phase40MHzVmm)
+        {
+            threads.push_back(std::thread([] (const auto& t_config, const auto t_dryRun, const auto& t_outputFilename, const auto& t_values) {
+                BaseCalibration<Phase40MHzVmmCalibration> calibrator(t_config, t_values);
+                calibrator.run(t_dryRun, t_outputFilename);
+            }, config, args.dryRun, name + '_' + args.outputFilename, args.values));
         }
         i++;
     }

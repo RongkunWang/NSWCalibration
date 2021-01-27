@@ -15,29 +15,38 @@
 
 #include "NSWCalibration/BaseCalibration.h"
 #include "NSWCalibration/Phase160MHzCalibration.h"
+#include "NSWCalibration/Phase160MHzVmmCalibration.h"
+#include "NSWCalibration/Phase40MHzVmmCalibration.h"
+
+#include "RunControl/Common/OnlineServices.h"
+#include "RunControl/RunControl.h"
+#include "RunControl/Common/RunControlCommands.h"
+#include "ipc/core.h"
 
 template <typename Specialized>
-BaseCalibration<Specialized>::BaseCalibration(nsw::FEBConfig t_config) : m_config(t_config),
-                                                                         m_specialized(t_config)
+BaseCalibration<Specialized>::BaseCalibration(nsw::FEBConfig t_config, const std::vector<int>& t_values) : m_config(t_config),
+                                                                                                           m_specialized(t_config, t_values)
 {
 }
 
 template <typename Specialized>
-void BaseCalibration<Specialized>::basicConfigure(nsw::FEBConfig t_config) const
+void BaseCalibration<Specialized>::basicConfigure(const nsw::FEBConfig& t_config)
 {
     nsw::ConfigSender configSender;
     configSender.sendConfig(t_config);
 }
 
 template <typename Specialized>
-[[nodiscard]] std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>> BaseCalibration<Specialized>::checkVmmCaptureRegisters(const nsw::FEBConfig &t_config) const
+[[nodiscard]] StatusRegisters BaseCalibration<Specialized>::checkVmmCaptureRegisters(const nsw::FEBConfig &t_config) const
 {
-    std::array<uint8_t, 8> result;
-    std::array<uint8_t, 8> resultParity;
+    std::array<uint8_t, 8> vmmStatus;
+    std::array<uint8_t, 8> vmmParity;
+    std::array<uint8_t, 4> srocStatus;
     const auto opcIp = t_config.getOpcServerIp();
     // TODO: magic numbers
     const int vmmCaptureAddressInitial = 32;
     const int vmmParityCounterAddressInitial = 45;
+    const int srocStatusAddressInitial = 40;
     nsw::ConfigSender configSender;
     for (int dummy = 0; dummy < 2; dummy++)
     {
@@ -50,7 +59,7 @@ template <typename Specialized>
                                                                    18,                                                     // sda line
                                                                    static_cast<uint8_t>(vmmCaptureAddressInitial + vmmId), // reg number
                                                                    2);                                                     // delay
-            result[vmmId] = vmmCaptureStatus;
+            vmmStatus[vmmId] = vmmCaptureStatus;
 
             const auto parityCounter = configSender.readBackRoc(opcIp,
                                                                 t_config.getAddress() + ".gpio.bitBanger",
@@ -58,46 +67,72 @@ template <typename Specialized>
                                                                 18,                                                           // sda line
                                                                 static_cast<uint8_t>(vmmParityCounterAddressInitial + vmmId), // reg number
                                                                 2);                                                           // delay
-            resultParity[vmmId] = parityCounter;
+            vmmParity[vmmId] = parityCounter;
+
         }
+        for (int srocId = 0; srocId <= 3; srocId++)
+        {
+            const auto srocStatusRegister = configSender.readBackRoc(opcIp,
+                                                                     t_config.getAddress() + ".gpio.bitBanger",
+                                                                     17,                                                           // scl line
+                                                                     18,                                                           // sda line
+                                                                     static_cast<uint8_t>(srocStatusAddressInitial + srocId),      // reg number
+                                                                     2);                                                           // delay
+            srocStatus[srocId] = srocStatusRegister;
+        }
+
     }
 
-    return {result, resultParity};
+    return {vmmStatus, vmmParity, srocStatus};
 }
 
 template <typename Specialized>
-void BaseCalibration<Specialized>::saveResult(const std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>> &t_result, std::ofstream &t_filestream, int i) const
+void BaseCalibration<Specialized>::saveResult(const StatusRegisters &t_result, std::ofstream &t_filestream, const int t_iteration) const
 {
-    const auto status = t_result.first;
-    const auto parity = t_result.second;
-    for (std::size_t vmmId = 0; vmmId < status.size(); vmmId++)
+    const auto vmmStatus = t_result.m_vmmStatus;
+    const auto parity = t_result.m_vmmParity;
+    const auto srocStatus = t_result.m_srocStatus;
+    const auto setting = m_specialized.getValueOfIteration(t_iteration);
+    // Check registers (https://espace.cern.ch/ATLAS-NSW-ELX/_layouts/15/WopiFrame.aspx?sourcedoc=/ATLAS-NSW-ELX/Shared%20Documents/ROC/ROC_Reg_digital_analog_combined_annotated.xlsx&action=default)
+    for (std::size_t vmmId = 0; vmmId < vmmStatus.size(); vmmId++)
     {
-        // Check registers (https://espace.cern.ch/ATLAS-NSW-ELX/_layouts/15/WopiFrame.aspx?sourcedoc=/ATLAS-NSW-ELX/Shared%20Documents/ROC/ROC_Reg_digital_analog_combined_annotated.xlsx&action=default)
-        const auto fifo_bit{0b0001'0000};
-        const auto coherency_bit{0b0000'1000};
-        const auto decoder_bit{0b0000'0100};
-        const auto misalignment_bit{0b000'0010};
-        const auto alignment_bit{0b0000'0001};
-        const auto failed_fifo = static_cast<bool>(status[vmmId] & fifo_bit);
-        const auto failed_coherency = static_cast<bool>(status[vmmId] & coherency_bit);
-        const auto failed_decoder = static_cast<bool>(status[vmmId] & decoder_bit);
-        const auto failed_misalignment = static_cast<bool>(status[vmmId] & misalignment_bit);
-        const auto failed_alignment = static_cast<bool>(not(status[vmmId] & alignment_bit));
-        const auto failed_parity = static_cast<bool>(parity[vmmId] > 0);
-        t_filestream << i << ' ' << vmmId << ' ' << failed_fifo << ' ' << failed_coherency << ' '
-                     << failed_decoder << ' ' << failed_misalignment << ' ' << failed_alignment << ' ' << failed_parity << '\n';
+        const auto fifoBit{0b0001'0000};
+        const auto coherencyBit{0b0000'1000};
+        const auto decoderBit{0b0000'0100};
+        const auto misalignmentBit{0b000'0010};
+        const auto alignmentBit{0b0000'0001};
+        const auto failedFifo = static_cast<bool>(vmmStatus[vmmId] & fifoBit);
+        const auto failedCoherency = static_cast<bool>(vmmStatus[vmmId] & coherencyBit);
+        const auto failedDecoder = static_cast<bool>(vmmStatus[vmmId] & decoderBit);
+        const auto failedMisalignment = static_cast<bool>(vmmStatus[vmmId] & misalignmentBit);
+        const auto failedAlignment = static_cast<bool>(not(vmmStatus[vmmId] & alignmentBit));
+        const auto failedParity = static_cast<bool>(parity[vmmId] > 0);
+        const auto twofiftyfive = vmmStatus[vmmId] == 255;
+        t_filestream << setting << ' ' << vmmId << ' ' << failedFifo << ' ' << failedCoherency << ' '
+                     << failedDecoder << ' ' << failedMisalignment << ' ' << failedAlignment << ' ' << failedParity << ' ' << twofiftyfive << '\n';
+    }
+    for (std::size_t srocId = 0; srocId < srocStatus.size(); srocId++)
+    {
+        const auto ttcFifoBit{0b0000'0100};
+        const auto encoderBit{0b000'0010};
+        const auto eventFullBit{0b0000'0001};
+        const auto failedFifo = static_cast<bool>(srocStatus[srocId] & ttcFifoBit);
+        const auto failedEncoder = static_cast<bool>(srocStatus[srocId] & encoderBit);
+        const auto failedEventFull = static_cast<bool>(srocStatus[srocId] & eventFullBit);
+        const auto twofiftyfive = srocStatus[srocId] == 255;
+        t_filestream << setting << ' ' << srocId << ' ' << failedFifo << ' ' << failedEncoder << ' ' << failedEventFull << ' ' << twofiftyfive << '\n';
     }
 }
 
 template <typename Specialized>
-[[nodiscard]] int BaseCalibration<Specialized>::analyzeResults(const std::vector<std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>> &t_results) const
+[[nodiscard]] int BaseCalibration<Specialized>::analyzeResults(const std::vector<StatusRegisters> &t_results) const
 {
     std::vector<bool> testResults;
     testResults.reserve(t_results.size());
     std::transform(std::begin(t_results), std::end(t_results), std::back_inserter(testResults),
-                   [](const std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>> &t_result) {
-                       const auto status{t_result.first};
-                       const auto parity{t_result.second};
+                   [](const StatusRegisters &t_result) {
+                       const auto status{t_result.m_vmmStatus};
+                       const auto parity{t_result.m_vmmParity};
                        const auto statusOk = std::all_of(std::begin(status), std::end(status),
                                                          [noError = 1](const auto t_val) { return t_val == noError; }); // no error: 0000 0001 = 1
                        const auto parityOk = std::all_of(std::begin(parity), std::end(parity),
@@ -157,7 +192,7 @@ template <typename Specialized>
 template <typename Specialized>
 void BaseCalibration<Specialized>::run(const bool t_dryRun, const std::string &t_outputFilename) const
 {
-    std::vector<std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>> allResults;
+    std::vector<StatusRegisters> allResults;
 
     // configure the whole board at the start
     if (t_dryRun)
@@ -171,17 +206,36 @@ void BaseCalibration<Specialized>::run(const bool t_dryRun, const std::string &t
     // add _full before .*
     outfile.open(t_outputFilename.substr(0, t_outputFilename.find('.')) + "_full" + t_outputFilename.substr(t_outputFilename.find('.')));
 
+    //// init ipc core for alti control
+    char* argv[7] = {"/afs/cern.ch/work/n/nswdaq/public/nswdaq/tdaq-09-02-01/nswdaq/installed/x86_64-centos7-gcc8-opt/bin/NSWConfigRc_main", "-n", "VS-Config", "-P", "VerticalSliceTests", "-s" ,"VerticalSliceTests"};
+    int nargs = 7;
+    IPCCore::init(nargs, argv);
+    //BaseCalibration<Phase160MHzCalibration>::stopAlti();
+
     // iterate through settings (vector in map of map)
     for (std::size_t counter = 0; counter < m_specialized.getNumberOfConfigurations(); counter++)
     {
-        m_specialized.setRegisters(counter);
+        try
+        {
+            m_specialized.setRegisters(counter);
 
-        // check the result
-        const auto result = checkVmmCaptureRegisters(m_config);
-        allResults.push_back(result);
+            BaseCalibration<Phase160MHzCalibration>::startAlti();
+            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 
-        // save
-        saveResult(result, outfile, counter);
+            // check the result
+            const auto result = checkVmmCaptureRegisters(m_config);
+            allResults.push_back(result);
+            BaseCalibration<Phase160MHzCalibration>::stopAlti();
+            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+
+            // save
+            saveResult(result, outfile, counter);
+        }
+        catch (const std::exception& ex)
+        {
+            std::cout << ex.what() << '\n';
+            break;
+        }
     }
     outfile.close();
 
@@ -195,11 +249,37 @@ ptree BaseCalibration<Specialized>::createPtree(const ValueMap& t_inputValues, c
     ptree tree;
     std::for_each(std::begin(t_inputValues), std::end(t_inputValues), [&tree, t_iteration] (const auto& t_pair) {
         const auto& name = t_pair.first;
-        const auto& value = t_pair.second[t_iteration];
+        const auto value = std::to_string(t_pair.second[t_iteration]);
         tree.put(name, value);
     });
     return tree;
 }
 
+template <typename Specialized>
+void BaseCalibration<Specialized>::commandAlti(const std::string& t_command)
+{
+    const std::string app_name = "Alti_RCD";
+    //const std::string partition_name = "part-BB5-Rocphase";
+    //const std::string partition_name = "part-VS-stgc-rocphase";
+    const std::string partition_name = "part-VS-1MHzTest";
+    const daq::rc::UserCmd cmd(t_command, std::vector<std::string>());
+    daq::rc::CommandSender sendr(partition_name, "NSWCalibRcSender");
+    sendr.sendCommand(app_name, cmd);
+}
+
+template <typename Specialized>
+void BaseCalibration<Specialized>::startAlti()
+{
+    commandAlti("StartPatternGenerator");
+}
+
+template <typename Specialized>
+void BaseCalibration<Specialized>::stopAlti()
+{
+    commandAlti("StopPatternGenerator");
+}
+
 // instantiate templates
 template class BaseCalibration<Phase160MHzCalibration>;
+template class BaseCalibration<Phase160MHzVmmCalibration>;
+template class BaseCalibration<Phase40MHzVmmCalibration>;

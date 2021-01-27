@@ -20,7 +20,9 @@ tdaq_add_library(nswcalib
         src/CalibrationSca.cpp
         src/NSWCalibRc.cpp
         src/BaseCalibration.cpp
-        src/Phase160MHzCalibration
+        src/Phase160MHzCalibration.cpp
+        src/Phase160MHzVmmCalibration.cpp
+        src/Phase40MHzVmmCalibration.cpp
     INCLUDE_DIRECTORIES PRIVATE ${OPC_GENERATED_CLIENT_SRCS}
     LINK_LIBRARIES nswconfig
         nswopcclient
@@ -49,6 +51,13 @@ tdaq_add_executable(calibrate app/Calibrate.cpp
         nswconfig
         nswopcclient
         Boost::program_options
+)
+
+tdaq_add_executable(toggle_alti_test app/toggle_alti_test.cpp
+    LINK_LIBRARIES nswcalib
+        nswconfig
+        nswopcclient
+        tdaq::AltiModule
 )
 
 tdaq_add_executable(pulse app/small_pulsing_test.cpp

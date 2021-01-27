@@ -8,49 +8,54 @@
 #include "NSWConfiguration/FEBConfig.h"
 #include "NSWConfiguration/I2cMasterConfig.h"
 
-Phase160MHzCalibration::Phase160MHzCalibration(nsw::FEBConfig t_config) : m_config(t_config),
-                                                                          m_inputValues(getInputVals(t_config))
+Phase160MHzCalibration::Phase160MHzCalibration(nsw::FEBConfig t_config, const std::vector<int>& t_input={}) : m_config(t_config),
+                                                                                                              m_inputValues(getInputVals(t_input))
 {
 }
 
-[[nodiscard]] ValueMap Phase160MHzCalibration::getInputVals(nsw::FEBConfig t_config) const
+[[nodiscard]] ValueMap Phase160MHzCalibration::getInputVals(const std::vector<int>& t_input) const
 {
-    auto config = t_config.getConfig();
-    const auto analog = config.get_child("rocPllCoreAnalog");
+    const auto valsePllPhase40MHz = [&t_input]() {
+        if (t_input.empty())
+        {
+            // 40MHz clock has 128 possible different values
+            const int nEntries{128};
 
-    // 160MHz clock has 32 possible different values
-    const int nEntries{32};
+            // 40MHz has values 0 - 127
+            const int clock40MHzStart{0};
 
-    const auto valsePllPhase40MHz = [nEntries, &analog]() {
-        // 40MHz has values 112 - 127 (two times)
-        const auto clock40MHzDefault = analog.get<int>("reg115.ePllPhase40MHz_0");
-        const int clock40MHzStart{clock40MHzDefault & 0b1111'0000}; // xxxx 0000 (set last 4 bits to 0)
+            auto vec = std::vector<int>(nEntries);
 
-        auto vec = std::vector<std::string>(nEntries);
+            std::generate(vec.begin(), vec.end(), [i = clock40MHzStart]() mutable { return i++; });
 
-        // two times the same values -> generate half first
-        const auto middle = vec.begin() + vec.size() / 2; // iterator behind middle one ( algorithm works on [begin, end) )
-        std::generate(vec.begin(), middle, [i = clock40MHzStart]() mutable { return std::to_string(i++); });
+            return vec;
+        }
+        else
+        {
+            return t_input;
+        }
+    }();
 
-        // copy first half into second half
-        std::copy(vec.begin(), middle, middle);
+    const auto valsePllPhase160MHz = [&valsePllPhase40MHz]() {
+        auto vec = std::vector<int>(valsePllPhase40MHz.size());
 
-        //return std::vector<std::string>{"124"};
+        std::transform(valsePllPhase40MHz.begin(), valsePllPhase40MHz.end(), std::begin(vec),
+                       [] (const auto t_val) { return t_val % 32; });
+
         return vec;
     }();
 
-    const auto valsePllPhase160MHz = [nEntries]() {
-        auto vec = std::vector<std::string>(nEntries);
+    for (const auto val : valsePllPhase40MHz)
+    {
+        std::cout << val << ' ';
+    }
+    std::cout << '\n';
 
-        // range: 0-15 (two times)
-        const int clock160MHzStart{0};
-
-        // first half fourth bit is 0, then 1
-        std::generate(vec.begin(), vec.end(), [i = clock160MHzStart]() mutable { return std::to_string(i++); });
-
-        //return std::vector<std::string>{"12"};
-        return vec;
-    }();
+    for (const auto val : valsePllPhase160MHz)
+    {
+        std::cout << val << ' ';
+    }
+    std::cout << '\n';
 
     return {{"FIXME.ePllPhase160MHz_0", valsePllPhase160MHz},
             {"FIXME.ePllPhase160MHz_1", valsePllPhase160MHz},
@@ -60,16 +65,53 @@ Phase160MHzCalibration::Phase160MHzCalibration(nsw::FEBConfig t_config) : m_conf
             {"FIXME.ePllPhase40MHz_2", valsePllPhase40MHz}};
 }
 
+std::string indent(int level) {
+  std::string s; 
+  for (int i=0; i<level; i++) s += "  ";
+  return s; 
+} 
+
+void printTree (ptree &pt, int level) {
+  if (pt.empty()) {
+    std::cout << "\""<< pt.data()<< "\"";
+  }
+
+  else {
+    if (level) std::cout << std::endl; 
+
+    std::cout << indent(level) << "{" << std::endl;     
+
+    for (ptree::iterator pos = pt.begin(); pos != pt.end();) {
+      std::cout << indent(level+1) << "\"" << pos->first << "\": "; 
+
+      printTree(pos->second, level + 1); 
+      ++pos; 
+      if (pos != pt.end()) {
+        std::cout << ","; 
+      }
+      std::cout << std::endl;
+    } 
+
+   std::cout << indent(level) << " }";     
+  }
+
+  return; 
+}
+
 void Phase160MHzCalibration::setRegisters(const int t_iteration) const
 {
     nsw::ConfigSender configSender;
     const auto ptree = BaseCalibration<Phase160MHzCalibration>::createPtree(m_inputValues, t_iteration);
     const auto configConverter = ConfigConverter(ptree, ConfigConverter::RegisterAddressSpace::ROC_ANALOG, ConfigConverter::ConfigType::VALUE_BASED);
-    const auto translatedPtree = configConverter.getRegisterBasedConfigWithoutSubregisters(m_config.getRocAnalog());
+    //auto translatedPtree = configConverter.getRegisterBasedConfigWithoutSubregisters<ConfigConverter::RegisterAddressSpace::ROC_ANALOG>(m_config.getOpcServerIp(), m_config.getAddress());
+    auto translatedPtree = configConverter.getRegisterBasedConfigWithoutSubregisters(m_config.getRocAnalog());
     const auto partialConfig = nsw::I2cMasterConfig(translatedPtree, ROC_ANALOG_NAME, ROC_ANALOG_REGISTERS, true);
+    std::cout << "HEELO FND ME IN THIS BULLSHIUT OUTPUT\n";
+    printTree(translatedPtree, 0);
     const auto opcIp = m_config.getOpcServerIp();
     const auto scaAddress = m_config.getAddress();
 
+    BaseCalibration<Phase160MHzCalibration>::basicConfigure(m_config);
     configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocCoreResetN", 0);
     configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocPllResetN", 0);
     configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocSResetN", 0);
@@ -116,4 +158,9 @@ void Phase160MHzCalibration::saveBestSettings(const int t_bestIteration, const s
 std::size_t Phase160MHzCalibration::getNumberOfConfigurations() const
 {
     return m_inputValues.begin()->second.size();
+}
+
+int Phase160MHzCalibration::getValueOfIteration(const int t_iteration) const
+{
+    return m_inputValues.at("FIXME.ePllPhase40MHz_0").at(t_iteration);
 }
