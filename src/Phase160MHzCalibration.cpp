@@ -112,11 +112,12 @@ void Phase160MHzCalibration::setRegisters(const int t_iteration) const
     const auto scaAddress = m_config.getAddress();
 
     BaseCalibration<Phase160MHzCalibration>::basicConfigure(m_config);
-    configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocCoreResetN", 0);
+    std::cout << "BEFORE REG 19 \n" <<  static_cast<unsigned int>(configSender.readBackRocDigital(opcIp, scaAddress, 19)) << '\n';
+    //configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocCoreResetN", 0);
     configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocPllResetN", 0);
-    configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocSResetN", 0);
+    //configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocSResetN", 0);
 
-    configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocSResetN", 1);
+    //configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocSResetN", 1);
 
     configSender.sendI2cMasterConfig(opcIp, scaAddress, partialConfig);
     //for (const auto& entry : m_inputValues)
@@ -135,8 +136,11 @@ void Phase160MHzCalibration::setRegisters(const int t_iteration) const
         roc_locked = rPll1 & rPll2;
     }
 
-    configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocCoreResetN", 1);
-    //configSender.sendConfig(adaptedConfig);
+    //configSender.sendGPIO(opcIp, scaAddress + ".gpio.rocCoreResetN", 1);
+
+    std::cout << "REG 116 \n" << static_cast<unsigned int>(configSender.readBackRocAnalog(opcIp, scaAddress, 116)) << '\n';
+    std::cout << "REG 64 \n" <<  static_cast<unsigned int>(configSender.readBackRocAnalog(opcIp, scaAddress, 64)) << '\n';
+    std::cout << "REG 19 \n" <<  static_cast<unsigned int>(configSender.readBackRocDigital(opcIp, scaAddress, 19)) << '\n';
 }
 
 void Phase160MHzCalibration::saveBestSettings(const int t_bestIteration, const std::string &t_filename) const

@@ -27,7 +27,7 @@ class BaseCalibration
 public:
     BaseCalibration(nsw::FEBConfig t_config, const std::vector<int>& t_values);
     static void basicConfigure(const nsw::FEBConfig& t_config);
-    [[nodiscard]] StatusRegisters checkVmmCaptureRegisters(const nsw::FEBConfig& t_config) const;
+    [[nodiscard]] static StatusRegisters checkVmmCaptureRegisters(const nsw::FEBConfig& t_config);
     void saveResult(const StatusRegisters& t_result, std::ofstream &t_filestream, const int t_iteration) const;
     [[nodiscard]] int analyzeResults(const std::vector<StatusRegisters>& t_results) const;
     void run(const bool t_dryRun, const std::string& t_outputFilename) const;

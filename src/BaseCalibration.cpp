@@ -37,7 +37,7 @@ void BaseCalibration<Specialized>::basicConfigure(const nsw::FEBConfig& t_config
 }
 
 template <typename Specialized>
-[[nodiscard]] StatusRegisters BaseCalibration<Specialized>::checkVmmCaptureRegisters(const nsw::FEBConfig &t_config) const
+[[nodiscard]] StatusRegisters BaseCalibration<Specialized>::checkVmmCaptureRegisters(const nsw::FEBConfig &t_config)
 {
     std::array<uint8_t, 8> vmmStatus;
     std::array<uint8_t, 8> vmmParity;
@@ -68,6 +68,10 @@ template <typename Specialized>
                                                                 static_cast<uint8_t>(vmmParityCounterAddressInitial + vmmId), // reg number
                                                                 2);                                                           // delay
             vmmParity[vmmId] = parityCounter;
+            if (dummy == 1)
+            {
+                std::cout << " VMM ID " << vmmId << " 0x" << std::hex << static_cast<unsigned int>(vmmCaptureStatus) << " 0x" << static_cast<unsigned int>(parityCounter) << std::dec << '\n';
+            }
 
         }
         for (int srocId = 0; srocId <= 3; srocId++)
@@ -79,6 +83,10 @@ template <typename Specialized>
                                                                      static_cast<uint8_t>(srocStatusAddressInitial + srocId),      // reg number
                                                                      2);                                                           // delay
             srocStatus[srocId] = srocStatusRegister;
+            if (dummy == 1)
+            {
+                std::cout << "sROC ID " << srocId << " 0x" << std::hex << static_cast<unsigned int>(srocStatusRegister) << std::dec << '\n';
+            }
         }
 
     }
@@ -109,7 +117,7 @@ void BaseCalibration<Specialized>::saveResult(const StatusRegisters &t_result, s
         const auto failedParity = static_cast<bool>(parity[vmmId] > 0);
         const auto twofiftyfive = vmmStatus[vmmId] == 255;
         t_filestream << setting << ' ' << vmmId << ' ' << failedFifo << ' ' << failedCoherency << ' '
-                     << failedDecoder << ' ' << failedMisalignment << ' ' << failedAlignment << ' ' << failedParity << ' ' << twofiftyfive << '\n';
+                     << failedDecoder << ' ' << failedMisalignment << ' ' << failedAlignment << ' ' << failedParity << ' ' << twofiftyfive << " 0x" << std::hex << static_cast<unsigned int>(vmmStatus[vmmId]) << std::dec << '\n';
     }
     for (std::size_t srocId = 0; srocId < srocStatus.size(); srocId++)
     {
@@ -120,7 +128,7 @@ void BaseCalibration<Specialized>::saveResult(const StatusRegisters &t_result, s
         const auto failedEncoder = static_cast<bool>(srocStatus[srocId] & encoderBit);
         const auto failedEventFull = static_cast<bool>(srocStatus[srocId] & eventFullBit);
         const auto twofiftyfive = srocStatus[srocId] == 255;
-        t_filestream << setting << ' ' << srocId << ' ' << failedFifo << ' ' << failedEncoder << ' ' << failedEventFull << ' ' << twofiftyfive << '\n';
+        t_filestream << setting << ' ' << srocId << ' ' << failedFifo << ' ' << failedEncoder << ' ' << failedEventFull << ' ' << twofiftyfive << " 0x" << std::hex << static_cast<unsigned int>(srocStatus[srocId]) << std::dec << '\n';
     }
 }
 
@@ -200,7 +208,7 @@ void BaseCalibration<Specialized>::run(const bool t_dryRun, const std::string &t
         return;
     }
 
-    basicConfigure(m_config);
+    //basicConfigure(m_config);
 
     std::ofstream outfile;
     // add _full before .*
@@ -210,7 +218,7 @@ void BaseCalibration<Specialized>::run(const bool t_dryRun, const std::string &t
     char* argv[7] = {"/afs/cern.ch/work/n/nswdaq/public/nswdaq/tdaq-09-02-01/nswdaq/installed/x86_64-centos7-gcc8-opt/bin/NSWConfigRc_main", "-n", "VS-Config", "-P", "VerticalSliceTests", "-s" ,"VerticalSliceTests"};
     int nargs = 7;
     IPCCore::init(nargs, argv);
-    //BaseCalibration<Phase160MHzCalibration>::stopAlti();
+    BaseCalibration<Phase160MHzCalibration>::stopAlti();
 
     // iterate through settings (vector in map of map)
     for (std::size_t counter = 0; counter < m_specialized.getNumberOfConfigurations(); counter++)

@@ -157,6 +157,8 @@ int main(int argc, char* argv[])
         return 0;
     }
 
+    std::cout << "Config file: " << args.configFile << '\n';
+
     const auto configs = splitConfigs("json://" + args.configFile, args.names);
     std::vector<std::thread> threads;
     threads.reserve(configs.size());
