@@ -20,10 +20,14 @@ NOW = time.strftime("%Y_%m_%d_%Hh%Mm%Ss")
 PY3 = sys.version_info >= (3,)
 EOS = "/eos/atlas/atlascerngroupdisk/det-nsw/191/trigger/"
 
-import ROOT
-ROOT.gROOT.SetBatch()
-ROOT.PyConfig.IgnoreCommandLineOptions = True
-ROOT.gErrorIgnoreLevel = ROOT.kWarning
+try:
+    import ROOT
+    ROOT.gROOT.SetBatch()
+    ROOT.PyConfig.IgnoreCommandLineOptions = True
+    ROOT.gErrorIgnoreLevel = ROOT.kWarning
+except:
+    print(__doc__)
+    raise
 
 DEFAULT_PHASE = 4
 
@@ -35,6 +39,8 @@ def options():
     parser.add_argument("-i", help="Input ROOT file",       default=os.path.join(connec_data, "dummy.root"))
     parser.add_argument("-c", help="Config JSON file",      default=os.path.join(config_json, "BB5/A16/full_small_sector_a16_bb5_internalPulser_ADDC_TP.json"))
     parser.add_argument("-j", help="Pattern JSON file",     default=os.path.join(EOS, "nsw_art_input_phase.json"))
+    parser.add_argument("-s", help="Sector name",           default=None)
+    parser.add_argument("-l", help="Lab name",              default=None)
     parser.add_argument("-o", help="Output ROOT file",      default=None)
     parser.add_argument("-n", help="Make a new JSON file",     action="store_true")
     parser.add_argument("-r", help="Make plots w/root2html",   action="store_true")
@@ -101,6 +107,8 @@ def load_data():
     print("Loading TTree data into memory...")
 
     ops = options()
+    if not os.path.isfile(ops.i):
+        fatal("Cannot find input file: %s" % (ops.i))
     rfile   = ROOT.TFile(ops.i)
     ttree   = rfile.Get(ops.t)
     patts   = Patterns(ops.j)
@@ -332,6 +340,15 @@ def plot_efficiency(dataman, outrfile):
     canv.Draw()
     hgood.Draw("colsame")
 
+    # draw label
+    (lab, sector, run) = lab_and_sector_and_run()
+    label = ROOT.TLatex(0.21, 0.95, "%s in %s, Run %s" % (sector, lab, run))
+    label.SetTextFont(42)
+    label.SetNDC()
+    label.SetTextColor(ROOT.kBlack)
+    label.SetTextSize(0.030)
+    label.Draw()
+
     # save good
     outrfile.cd()
     canv.Write()
@@ -350,6 +367,7 @@ def plot_efficiency(dataman, outrfile):
         text.SetTextColor(ROOT.kBlue)
         text.SetTextAlign(22)
         text.Draw()
+    label.Draw()
 
     # save effi, no numbers
     outrfile.cd()
@@ -366,6 +384,7 @@ def plot_efficiency(dataman, outrfile):
     canv.Draw()
     heffi.SetMarkerSize(0.4)
     heffi.Draw("textcolzsame")
+    label.Draw()
 
     # save effi, with numbers
     outrfile.cd()
@@ -738,6 +757,65 @@ def connector2regs(conn):
         return ("51", "52", "53", "54")
     else:
         fatal("Unrecognized ART connector: %s" % (conn))
+
+def lab_and_sector_and_run():
+    ops = options()
+    lab, sector = "", ""
+    if ops.l:
+        lab = ops.l
+    elif lab_guess():
+        lab = lab_guess()
+        print("Lab guess: %s" % (lab))
+    if ops.s:
+        sector = ops.s
+    elif sector_guess():
+        sector = sector_guess()
+        print("Sector guess: %s" % (sector))
+    run = run_guess()
+    if not lab:
+        fatal("Couldnt guess lab")
+    if not sector:
+        fatal("Couldnt guess sector")
+    if not run:
+        fatal("Couldnt guess run")
+    return (lab, sector, run)
+
+def lab_guess():
+    ops = options()
+    fname = os.path.basename(ops.i)
+    labs = ["BB5", "VS", "191A", "191C"]
+    for lab in labs:
+        if lab in fname:
+            if lab in ["191A", "191C"]:
+                return "191"
+            else:
+                return lab
+    print("Cannot guess lab based on %s" % (fname))
+    print("Please use `-l` to specify in which lab the sector was tested")
+    return ""
+
+def sector_guess():
+    ops = options()
+    fname = os.path.basename(ops.i)
+    sides = ["A", "C"]
+    sects = ["%02i" % (sect) for sect in range(1, 17)]
+    for side in sides:
+        for sect in sects:
+            sector = side+sect
+            if sector in fname:
+                return sector
+    print("Cannot guess sector based on file = %s" % (ops.i))
+    print("Please use `-s` to specify which sector is under test")
+    return ""
+
+def run_guess():
+    ops = options()
+    fname = os.path.basename(ops.i)
+    try:
+        run = int(fname.split(".")[1])
+    except:
+        fatal("Cannot extract run number from %s" % (ops.i))
+    return run
 
 def root2html(fname):
     print("Converting TCanvas into html with root2html...")
