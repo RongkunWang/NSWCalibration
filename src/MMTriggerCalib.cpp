@@ -515,10 +515,10 @@ ptree nsw::MMTriggerCalib::patterns() {
                 }
             }
         }
-        for (int cx = 0; cx < 8192; cx++) {
+        for (int cx = 7800; cx < 8192; cx++) {
             if (cx % 300 != 0)
                 continue;
-            for (int dif = -70; dif < 71; dif++) {
+            for (int dif = -10; dif < 11; dif++) {
                 if (dif % 5 != 0)
                     continue;
                 int posx = countId[cx][1];
