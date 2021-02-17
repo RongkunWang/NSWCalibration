@@ -35,7 +35,7 @@ void nsw::sTGCPadTriggerToSFEB::setup(std::string db) {
 
   // protect against no sFEBs
   if (m_sfebs.size() == 0) {
-    std::string msg = "Error in sTGCPadTriggerToSFEB: No sFEBs in this config!";
+    const std::string msg = "Error in sTGCPadTriggerToSFEB: No sFEBs in this config!";
     ERS_INFO(msg);
     throw std::runtime_error(msg);
   }
@@ -56,6 +56,20 @@ void nsw::sTGCPadTriggerToSFEB::configure() {
   for (int second = 0; second < seconds; second++) {
     usleep(1e6);
     ERS_INFO("sTGCPadTriggerToSFEB::sleeping " << second+1 << " / " << seconds);
+
+    // check on the watchdog
+    auto status = m_watchdog.wait_for(std::chrono::milliseconds(1));
+    if (status == std::future_status::ready) {
+      try {
+        m_watchdog.get();
+      } catch (std::exception & e) {
+        std::stringstream msg;
+        msg << "Error in sTGCPadTriggerToSFEB: " << e.what();
+        nsw::NSWsTGCPadTriggerToSFEBIssue issue(ERS_HERE, msg.str());
+        ers::warning(issue);
+        break;
+      }
+    }
   }
 }
 
@@ -98,7 +112,6 @@ int nsw::sTGCPadTriggerToSFEB::sfeb_watchdog() {
         auto name_sfeb = m_sfebs.at(is).getAddress();
         auto name_tds  = m_sfebs.at(is).getTdss().at(it).getName();
         auto val       = result.at(it);
-
         std::stringstream valstream;
         valstream << std::setw(8) << std::setfill('0') << std::hex << val;
         myfile << name_sfeb << " " << name_tds << " 0x" << valstream.str() << std::endl;
@@ -135,10 +148,14 @@ std::vector<uint32_t> nsw::sTGCPadTriggerToSFEB::sfeb_register15(const nsw::FEBC
         regs.push_back(reg_32);
         break;
       } catch (std::exception & e) {
-        ERS_INFO("Catching " << sca_addr << "." << tds.getName() << " on attempt " << attempt);
+        ERS_LOG("Catching " << sca_addr << "." << tds.getName() << " on attempt " << attempt);
+        if (attempt == attempts-1) {
+          const std::string msg = "Error: failed to read reg15 for " + sca_addr + "." + tds.getName();
+          ERS_INFO(msg);
+          throw std::runtime_error(msg);
+        }
       }
     }
-
   }
   return regs;
 }
