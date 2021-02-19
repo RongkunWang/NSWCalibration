@@ -8,7 +8,16 @@
 #include "NSWCalibration/CalibAlg.h"
 #include "NSWConfiguration/FEBConfig.h"
 #include "NSWConfiguration/ADDCConfig.h"
+#include "TFile.h"
+#include "TTree.h"
+
 using boost::property_tree::ptree;
+
+ERS_DECLARE_ISSUE(nsw,
+                  NSWMMTriggerCalibIssue,
+                  message,
+                  ((std::string)message)
+                  )
 
 namespace nsw {
 
@@ -32,6 +41,20 @@ namespace nsw {
     int configure_art_input_phase(nsw::ADDCConfig addc, uint phase);
     int configure_tps(ptree tr);
     int addc_tp_watchdog();
+
+    //
+    // Read the hit counters of all ART ASICs.
+    // The output is saved to a ROOT file, where
+    //  each entry of the TTree is 32 counters read from 1 ASIC.
+    // On first iteration, create the ROOT file and tree.
+    // On last iteration, close the file.
+    //
+    int read_arts_counters();
+
+    //
+    // https://espace.cern.ch/ATLAS-NSW-ELX/Shared%20Documents/ART/art2_registers_v.xlsx
+    //
+    std::vector<int> read_art_counters(const nsw::ADDCConfig& addc, int art);
     int wait_until_done();
     int announce(std::string name, ptree tr, bool unmask);
     std::string strf_time();
@@ -55,6 +78,15 @@ namespace nsw {
     std::unique_ptr< std::vector< std::future<int> > > m_threads = 0;
     std::future<int> m_watchdog;
     std::atomic<bool> m_tpscax_busy = 0;
+
+    std::unique_ptr<TFile> m_art_rfile;
+    std::shared_ptr<TTree> m_art_rtree;
+    std::string m_addc_address;
+    std::string m_art_name;
+    std::string m_art_now;
+    int m_art_event;
+    int m_art_index;
+    std::unique_ptr< std::vector<int> > m_art_hits;
 
   };
 

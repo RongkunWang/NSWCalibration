@@ -211,7 +211,8 @@ void nsw::NSWCalibRc::alti_toggle_pattern() {
     std::string cmd_name = "StartPatternGenerator";
     daq::rc::UserCmd cmd(cmd_name, std::vector<std::string>());
     daq::rc::CommandSender sendr(m_ipcpartition.name(), "NSWCalibRcSender");
-    sendr.sendCommand(app_name, cmd);
+    if (!m_simulation)
+      sendr.sendCommand(app_name, cmd);
 
     // sleep until the pattern should be finished
     // safety factor of 2x
