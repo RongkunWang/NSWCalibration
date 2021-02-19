@@ -1,10 +1,10 @@
 #include "NSWCalibration/MMTriggerCalib.h"
 #include "NSWConfiguration/Utility.h"
-#include "TFile.h"
-#include "TTree.h"
+#include "TROOT.h"
 using boost::property_tree::ptree;
 
 nsw::MMTriggerCalib::MMTriggerCalib(std::string calibType) {
+  ROOT::EnableThreadSafety();
   setCounter(-1);
   setTotal(0);
   m_calibType = calibType;
@@ -129,6 +129,9 @@ void nsw::MMTriggerCalib::unconfigure() {
 
     // disable test pulse
     configure_febs_from_ptree(tr, false);
+
+    // read ARTs counters
+    read_arts_counters();
   }
 
 }
@@ -626,11 +629,8 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
 
   // output file and announce
   auto now = strf_time();
-  std::string fname = "addc_alignment." + std::to_string(runNumber()) + "." + applicationName() + "." + now + ".txt";
-  std::string rname = "addc_alignment." + std::to_string(runNumber()) + "." + applicationName() + "." + now + ".root";
-  std::ofstream myfile;
-  myfile.open(fname);
-  ERS_INFO("ADDC-TP watchdog. Output: " << fname << ". Sleep: " << slp << "s");
+  std::string rname = "addc_alignment."
+    + std::to_string(runNumber()) + "." + applicationName() + "." + now + ".root";
   ERS_INFO("ADDC-TP watchdog. Output: " << rname << ". Sleep: " << slp << "s");
   auto rfile        = std::make_unique< TFile >(rname.c_str(), "recreate");
   auto rtree        = std::make_shared< TTree >("nsw", "nsw");
@@ -648,7 +648,6 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
   try {
     while (counter() < total()) {
       now = strf_time();
-      myfile << "Time " << now << std::endl;
       addc_address->clear();
       art_name    ->clear();
       art_fiber   ->clear();
@@ -664,12 +663,6 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
           for (auto art : addc.getARTs()) {
             if (art.IsMyTP(tp.first, tp.second)) {
               auto aligned = art.IsAlignedWithTP(outdata);
-              std::stringstream result;
-              result << addc.getAddress()         << " "
-                     << art.getName()             << " "
-                     << art.TP_GBTxAlignmentBit() << " "
-                     << aligned << std::endl;
-              myfile << result.str();
               addc_address->push_back(addc.getAddress());
               art_name    ->push_back(art.getName());
               art_fiber   ->push_back(art.TP_GBTxAlignmentBit());
@@ -686,11 +679,155 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
   }
 
   // close
-  ERS_INFO("Closing " << fname);
-  ERS_INFO("Closing " << rname);
-  myfile.close();
+  usleep(1e6);
+  ERS_INFO("Closing " << rfile->GetName());
+  rfile->cd();
   rtree->Write();
   rfile->Close();
   return 0;
 }
 
+int nsw::MMTriggerCalib::read_arts_counters() {
+
+  // initialize output
+  try {
+    if (counter() == 0) {
+      // file and tree
+      std::string rname_hit = "art_counters."
+        + std::to_string(runNumber()) + "." + applicationName() + "." + strf_time() + ".root";
+      m_art_rfile = std::make_unique< TFile >(rname_hit.c_str(), "recreate");
+      m_art_rtree = std::make_shared< TTree >("nsw", "nsw");
+      ERS_INFO("ART hit counter. Output: "  << rname_hit);
+
+      // branches
+      m_art_now = strf_time();
+      m_art_event    = -1;
+      m_addc_address = "";
+      m_art_name     = "";
+      m_art_index    = -1;
+      m_art_hits     = std::make_unique< std::vector<int> >();
+      m_art_rtree->Branch("time",         &m_art_now);
+      m_art_rtree->Branch("event",        &m_art_event);
+      m_art_rtree->Branch("addc_address", &m_addc_address);
+      m_art_rtree->Branch("art_name",     &m_art_name);
+      m_art_rtree->Branch("art_index",    &m_art_index);
+      m_art_rtree->Branch("art_hits",     m_art_hits.get());
+    }
+  } catch (std::exception & e) {
+    ERS_INFO("read_arts_counters exception: " << e.what());
+    return -1;
+  }
+
+  // read counters of 32 ARTs
+  try {
+
+    // init
+    auto threads = std::make_unique<
+      std::vector< std::future< std::vector<int> > >
+      >();
+    m_art_event = counter();
+    m_art_now   = strf_time();
+
+    // launch reader threads
+    // https://its.cern.ch/jira/browse/OPCUA-2188
+    for (auto & addc : m_addcs)
+      for (auto art: addc.getARTs())
+        threads->push_back(std::async(std::launch::async,
+                                      &nsw::MMTriggerCalib::read_art_counters,
+                                      this, addc, art.index()));
+
+    // get results
+    // 1 TTree entry per ART
+    size_t it = 0;
+    for (auto & addc : m_addcs) {
+      for (auto art: addc.getARTs()) {
+        auto result = threads->at(it).get();
+        m_addc_address = addc.getAddress();
+        m_art_name     = art.getName();
+        m_art_index    = it;
+        m_art_hits->clear();
+        for (auto val : result)
+          m_art_hits->push_back(val);
+        m_art_rtree->Fill();
+        it++;
+      }
+    }
+
+    threads->clear();
+
+  } catch (std::exception & e) {
+    ERS_INFO("read_arts_counters exception: " << e.what());
+    return -1;
+  }
+
+  // close
+  if (counter() == total() - 1) {
+    ERS_INFO("Closing " << m_art_rfile->GetName());
+    m_art_rfile->cd();
+    m_art_rtree->Write();
+    m_art_rfile->Close();
+  }
+
+  return 0;
+}
+
+std::vector<int> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConfig& addc, int art) {
+
+  // setup
+  auto cs = std::make_unique<nsw::ConfigSender>();
+  uint8_t art_data[] = {0x0, 0x0};
+  auto opc_ip    = addc.getOpcServerIp();
+  auto sca_addr  = addc.getAddress() + "." + addc.getART(art).getNameCore();
+  int reg_start   = 128;
+  int reg_end     = 256;
+  int reg_len     = 4;
+  int regs_simult = 16;
+  int reg_local   = 0;
+  int word        = 0;
+  int index       = 0;
+  std::vector<uint8_t> readback = {};
+  std::vector<int> results = {};
+
+  // query registers
+  for (int reg = reg_start; reg < reg_end; reg++) {
+
+    // read N registers per transaction
+    reg_local = reg - reg_start;
+    if ((reg_local % regs_simult) > 0)
+      continue;
+
+    // register address
+    art_data[0] = static_cast<uint8_t>(reg);
+
+    // read the register
+    if (!simulation()) {
+      readback = cs->readI2cAtAddress(opc_ip, sca_addr, art_data, 1, regs_simult);
+    } else {
+      readback.clear();
+      for (int it = 0; it < regs_simult; it++)
+        readback.push_back(static_cast<uint8_t>(it % 4));
+    }
+
+    // check the size
+    if (readback.size() != static_cast<size_t>(regs_simult)) {
+      std::stringstream msg;
+      msg << "Problem reading ART reg: " << sca_addr;
+      nsw::NSWMMTriggerCalibIssue issue(ERS_HERE, msg.str());
+      ers::warning(issue);
+      throw std::runtime_error(msg.str());
+    }
+
+    // convert N 1-byte registers into N/4 32-bit word
+    for (int it = 0; it < regs_simult; it++) {
+      index = it % reg_len;
+      if (index == 0)
+        word = 0;
+      word += (readback.at(it) << index*8);
+      if (index == reg_len - 1)
+        results.push_back(word);
+    }
+
+  }
+
+  return results;
+}
