@@ -1,8 +1,7 @@
 ---
-Checks:          '-*,boost*,bugprone*,clang*,cppcore*,hicpp*,llvm*,misc*,modernize*,performance*,portability*,readability*,'
+Checks:          '-*,boost*,bugprone*,clang*,concurrency-*,cppcore*,hicpp*,llvm-*,-llvm-include-order,misc*,modernize*,-modernize-use-trailing-return-type,performance*,portability*,readability*'
 WarningsAsErrors: ''
 HeaderFilterRegex: ''
 AnalyzeTemporaryDtors: false
 FormatStyle:     'file'
-User:            sturdy
 ...
