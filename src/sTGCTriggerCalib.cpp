@@ -34,11 +34,22 @@ void nsw::sTGCTriggerCalib::setup(std::string db) {
   if (m_pts.size() > 1)
     throw std::runtime_error("I dont know how to process >1 PadTriggers!");
 
+  // PT details:
+  // keep IdleState low during the calib
+  // get latency scan parameters from user
+  for (auto & pt: m_pts) {
+    pt.SetStartIdleState(0);
+    set_latencyscan_offset(pt.LatencyScanStart());
+    set_latencyscan_nbc(pt.LatencyScanNBC());
+  }
+
   // set number of loops in the iteration
   if (m_calibType=="sTGCPadConnectivity") {
     setTotal((int)(m_pfebs.size()));
   } else if (m_calibType=="sTGCPadLatency") {
-    setTotal((int)(m_nbc_for_latency));
+    setTotal(latencyscan_nbc());
+    ERS_INFO("Latency scan start: " << latencyscan_offset());
+    ERS_INFO("Latency scan steps: " << latencyscan_nbc());
   }
   setToggle(0);
   setWait4swROD(0);
@@ -83,10 +94,9 @@ void nsw::sTGCTriggerCalib::configure() {
 
     // set pad trigger readout latency
     for (auto & pt: m_pts)
-      pt.SetUserL1AReadoutLatency(latencyscan_current());
+      pt.SetL1AReadoutLatency(latencyscan_current());
     configure_pad_trigger();
     usleep(1e6);
-
   }
 }
 
@@ -138,7 +148,7 @@ int nsw::sTGCTriggerCalib::configure_pad_trigger() {
     ERS_INFO("Configuring " << pt.getOpcServerIp() << " " << pt.getAddress());
 
     // enable the L1A readout
-    pt.SetUserL1AReadoutEnable();
+    pt.SetL1AReadoutEnable();
     if (!m_dry_run)
         cs->sendPadTriggerSCAControlRegister(pt);
 
@@ -146,7 +156,7 @@ int nsw::sTGCTriggerCalib::configure_pad_trigger() {
     usleep(50e3);
 
     // disable the L1A readout
-    pt.SetUserL1AReadoutDisable();
+    pt.SetL1AReadoutDisable();
     if (!m_dry_run)
         cs->sendPadTriggerSCAControlRegister(pt);
   }
