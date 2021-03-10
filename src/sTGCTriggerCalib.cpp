@@ -10,7 +10,6 @@ nsw::sTGCTriggerCalib::sTGCTriggerCalib(std::string calibType) {
 void nsw::sTGCTriggerCalib::setup(std::string db) {
   ERS_INFO("setup " << db);
 
-  m_dry_run = 0;
   gather_pfebs();
 
   // parse calib type
@@ -136,7 +135,7 @@ int nsw::sTGCTriggerCalib::configure_vmms(nsw::FEBConfig feb, bool unmask) {
     feb.getVmm(vmmid).setChannelRegisterAllChannels("channel_sm", unmask ? 0 : 1);
   }
   auto cs = std::make_unique<nsw::ConfigSender>();
-  if (!m_dry_run)
+  if (!simulation())
     cs->sendVmmConfig(feb);
   return 0;
 }
@@ -148,7 +147,7 @@ int nsw::sTGCTriggerCalib::configure_pad_trigger() {
 
     // enable the L1A readout
     pt.SetL1AReadoutEnable();
-    if (!m_dry_run)
+    if (!simulation())
         cs->sendPadTriggerSCAControlRegister(pt);
 
     // pause to collect L1As
@@ -156,7 +155,7 @@ int nsw::sTGCTriggerCalib::configure_pad_trigger() {
 
     // disable the L1A readout
     pt.SetL1AReadoutDisable();
-    if (!m_dry_run)
+    if (!simulation())
         cs->sendPadTriggerSCAControlRegister(pt);
   }
   return 0;

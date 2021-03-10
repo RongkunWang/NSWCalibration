@@ -40,7 +40,6 @@ namespace nsw {
     void set_latencyscan_nbc(int val)    {m_nbc_for_latency    = val;}
 
   private:
-    bool m_dry_run;
     bool m_order_pfebs = 1;
     int m_offset_for_latency = 0;
     int m_nbc_for_latency = 0;
