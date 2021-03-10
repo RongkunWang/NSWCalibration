@@ -31,8 +31,12 @@ void nsw::sTGCTriggerCalib::setup(std::string db) {
   m_pts   = nsw::ConfigReader::makeObjects<nsw::PadTriggerSCAConfig> (db, "PadTriggerSCA");
   ERS_INFO("Found " << m_pfebs.size() << " pFEBs");
   ERS_INFO("Found " << m_pts.size()   << " pad triggers");
-  if (m_pts.size() > 1)
-    throw std::runtime_error("I dont know how to process >1 PadTriggers!");
+  if (m_pts.size() != 1) {
+    std::stringstream msg;
+    msg << "I dont know how to process !=1 PadTriggers. You gave: " << m_pts.size();
+    ERS_INFO(msg.str());
+    throw std::runtime_error(msg.str());
+  }
 
   // PT details:
   // keep IdleState low during the calib
@@ -53,12 +57,6 @@ void nsw::sTGCTriggerCalib::setup(std::string db) {
   }
   setToggle(0);
   setWait4swROD(0);
-
-  // make ConfigSenders
-  for (auto & feb : m_pfebs)
-    m_senders.insert( {feb.getAddress(), std::make_unique<nsw::ConfigSender>()} );
-  for (auto & pt : m_pts)
-    m_senders.insert( {pt.getAddress(),  std::make_unique<nsw::ConfigSender>()} );
   usleep(1e6);
 }
 
@@ -97,6 +95,7 @@ void nsw::sTGCTriggerCalib::configure() {
       pt.SetL1AReadoutLatency(latencyscan_current());
     configure_pad_trigger();
     usleep(1e6);
+    usleep(5e6);
   }
 }
 
@@ -136,7 +135,7 @@ int nsw::sTGCTriggerCalib::configure_vmms(nsw::FEBConfig feb, bool unmask) {
     feb.getVmm(vmmid).setChannelRegisterAllChannels("channel_st", unmask ? 1 : 0);
     feb.getVmm(vmmid).setChannelRegisterAllChannels("channel_sm", unmask ? 0 : 1);
   }
-  auto & cs = m_senders[feb.getAddress()];
+  auto cs = std::make_unique<nsw::ConfigSender>();
   if (!m_dry_run)
     cs->sendVmmConfig(feb);
   return 0;
@@ -144,7 +143,7 @@ int nsw::sTGCTriggerCalib::configure_vmms(nsw::FEBConfig feb, bool unmask) {
 
 int nsw::sTGCTriggerCalib::configure_pad_trigger() {
   for (auto & pt: m_pts) {
-    auto & cs = m_senders[pt.getAddress()];
+    auto cs = std::make_unique<nsw::ConfigSender>();
     ERS_INFO("Configuring " << pt.getOpcServerIp() << " " << pt.getAddress());
 
     // enable the L1A readout
@@ -164,68 +163,108 @@ int nsw::sTGCTriggerCalib::configure_pad_trigger() {
 }
 
 void nsw::sTGCTriggerCalib::gather_pfebs() {
+  if (std::getenv("TDAQ_PARTITION") == nullptr) {
+    ERS_INFO("Failed to find TDAQ_PARTITION");
+    return;
+  }
   std::string partition(std::getenv("TDAQ_PARTITION"));
   ERS_INFO("Gather pFEBs: found partition " << partition);
+  std::string firmware;
+  for (auto & pt: m_pts) {
+    firmware = pt.firmware();
+    break;
+  }
+  ERS_INFO("Gather pFEBs: found firmware " << partition);
   if (partition.find("VS") != std::string::npos) {
     // VS
     ERS_INFO("Gather pFEBs: VS pFEBs");
-    m_pfebs_ordered.push_back("PFEB_L4Q2_IPR");
-    m_pfebs_ordered.push_back("PFEB_L2Q2_IPR");
-    m_pfebs_ordered.push_back("PFEB_L4Q1_IPR");
-    m_pfebs_ordered.push_back("PFEB_L2Q1_IPR");
-    // m_pfebs_ordered.push_back("PFEB_L2Q2_HOR");
-    // m_pfebs_ordered.push_back("PFEB_L4Q2_HOR");
-    // m_pfebs_ordered.push_back("PFEB_L2Q1_HOR");
-    // m_pfebs_ordered.push_back("PFEB_L4Q1_HOR");
-    // m_pfebs_ordered.push_back("PFEB_L2Q3_HOR");
-    // m_pfebs_ordered.push_back("PFEB_L1Q3_HOL");
-    // m_pfebs_ordered.push_back("PFEB_L4Q3_HOR");
-    // m_pfebs_ordered.push_back("PFEB_L3Q3_HOL");
-    m_pfebs_ordered.push_back("PFEB_L1Q3_IPL");
-    m_pfebs_ordered.push_back("PFEB_L2Q3_IPR");
-    m_pfebs_ordered.push_back("PFEB_L3Q3_IPL");
-    m_pfebs_ordered.push_back("PFEB_L4Q3_IPR");
-    // m_pfebs_ordered.push_back("PFEB_L3Q2_HOL");
-    // m_pfebs_ordered.push_back("PFEB_L1Q2_HOL");
-    // m_pfebs_ordered.push_back("PFEB_L3Q1_HOL");
-    // m_pfebs_ordered.push_back("PFEB_L1Q1_HOL");
-    m_pfebs_ordered.push_back("PFEB_L1Q2_IPL");
-    m_pfebs_ordered.push_back("PFEB_L3Q2_IPL");
-    m_pfebs_ordered.push_back("PFEB_L1Q1_IPL");
-    m_pfebs_ordered.push_back("PFEB_L3Q1_IPL");
+    if (firmware == "2021.03.02_RO_no_compress_new_mapping.bit") {
+      m_pfebs_ordered.push_back("PFEB_L1Q1_IP");
+      m_pfebs_ordered.push_back("PFEB_L2Q1_IP");
+      m_pfebs_ordered.push_back("PFEB_L3Q1_IP");
+      m_pfebs_ordered.push_back("PFEB_L4Q1_IP");
+      m_pfebs_ordered.push_back("PFEB_L1Q2_IP");
+      m_pfebs_ordered.push_back("PFEB_L2Q2_IP");
+      m_pfebs_ordered.push_back("PFEB_L3Q2_IP");
+      m_pfebs_ordered.push_back("PFEB_L4Q2_IP");
+      m_pfebs_ordered.push_back("PFEB_L1Q3_IP");
+      m_pfebs_ordered.push_back("PFEB_L2Q3_IP");
+      m_pfebs_ordered.push_back("PFEB_L3Q3_IP");
+      m_pfebs_ordered.push_back("PFEB_L4Q3_IP");
+    } else {
+      m_pfebs_ordered.push_back("PFEB_L4Q2_IP");
+      m_pfebs_ordered.push_back("PFEB_L2Q2_IP");
+      m_pfebs_ordered.push_back("PFEB_L4Q1_IP");
+      m_pfebs_ordered.push_back("PFEB_L2Q1_IP");
+      m_pfebs_ordered.push_back("PFEB_L1Q3_IP");
+      m_pfebs_ordered.push_back("PFEB_L2Q3_IP");
+      m_pfebs_ordered.push_back("PFEB_L3Q3_IP");
+      m_pfebs_ordered.push_back("PFEB_L4Q3_IP");
+      m_pfebs_ordered.push_back("PFEB_L1Q2_IP");
+      m_pfebs_ordered.push_back("PFEB_L3Q2_IP");
+      m_pfebs_ordered.push_back("PFEB_L1Q1_IP");
+      m_pfebs_ordered.push_back("PFEB_L3Q1_IP");
+    }
   }
   else {
     // 191
     ERS_INFO("Gather pFEBs: 191 pFEBs");
-    m_pfebs_ordered.push_back("PFEB_L4Q2_IPL");
-    m_pfebs_ordered.push_back("PFEB_L2Q2_IPL");
-    m_pfebs_ordered.push_back("PFEB_L4Q1_IPL");
-    m_pfebs_ordered.push_back("PFEB_L2Q1_IPL");
-
-    m_pfebs_ordered.push_back("PFEB_L2Q2_HOL");
-    m_pfebs_ordered.push_back("PFEB_L4Q2_HOL");
-    m_pfebs_ordered.push_back("PFEB_L2Q1_HOL");
-    m_pfebs_ordered.push_back("PFEB_L4Q1_HOL");
-
-    m_pfebs_ordered.push_back("PFEB_L2Q3_HOL");
-    m_pfebs_ordered.push_back("PFEB_L1Q3_HOR");
-    m_pfebs_ordered.push_back("PFEB_L4Q3_HOL");
-    m_pfebs_ordered.push_back("PFEB_L3Q3_HOR");
-
-    m_pfebs_ordered.push_back("PFEB_L1Q3_IPR");
-    m_pfebs_ordered.push_back("PFEB_L2Q3_IPL");
-    m_pfebs_ordered.push_back("PFEB_L3Q3_IPR");
-    m_pfebs_ordered.push_back("PFEB_L4Q3_IPL");
-
-    m_pfebs_ordered.push_back("PFEB_L3Q2_HOR");
-    m_pfebs_ordered.push_back("PFEB_L1Q2_HOR");
-    m_pfebs_ordered.push_back("PFEB_L3Q1_HOR");
-    m_pfebs_ordered.push_back("PFEB_L1Q1_HOR");
-
-    m_pfebs_ordered.push_back("PFEB_L1Q2_IPR");
-    m_pfebs_ordered.push_back("PFEB_L3Q2_IPR");
-    m_pfebs_ordered.push_back("PFEB_L1Q1_IPR");
-    m_pfebs_ordered.push_back("PFEB_L3Q1_IPR");
+    if (firmware == "2021.03.02_RO_no_compress_new_mapping.bit") {
+      m_pfebs_ordered.push_back("PFEB_L1Q1_IP");
+      m_pfebs_ordered.push_back("PFEB_L2Q1_IP");
+      m_pfebs_ordered.push_back("PFEB_L3Q1_IP");
+      m_pfebs_ordered.push_back("PFEB_L4Q1_IP");
+      m_pfebs_ordered.push_back("PFEB_L1Q1_HO");
+      m_pfebs_ordered.push_back("PFEB_L2Q1_HO");
+      m_pfebs_ordered.push_back("PFEB_L3Q1_HO");
+      m_pfebs_ordered.push_back("PFEB_L4Q1_HO");
+      m_pfebs_ordered.push_back("PFEB_L1Q2_IP");
+      m_pfebs_ordered.push_back("PFEB_L2Q2_IP");
+      m_pfebs_ordered.push_back("PFEB_L3Q2_IP");
+      m_pfebs_ordered.push_back("PFEB_L4Q2_IP");
+      m_pfebs_ordered.push_back("PFEB_L1Q2_HO");
+      m_pfebs_ordered.push_back("PFEB_L2Q2_HO");
+      m_pfebs_ordered.push_back("PFEB_L3Q2_HO");
+      m_pfebs_ordered.push_back("PFEB_L4Q2_HO");
+      m_pfebs_ordered.push_back("PFEB_L1Q3_IP");
+      m_pfebs_ordered.push_back("PFEB_L2Q3_IP");
+      m_pfebs_ordered.push_back("PFEB_L3Q3_IP");
+      m_pfebs_ordered.push_back("PFEB_L4Q3_IP");
+      m_pfebs_ordered.push_back("PFEB_L1Q3_HO");
+      m_pfebs_ordered.push_back("PFEB_L2Q3_HO");
+      m_pfebs_ordered.push_back("PFEB_L3Q3_HO");
+      m_pfebs_ordered.push_back("PFEB_L4Q3_HO");
+    } else {
+      m_pfebs_ordered.push_back("PFEB_L4Q2_IP");
+      m_pfebs_ordered.push_back("PFEB_L2Q2_IP");
+      m_pfebs_ordered.push_back("PFEB_L4Q1_IP");
+      m_pfebs_ordered.push_back("PFEB_L2Q1_IP");
+      //
+      m_pfebs_ordered.push_back("PFEB_L2Q2_HO");
+      m_pfebs_ordered.push_back("PFEB_L4Q2_HO");
+      m_pfebs_ordered.push_back("PFEB_L2Q1_HO");
+      m_pfebs_ordered.push_back("PFEB_L4Q1_HO");
+      //
+      m_pfebs_ordered.push_back("PFEB_L2Q3_HO");
+      m_pfebs_ordered.push_back("PFEB_L1Q3_HO");
+      m_pfebs_ordered.push_back("PFEB_L4Q3_HO");
+      m_pfebs_ordered.push_back("PFEB_L3Q3_HO");
+      //
+      m_pfebs_ordered.push_back("PFEB_L1Q3_IP");
+      m_pfebs_ordered.push_back("PFEB_L2Q3_IP");
+      m_pfebs_ordered.push_back("PFEB_L3Q3_IP");
+      m_pfebs_ordered.push_back("PFEB_L4Q3_IP");
+      //
+      m_pfebs_ordered.push_back("PFEB_L3Q2_HO");
+      m_pfebs_ordered.push_back("PFEB_L1Q2_HO");
+      m_pfebs_ordered.push_back("PFEB_L3Q1_HO");
+      m_pfebs_ordered.push_back("PFEB_L1Q1_HO");
+      //
+      m_pfebs_ordered.push_back("PFEB_L1Q2_IP");
+      m_pfebs_ordered.push_back("PFEB_L3Q2_IP");
+      m_pfebs_ordered.push_back("PFEB_L1Q1_IP");
+      m_pfebs_ordered.push_back("PFEB_L3Q1_IP");
+    }
   }
 }
 
@@ -240,7 +279,7 @@ std::string nsw::sTGCTriggerCalib::next_pfeb(bool pop) {
   // "valid" means: exists in the config
   auto next_feb = m_pfebs_ordered.front();
   for (auto & pfeb: m_pfebs) {
-    if (next_feb == pfeb.getAddress()) {
+    if (pfeb.getAddress().find(next_feb) != std::string::npos) {
       if (pop)
         m_pfebs_ordered.erase(m_pfebs_ordered.begin());
       return next_feb;

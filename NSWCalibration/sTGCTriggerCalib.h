@@ -47,7 +47,6 @@ namespace nsw {
     std::string m_calibType = "";
     std::vector<nsw::FEBConfig> m_pfebs = {};
     std::vector<nsw::PadTriggerSCAConfig> m_pts = {};
-    std::map<std::string, std::unique_ptr<nsw::ConfigSender> > m_senders = {};
     std::vector<std::string> m_pfebs_ordered = {};
 
   };
