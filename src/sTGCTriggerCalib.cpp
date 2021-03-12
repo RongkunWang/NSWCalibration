@@ -281,7 +281,7 @@ std::string nsw::sTGCTriggerCalib::next_pfeb(bool pop) {
     if (pfeb.getAddress().find(next_feb) != std::string::npos) {
       if (pop)
         m_pfebs_ordered.erase(m_pfebs_ordered.begin());
-      return next_feb;
+      return pfeb.getAddress();
     }
   }
   // if youre here: that pfeb is not in the config db
