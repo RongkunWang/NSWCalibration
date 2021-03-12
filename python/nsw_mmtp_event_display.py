@@ -23,21 +23,27 @@ def main():
 
     ops   = options()
     tr    = ttree()
-    ents  = min(tr.GetEntries(), ops.n)
+    posit = ops.n >= 0
+    ents  = min(ops.n, tr.GetEntries()) if posit else tr.GetEntries()
     start = time.time()
     rootlogon()
 
     print("Input  :: %s"       % (ops.i))
     print("Output :: %s"       % (ops.o))
-    print("Ents   :: %s of %s" % (ents, tr.GetEntries()))
+    print("Ents   :: %s of %s" % (ents if posit else ops.n, tr.GetEntries()))
     print("")
 
     for (ient, ent) in enumerate(tr):
-        if ient >= ents:
-            break
+        if posit:
+            if ient >= ents:
+                break
+            first, last = (ient == 0, ient == ents - 1)
+        else:
+            if ient < ents - abs(ops.n):
+                continue
+            first, last = (ient == ents - abs(ops.n), ient == ents - 1)
         if ient > 0 and ient % 10 == 0:
             progress(time.time()-start, ient, ents)
-        first, last = (ient == 0, ient == ents-1)
         display(ient, ent, ops.r, ops.o, first, last)
     progress(time.time()-start, ents, ents)
 
