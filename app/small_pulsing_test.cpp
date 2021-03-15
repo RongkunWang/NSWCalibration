@@ -27,7 +27,7 @@ std::vector<nsw::FEBConfig>  parse_feb_name (std::string name, std::string cfg);
 std::vector< std::vector< std::tuple<std::string, int, int> > > patterns();
 std::string strf_time();
 
-int main(int argc, const char *argv[]) 
+int main(int argc, const char *argv[])
 {
     std::string config_filename;
 //    std::string addc_filename;
@@ -71,7 +71,7 @@ int main(int argc, const char *argv[])
     if (vm.count("help")) {
         std::cout << desc << "\n";
         return 1;
-    }    
+    }
 
     // announce
     std::cout << "System command 0: " << system_cmd0 << std::endl;
@@ -100,8 +100,8 @@ int main(int argc, const char *argv[])
 //    for (auto & addc: addcs)
 //        senders->insert( {addc.getAddress(), new nsw::ConfigSender()} );
 
-		//std::vector<int> tpdacs = {100,200,300,400,500,600,700,800,900,1000};
-		std::vector<int> tpdacs = {300,400,500};
+                //std::vector<int> tpdacs = {100,200,300,400,500,600,700,800,900,1000};
+                std::vector<int> tpdacs = {300,400,500};
 
 
     // mask everything
@@ -192,7 +192,7 @@ for(long unsigned int i=0; i<tpdacs.size(); i++){
         std::cout << std::endl;
         wait_until_done(threads);
     }
-	std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::this_thread::sleep_for(std::chrono::seconds(1));
 }
     std::cout << std::endl;
     return 0;
@@ -410,7 +410,7 @@ std::vector< std::vector< std::tuple<std::string, int, int> > > patterns() {
     // }
 
 //////////////////////////////////////////////////////////
-//					Originally used pattern loop               ///
+//                                      Originally used pattern loop               ///
 //////////////////////////////////////////////////////////
     // track-like loop
 //    bool even;
@@ -443,9 +443,9 @@ std::vector< std::vector< std::tuple<std::string, int, int> > > patterns() {
 //
     // extremely simple example:
      std::vector< std::tuple<std::string, int, int> > patt0 = {};
-		 for(int ch=0; ch<64; ch++){
-	     patt0.push_back(std::make_tuple("MMFE8-0004", 2, ch));
-		 }
+                 for(int ch=0; ch<64; ch++){
+             patt0.push_back(std::make_tuple("MMFE8-0004", 2, ch));
+                 }
    //  patt0.push_back(std::make_tuple("MMFE8-0001", 2, 10));
    //  patt0.push_back(std::make_tuple("MMFE8-0002", 2, 10));
    //  patt0.push_back(std::make_tuple("MMFE8-0003", 2, 10));
@@ -578,7 +578,7 @@ int configure_frontend(nsw::ConfigSender* cs, nsw::FEBConfig feb, bool do_roc, b
         // Set reset bits to original
         size_t i = 0;
         for (auto & vmm : vmms)
-            vmm.setGlobalRegister("reset", reset_ori[i++]);  
+            vmm.setGlobalRegister("reset", reset_ori[i++]);
     }
     if (do_vmm)
         cs->sendVmmConfig(feb);
