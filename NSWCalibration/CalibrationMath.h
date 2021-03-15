@@ -58,14 +58,17 @@ namespace nsw{
 
   namespace ref_val{
 
-    const int NchPerVmm = 64;
-    const float RmsCutoff = 30;
-    const float BaselineCutoff = 10;//20//original;
-    const float SlopeCheck = 1/1.5/1000.0*4095.0;
-    const int TrimMid = 14;
-    const int TrimLo = 0;
-    const int TrimHi = 31;
-    const int ChanThreshCutoff = 1;
+    constexpr float SAMPLES_PER_MV = 1000./4095.; ///< 12-bit ADC with 1 V max range
+    constexpr float MV_PER_SAMPLE  = 1./SAMPLES_PER_MV; ///< 12-bit ADC with 1 V max range
+    constexpr float MM_RESISTOR_FACTOR = 1.5; ///< 1.5 is due to a resistor on MMs
+    constexpr int NchPerVmm = 64;
+    constexpr float RmsCutoff = 30;
+    constexpr float BaselineCutoff = 10;//20//original;
+    constexpr float SlopeCheck = 1/1.5/1000.0*4095.0;
+    constexpr int TrimMid = 14;
+    constexpr int TrimLo = 0;
+    constexpr int TrimHi = 31;
+    constexpr int ChanThreshCutoff = 1;
 
   }
 

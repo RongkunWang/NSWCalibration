@@ -173,6 +173,8 @@ namespace nsw{
 
     void turn_off_pulser(std::vector<nsw::FEBConfig>, int fe_name_sorted, bool debug);
 
+  private:
+    static constexpr size_t MAX_TRIES = 5;
   };
 }
 #endif

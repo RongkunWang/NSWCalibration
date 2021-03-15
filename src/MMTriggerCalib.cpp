@@ -1,5 +1,7 @@
 #include "NSWCalibration/MMTriggerCalib.h"
 #include "NSWConfiguration/Utility.h"
+#include "NSWConfiguration/Constants.h"
+
 #include "TROOT.h"
 using boost::property_tree::ptree;
 
@@ -386,15 +388,13 @@ ptree nsw::MMTriggerCalib::patterns() {
     // connectivity max-parallel loop
     //
     bool even;
-    int nvmm = 8;
-    int nchan = 64;
     int pcb = 0;
-    for (int pos = 0; pos < 8; pos++) {
+    for (int pos = 0; pos < nsw::mmfe8::MMFE8_PER_LAYER/2; pos++) {
       even = pos % 2 == 0;
       pcb  = pos / 2 + 1;
       auto pcbstr       = std::to_string(pcb);
       auto pcbstr_plus4 = std::to_string(pcb+4);
-      for (int chan = 0; chan < nchan; chan++) {
+      for (int chan = 0; chan < nsw::vmm::NUM_CH_PER_VMM; chan++) {
         if (m_calibType == "MMARTConnectivityTest" && chan % 10 != 0)
           continue;
         if (m_calibType == "MMARTPhase"            && chan % 10 != 0)
@@ -419,7 +419,7 @@ ptree nsw::MMTriggerCalib::patterns() {
               "MMFE8_L1P" + pcbstr_plus4 + "_IP" + (even ? "L" : "R"),
               }) {
           ptree febtree;
-          for (int vmmid = 0; vmmid < nvmm; vmmid++) {
+          for (int vmmid = 0; vmmid < nsw::MAX_NUMBER_OF_VMM; vmmid++) {
 
             //if (vmm_of_interest >= 0 && vmmid != vmm_of_interest)
             //  continue;
@@ -453,17 +453,15 @@ ptree nsw::MMTriggerCalib::patterns() {
         // track-like loop
         //
         bool even;
-        int nvmm = 8;
-        int nchan = 64;
         int pcb = 0;
-        for (int pos = 0; pos < 16; pos++) {
+        for (int pos = 0; pos < nsw::MMFE8_PER_LAYER; pos++) {
             even = pos % 2 == 0;
             pcb  = pos / 2 + 1;
             auto pcbstr = std::to_string(pcb);
-            for (int vmmid = 0; vmmid < nvmm; vmmid++) {
+            for (int vmmid = 0; vmmid < nsw::MAX_NUMBER_OF_VMM; vmmid++) {
                 // if (vmm_of_interest >= 0 && vmmid != vmm_of_interest)
                 //     continue;
-                for (int chan = 0; chan < nchan; chan++) {
+                for (int chan = 0; chan < nsw::vmm::NUM_CH_PER_VMM; chan++) {
                     if (chan % 10 != 0)
                         continue;
                     ptree feb_patt;
@@ -503,14 +501,14 @@ ptree nsw::MMTriggerCalib::patterns() {
         //
 
         bool even;
-        int nvmm = 8;
-        int nchan = 64;
-        int countId[8192][4];
-        for (int pos = 0; pos < 16; pos++) {
+        int countId[nsw::mmfe8::NUM_CH_PER_LAYER][4]; // TODO Use NSWConfiguration::Constants
+        for (int pos = 0; pos < nsw::mmfe8::MMFE8_PER_LAYER; pos++) {
             even = pos % 2 == 0;
-            for (int vmmid = 0; vmmid < nvmm; vmmid++) {
-                for (int chan = 0; chan < nchan; chan++) {
-                    int count = (even ? ((pos+1)*512-vmmid*64-chan-1) : (pos*512+vmmid*64+chan));
+            for (int vmmid = 0; vmmid < nsw::MAX_NUMBER_OF_VMM; vmmid++) {
+              for (int chan = 0; chan < nsw::vmm::NUM_CH_PER_VMM; chan++) {
+                    int count = (even ?
+                                 ((pos+1)*nsw::mmfe8::NUM_CH_PER_MMFE8-vmmid*nsw::vmm::NUM_CH_PER_VMM-chan-1) :
+                                 (pos*nsw::mmfe8::NUM_CH_PER_MMFE8+vmmid*nsw::vmm::NUM_CH_PER_VMM+chan));
                     countId[count][0] = count;
                     countId[count][1] = pos;
                     countId[count][2] = vmmid;
@@ -518,7 +516,7 @@ ptree nsw::MMTriggerCalib::patterns() {
                 }
             }
         }
-        for (int cx = 0; cx < 8192; cx++) {
+        for (int cx = 0; cx < nsw::mmfe8::NUM_CH_PER_LAYER; cx++) { // TODO Use NSWConfiguration::Constants
             if (cx % 300 != 0)
                 continue;
             for (int dif = -70; dif < 71; dif++) {
@@ -544,7 +542,7 @@ ptree nsw::MMTriggerCalib::patterns() {
                     feb_patt.add_child(name, febtree);
                 }
                 int cu = cx + dif;
-                if (cu >= 0 && cu < 8192){
+                if (cu >= 0 && cu < 8192){ // TODO Use NSWConfiguration::Constants
                     int posu = countId[cu][1];
                     int vmmidu = countId[cu][2];
                     int chanu = countId[cu][3];
@@ -563,7 +561,7 @@ ptree nsw::MMTriggerCalib::patterns() {
                     }
                 }
                 int cv = cx - dif;
-                if (cv >= 0 && cv < 8192){
+                if (cv >= 0 && cv < 8192){ // TODO Use NSWConfiguration::Constants
                     int posv = countId[cv][1];
                     int vmmidv = countId[cv][2];
                     int chanv = countId[cv][3];
@@ -822,7 +820,7 @@ std::vector<int> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConfig& a
       index = it % reg_len;
       if (index == 0)
         word = 0;
-      word += (readback.at(it) << index*8);
+      word += (readback.at(it) << index*8); // TODO Use NSWConfiguration::Constants
       if (index == reg_len - 1)
         results.push_back(word);
     }

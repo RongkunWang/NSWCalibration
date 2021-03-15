@@ -132,7 +132,7 @@ std::vector<float> nsw::CalibrationSca::read_baseline(
                                                       int RMS_CUTOFF
                                                       )
 {
-  for(int i_try=0; i_try<5; i_try++)
+  for(int i_try=0; i_try<MAX_TRIES; i_try++)
     {
       try
         {
@@ -281,7 +281,7 @@ std::pair<float,int> nsw::CalibrationSca::find_linear_region_slope(nsw::ConfigSe
                                                                    )
 {
 
-  for(int itry=0; itry<5; itry++){
+  for(int itry=0; itry<MAX_TRIES; itry++){
     try{
 
       if (trim_hi <= trim_mid) return std::make_pair(0,0);
@@ -421,7 +421,7 @@ std::vector<float> nsw::CalibrationSca::vmm_averages
  std::vector<float> & fe_samples_tmp
  )
 {
-  for(int i_try=0; i_try<5; i_try++){
+  for(int i_try=0; i_try<MAX_TRIES; i_try++){
     try{
       std::pair<std::string,int> feb_ch(feb.getAddress(),channel_id);
 
@@ -471,7 +471,7 @@ std::map< std::pair< std::string,int>, int>  nsw::CalibrationSca::analyse_trimme
  )
 {
 
-  for(int i_try=0; i_try<5; i_try++)
+  for(int i_try=0; i_try<MAX_TRIES; i_try++)
     {
       try{
         std::pair<std::string,int> feb_ch(feb.getAddress(),channel_id);
@@ -1368,7 +1368,7 @@ void nsw::CalibrationSca::read_thresholds(std::string config_filename,
     int dev_thr = 0;
     for (int channel_id = 0; channel_id < 64; channel_id++) {
 
-      for(int itry=0; itry<5; itry++){
+      for(int itry=0; itry<MAX_TRIES; itry++){
         try{
 
           results = ch_threshold(cs, feb, vmm_id, channel_id, n_samples);
@@ -1664,6 +1664,7 @@ void nsw::CalibrationSca::calib_pulserDAC( std::vector<nsw::FEBConfig> frontend_
         float sample_sum = std::accumulate(results.begin(), results.end(), 0.0);
         float sample_mean = sample_sum/results.size();
         float sample_mean_mV;
+        // TODO FIXME use CalibrationMath::samples_to_mV
         if(fetype){sample_mean_mV = sample_mean*1000.*1.5/4095.0;}
         else{sample_mean_mV = sample_mean*1000./4095.0;}
 
