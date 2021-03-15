@@ -1,5 +1,12 @@
 #include "NSWCalibration/MMTPInputPhase.h"
-using boost::property_tree::ptree;
+
+#include "NSWConfiguration/ConfigReader.h"
+#include "NSWConfiguration/ConfigSender.h"
+
+#include <unistd.h>
+#include <stdexcept>
+
+#include "ers/ers.h"
 
 nsw::MMTPInputPhase::MMTPInputPhase(std::string calibType) {
   setCounter(-1);

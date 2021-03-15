@@ -1,8 +1,24 @@
 #include "NSWCalibration/MMTriggerCalib.h"
+
+#include "NSWConfiguration/ConfigReader.h"
+#include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/Utility.h"
 #include "NSWConfiguration/Constants.h"
 
+#include <unistd.h>
+#include <iostream>
+#include <regex>
+#include <set>
+#include <sstream>
+#include <stdexcept>
+#include <utility>
+
+#include <boost/property_tree/json_parser.hpp>  // for write_json
+
+#include "ers/ers.h"
+
 #include "TROOT.h"
+
 using boost::property_tree::ptree;
 
 nsw::MMTriggerCalib::MMTriggerCalib(std::string calibType) {

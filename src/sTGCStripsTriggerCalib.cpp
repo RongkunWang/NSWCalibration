@@ -14,8 +14,17 @@
 //     disable TDS1, TDS2, TDS3
 //
 
-#include <regex>
 #include "NSWCalibration/sTGCStripsTriggerCalib.h"
+
+#include "NSWConfiguration/ConfigReader.h"
+#include "NSWConfiguration/ConfigSender.h"
+
+#include <cstdlib>
+#include <unistd.h>
+#include <regex>
+#include <stdexcept>
+
+#include "ers/ers.h"
 
 nsw::sTGCStripsTriggerCalib::sTGCStripsTriggerCalib(std::string calibType) {
   setCounter(-1);

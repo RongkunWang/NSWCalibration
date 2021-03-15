@@ -1,5 +1,13 @@
 #include "NSWCalibration/sTGCRouterToTP.h"
-using boost::property_tree::ptree;
+
+#include "NSWConfiguration/ConfigReader.h"
+#include "NSWConfiguration/ConfigSender.h"
+
+#include <unistd.h>
+#include <istream>
+#include <stdexcept>
+
+#include "ers/ers.h"
 
 nsw::sTGCRouterToTP::sTGCRouterToTP(std::string calibType) {
   setCounter(-1);

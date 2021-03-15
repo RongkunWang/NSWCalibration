@@ -5,13 +5,20 @@
 // Derived class for NSW ART input phase calib
 //
 
+#include <future>
+#include <string>
+#include <vector>
+
 #include "NSWCalibration/CalibAlg.h"
-#include "NSWConfiguration/FEBConfig.h"
+
 #include "NSWConfiguration/ADDCConfig.h"
+#include "NSWConfiguration/FEBConfig.h"
+#include "NSWConfiguration/TPConfig.h"
+
 #include "TFile.h"
 #include "TTree.h"
 
-using boost::property_tree::ptree;
+#include "ers/Issue.h"
 
 ERS_DECLARE_ISSUE(nsw,
                   NSWMMTriggerCalibIssue,
@@ -31,15 +38,15 @@ namespace nsw {
     void unconfigure();
 
   public:
-    ptree patterns();
+    boost::property_tree::ptree patterns();
     template <class T>
       std::vector<T> make_objects(std::string cfg, std::string element_type, std::string name = "");
     int pattern_number(std::string name);
-    int configure_febs_from_ptree(ptree tr, bool unmask);
-    int configure_addcs_from_ptree(ptree tr);
-    int configure_vmms(nsw::FEBConfig feb, ptree febpatt, bool unmask);
+    int configure_febs_from_ptree(boost::property_tree::ptree tr, bool unmask);
+    int configure_addcs_from_ptree(boost::property_tree::ptree tr);
+    int configure_vmms(nsw::FEBConfig feb, boost::property_tree::ptree febpatt, bool unmask);
     int configure_art_input_phase(nsw::ADDCConfig addc, uint phase);
-    int configure_tps(ptree tr);
+    int configure_tps(boost::property_tree::ptree tr);
     int addc_tp_watchdog();
 
     //
@@ -56,7 +63,7 @@ namespace nsw {
     //
     std::vector<int> read_art_counters(const nsw::ADDCConfig& addc, int art);
     int wait_until_done();
-    int announce(std::string name, ptree tr, bool unmask);
+    int announce(std::string name, boost::property_tree::ptree tr, bool unmask);
     std::string strf_time();
 
   private:
@@ -74,7 +81,7 @@ namespace nsw {
     bool m_staircase = 0;
     bool m_dry_run = 0;
     bool m_reset_vmm = 0;
-    ptree m_patterns;
+    boost::property_tree::ptree m_patterns;
     std::unique_ptr< std::vector< std::future<int> > > m_threads = 0;
     std::future<int> m_watchdog;
     std::atomic<bool> m_tpscax_busy = 0;

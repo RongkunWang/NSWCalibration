@@ -5,10 +5,19 @@
 // Derived class for testing Q1 SFEB to Router connection
 //
 
+#include <string>
+#include <vector>
+#include <future>
+
 #include "NSWCalibration/CalibAlg.h"
+
 #include "NSWConfiguration/FEBConfig.h"
-#include "NSWConfiguration/PadTriggerSCAConfig.h"
-using boost::property_tree::ptree;
+#include "NSWConfiguration/RouterConfig.h"
+#include "NSWConfiguration/Utility.h"
+
+#include "boost/property_tree/ptree.hpp"
+
+#include "ers/Issue.h"
 
 ERS_DECLARE_ISSUE(nsw,
                   NSWsTGCSFEBToRouterIssue,
@@ -28,7 +37,7 @@ namespace nsw {
     void unconfigure();
 
   public:
-    ptree patterns();
+    boost::property_tree::ptree patterns();
     int configure_tds(const nsw::FEBConfig & feb, bool enable);
     int configure_routers();
     int configure_router(const nsw::RouterConfig & router);
@@ -40,7 +49,7 @@ namespace nsw {
 
   private:
     bool m_dry_run;
-    ptree m_patterns;
+    boost::property_tree::ptree m_patterns;
     std::string m_calibType = "";
     std::vector<std::string> m_sfebs_ordered = {};
     std::vector<nsw::FEBConfig> m_sfebs = {};

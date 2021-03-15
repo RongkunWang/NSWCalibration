@@ -1,5 +1,16 @@
 #include "NSWCalibration/sTGCSFEBToRouter.h"
-using boost::property_tree::ptree;
+
+#include "NSWConfiguration/ConfigReader.h"
+#include "NSWConfiguration/ConfigSender.h"
+#include "NSWConfiguration/I2cMasterConfig.h"
+
+#include <cstdlib>
+#include <unistd.h>
+#include <sstream>
+#include <fstream>
+#include <stdexcept>
+
+#include "ers/ers.h"
 
 nsw::sTGCSFEBToRouter::sTGCSFEBToRouter(std::string calibType) {
   setCounter(-1);

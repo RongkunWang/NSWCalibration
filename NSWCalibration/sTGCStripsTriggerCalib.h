@@ -4,11 +4,14 @@
 //
 // Derived class for all things sTGC strips trigger calib
 //
+#include <vector>
+#include <utility>
 
 #include "NSWCalibration/CalibAlg.h"
 #include "NSWConfiguration/FEBConfig.h"
 #include "NSWConfiguration/PadTriggerSCAConfig.h"
-using boost::property_tree::ptree;
+
+#include "ers/Issue.h"
 
 ERS_DECLARE_ISSUE(nsw,
                   NSWsTGCStripsTriggerCalibIssue,
@@ -40,7 +43,7 @@ namespace nsw {
     std::vector<std::string> m_sfebs_ordered = {};
     std::vector<nsw::FEBConfig> m_sfebs = {};
     std::vector<std::pair <std::string, std::string > > m_router_recovery_tds = {};
-    std::vector< std::vector<std::string> > m_tdss = {};
+    std::vector<std::vector<std::string> > m_tdss = {};
 
   };
 

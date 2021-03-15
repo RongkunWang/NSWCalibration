@@ -5,9 +5,14 @@
 // Derived class for testing Router to TP connections
 //
 
+#include <string>
+#include <vector>
+
 #include "NSWCalibration/CalibAlg.h"
-#include "NSWConfiguration/FEBConfig.h"
-#include "NSWConfiguration/PadTriggerSCAConfig.h"
+
+#include "NSWConfiguration/RouterConfig.h"
+
+#include "ers/Issue.h"
 
 ERS_DECLARE_ISSUE(nsw,
                   NSWsTGCRouterToTPIssue,

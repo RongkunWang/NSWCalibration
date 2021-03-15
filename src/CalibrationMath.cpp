@@ -1,29 +1,9 @@
-#include <iostream>
-#include <thread>
-#include <sys/types.h>
-#include <chrono>
-#include <string>
-#include <cstring>
-#include <vector>
-#include <iomanip>
-#include <fstream>
-#include <thread>
-#include <numeric>
-#include <set>
-#include <map>
-#include <stdio.h>
-#include <dirent.h>
-#include <ctime>
-#include <mutex>
+#include <algorithm>                    // for sort
+#include <cmath>                        // for sqrt, fabs
+#include <numeric>                      // for inner_product
+#include <utility>                      // for make_pair, pair
+#include <vector>                       // for vector
 
-#include "NSWConfiguration/ConfigReader.h"
-#include "NSWConfiguration/ConfigSender.h"
-#include "NSWConfiguration/FEBConfig.h"
-
-//#include "include/CalibrationSca.h"
-//#include "include/CalibrationMath.h"
-
-#include "NSWCalibration/CalibrationSca.h"
 #include "NSWCalibration/CalibrationMath.h"
 
 nsw::CalibrationMath::CalibrationMath(){

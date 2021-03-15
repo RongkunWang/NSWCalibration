@@ -1,33 +1,23 @@
-#include <iostream>
+#include "NSWCalibration/CalibrationSca.h"
+
+#include <algorithm>
+#include <cmath>
 #include <thread>
-#include <sys/types.h>
 #include <chrono>
-#include <string>
-#include <cstring>
-#include <vector>
+#include <iostream>
 #include <iomanip>
 #include <fstream>
-#include <thread>
 #include <numeric>
-#include <set>
-#include <map>
-#include <stdio.h>
 #include <dirent.h>
-#include <ctime>
 #include <mutex>
-#include <math.h>
+
+#include "boost/property_tree/json_parser.hpp"
 
 #include "NSWConfiguration/ConfigReader.h"
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/FEBConfig.h"
 
-//#include "NSWConfiguration/I2cMasterConfig.h"
-
 #include "NSWCalibration/CalibrationMath.h"
-#include "NSWCalibration/CalibrationSca.h"
-
-nsw::CalibrationSca::CalibrationSca(){
-}
 
 //###################################################################################################################################################
 //#################################### Old configuration method - should not be used before data acquisiiton ########################################

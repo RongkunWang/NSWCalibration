@@ -5,10 +5,16 @@
 // Derived class for testing Pad Trigger to SFEB connection
 //
 
+#include <stdint.h>
+#include <ostream>
+#include <string>
+#include <vector>
+#include <future>
+
 #include "NSWCalibration/CalibAlg.h"
 #include "NSWConfiguration/FEBConfig.h"
-#include "NSWConfiguration/PadTriggerSCAConfig.h"
-using boost::property_tree::ptree;
+
+#include "ers/Issue.h"
 
 ERS_DECLARE_ISSUE(nsw,
                   NSWsTGCPadTriggerToSFEBIssue,

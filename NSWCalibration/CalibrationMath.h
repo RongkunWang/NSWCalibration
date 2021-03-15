@@ -3,21 +3,7 @@
 #ifndef CALIBRATIONMATH_H_
 #define CALIBRATIONMATH_H_
 
-#include <iostream>
-#include <sys/types.h>
-#include <string>
-#include <cstring>
 #include <vector>
-#include <iomanip>
-#include <fstream>
-#include <numeric>
-#include <set>
-#include <map>
-#include <stdio.h>
-
-#include "NSWConfiguration/ConfigReader.h"
-#include "NSWConfiguration/ConfigSender.h"
-#include "NSWConfiguration/FEBConfig.h"
 
 namespace nsw{
 

@@ -1,6 +1,14 @@
-#include "NSWConfiguration/Utility.h"
 #include "NSWCalibration/sTGCPadTriggerToSFEB.h"
-using boost::property_tree::ptree;
+
+#include "NSWConfiguration/ConfigReader.h"
+#include "NSWConfiguration/ConfigSender.h"
+#include "NSWConfiguration/Utility.h"
+
+#include <fstream>
+#include <unistd.h>
+#include <stdexcept>
+
+#include "ers/ers.h"
 
 nsw::sTGCPadTriggerToSFEB::sTGCPadTriggerToSFEB(std::string calibType) {
   setCounter(-1);

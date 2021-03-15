@@ -5,8 +5,15 @@
 // Derived class for testing TP input phases
 //
 
+#include <fstream>
+#include <string>
+#include <vector>
+
 #include "NSWCalibration/CalibAlg.h"
 #include "NSWConfiguration/TPConfig.h"
+
+#include "ers/Issue.h"
+
 #include "TFile.h"
 #include "TTree.h"
 

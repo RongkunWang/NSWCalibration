@@ -1,5 +1,10 @@
 #include "NSWCalibration/CalibAlg.h"
 
+#include <iostream>
+#include <iomanip>
+
+#include "ers/ers.h"
+
 nsw::CalibAlg::CalibAlg() {
   ERS_INFO("CalibAlg::CalibAlg");
   setCounter(-1);

@@ -5,10 +5,15 @@
 // Derived class for all things sTGC trigger calib
 //
 
+#include <string>
+#include <vector>
+
 #include "NSWCalibration/CalibAlg.h"
+
 #include "NSWConfiguration/FEBConfig.h"
 #include "NSWConfiguration/PadTriggerSCAConfig.h"
-using boost::property_tree::ptree;
+
+#include "ers/Issue.h"
 
 ERS_DECLARE_ISSUE(nsw,
                   NSWsTGCTriggerCalibIssue,
@@ -17,6 +22,7 @@ ERS_DECLARE_ISSUE(nsw,
                   )
 
 namespace nsw {
+  class ConfigSender;
 
   class sTGCTriggerCalib: public CalibAlg {
 

@@ -2,31 +2,16 @@
 #ifndef CALIBRATIONSCA_H_
 #define CALIBRATIONSCA_H_
 
-#include <iostream>
-#include <thread>
-#include <sys/types.h>
-#include <chrono>
 #include <string>
-#include <cstring>
 #include <vector>
-#include <iomanip>
-#include <fstream>
-#include <thread>
-#include <numeric>
 #include <set>
 #include <map>
-#include <stdio.h>
-#include <dirent.h>
-#include <ctime>
-#include <mutex>
-
-#include "NSWConfiguration/ConfigReader.h"
-#include "NSWConfiguration/ConfigSender.h"
-#include "NSWConfiguration/FEBConfig.h"
-
-#include "NSWCalibration/CalibrationMath.h"
+#include <utility>
 
 namespace nsw{
+  class ConfigSender;
+  class FEBConfig;
+  class CalibrationMath;
 
   class CalibrationSca{
 

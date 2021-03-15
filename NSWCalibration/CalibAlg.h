@@ -5,18 +5,9 @@
 // Base class for NSW calib algs
 //
 
-#include <iostream>
-#include <thread>
-#include <future>
-#include <regex>
-
-#include "ers/ers.h"
-
-#include "NSWConfiguration/ConfigReader.h"
-#include "NSWConfiguration/ConfigSender.h"
-
-using boost::property_tree::ptree;
-namespace chr = std::chrono;
+#include <stdint.h>                     // for uint32_t
+#include <string>                       // for string
+#include <chrono>                       // for system_clock
 
 namespace nsw {
 
@@ -46,8 +37,8 @@ namespace nsw {
     void setRunNumber(uint32_t val) {m_run_number = val;}
 
     // "progress bar"
-    void setStartTime() {m_time_start = chr::system_clock::now();}
-    void setElapsedSeconds() {m_elapsed_seconds = chr::system_clock::now() - m_time_start;}
+    void setStartTime() {m_time_start = std::chrono::system_clock::now();}
+    void setElapsedSeconds() {m_elapsed_seconds = std::chrono::system_clock::now() - m_time_start;}
     double elapsedSeconds() {return m_elapsed_seconds.count();}
     double rate() {return elapsedSeconds() > 0 ? counter() / elapsedSeconds() : -1;}
     double remainingSeconds() {return (double)(total()-counter())/rate();}
@@ -60,8 +51,8 @@ namespace nsw {
     bool m_simulation = 0;
     uint32_t m_run_number = 0;
     std::string m_name = "";
-    chr::time_point<chr::system_clock> m_time_start;
-    chr::duration<double> m_elapsed_seconds;
+    std::chrono::time_point<std::chrono::system_clock> m_time_start;
+    std::chrono::duration<double> m_elapsed_seconds;
 
   };
 
