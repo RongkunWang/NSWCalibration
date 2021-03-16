@@ -3,19 +3,19 @@
 #include "NSWConfiguration/ConfigReader.h"
 #include "NSWConfiguration/ConfigSender.h"
 
-#include <stdlib.h>
+#include <cstdlib>
 #include <unistd.h>
 #include <stdexcept>
 
 #include "ers/ers.h"
 
-nsw::sTGCTriggerCalib::sTGCTriggerCalib(std::string calibType) {
+nsw::sTGCTriggerCalib::sTGCTriggerCalib(const std::string& calibType) {
   setCounter(-1);
   setTotal(0);
   m_calibType = calibType;
 }
 
-void nsw::sTGCTriggerCalib::setup(std::string db) {
+void nsw::sTGCTriggerCalib::setup(const std::string& db) {
   ERS_INFO("setup " << db);
 
   gather_pfebs();
@@ -38,6 +38,7 @@ void nsw::sTGCTriggerCalib::setup(std::string db) {
   m_pts   = nsw::ConfigReader::makeObjects<nsw::PadTriggerSCAConfig> (db, "PadTriggerSCA");
   ERS_INFO("Found " << m_pfebs.size() << " pFEBs");
   ERS_INFO("Found " << m_pts.size()   << " pad triggers");
+
   if (m_pts.size() != 1) {
     std::stringstream msg;
     msg << "I dont know how to process !=1 PadTriggers. You gave: " << m_pts.size();
@@ -56,14 +57,14 @@ void nsw::sTGCTriggerCalib::setup(std::string db) {
 
   // set number of loops in the iteration
   if (m_calibType=="sTGCPadConnectivity") {
-    setTotal((int)(m_pfebs.size()));
+    setTotal(static_cast<int>(m_pfebs.size()));
   } else if (m_calibType=="sTGCPadLatency") {
     setTotal(latencyscan_nbc());
     ERS_INFO("Latency scan start: " << latencyscan_offset());
     ERS_INFO("Latency scan steps: " << latencyscan_nbc());
   }
-  setToggle(0);
-  setWait4swROD(0);
+  setToggle(false);
+  setWait4swROD(false);
   usleep(1e6);
 }
 
@@ -73,16 +74,16 @@ void nsw::sTGCTriggerCalib::configure() {
 
     // test pulse one pfeb
     if (order_pfebs()) {
-      auto next_addr = next_pfeb(0);
+      auto next_addr = next_pfeb(false);
       for (auto & pfeb: m_pfebs) {
         if (next_addr == pfeb.getAddress()) {
-          configure_vmms(pfeb, 1);
+          configure_vmms(pfeb, true);
           break;
         }
       }
     } else {
-      auto & pfeb = m_pfebs.at((size_t)(counter()));
-      configure_vmms(pfeb, 1);
+      auto & pfeb = m_pfebs.at(static_cast<size_t>(counter()));
+      configure_vmms(pfeb, true);
     }
 
     configure_pad_trigger();
@@ -94,7 +95,7 @@ void nsw::sTGCTriggerCalib::configure() {
     if (counter() == 0) {
       ERS_INFO("sTGCTriggerCalib::configure all pFEBs");
       for (auto & pfeb: m_pfebs)
-        configure_vmms(pfeb, 1);
+        configure_vmms(pfeb, true);
     }
 
     // set pad trigger readout latency
@@ -111,16 +112,16 @@ void nsw::sTGCTriggerCalib::unconfigure() {
 
   if (m_calibType=="sTGCPadConnectivity") {
     if (order_pfebs()) {
-      auto next_addr = next_pfeb(1);
+      auto next_addr = next_pfeb(true);
       for (auto & pfeb: m_pfebs) {
         if (next_addr == pfeb.getAddress()) {
-          configure_vmms(pfeb, 0);
+          configure_vmms(pfeb, false);
           break;
         }
       }
     } else {
-      auto & pfeb = m_pfebs.at((size_t)(counter()));
-      configure_vmms(pfeb, 0);
+      auto & pfeb = m_pfebs.at(static_cast<size_t>(counter()));
+      configure_vmms(pfeb, false);
     }
 
     usleep(500e3);
@@ -131,7 +132,7 @@ void nsw::sTGCTriggerCalib::unconfigure() {
     if (counter() == total()-1) {
       ERS_INFO("sTGCTriggerCalib::unconfigure all pFEBs");
       for (auto & pfeb: m_pfebs)
-          configure_vmms(pfeb, 0);
+          configure_vmms(pfeb, false);
     }
   }
 }

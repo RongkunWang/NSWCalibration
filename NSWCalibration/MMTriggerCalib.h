@@ -31,22 +31,22 @@ namespace nsw {
   class MMTriggerCalib: public CalibAlg {
 
   public:
-    MMTriggerCalib(std::string calibType);
-    ~MMTriggerCalib() {};
-    void setup(std::string db);
-    void configure();
-    void unconfigure();
+    MMTriggerCalib(const std::string& calibType);
+    virtual ~MMTriggerCalib() = default;
+    void setup(const std::string& db) override;
+    void configure() override;
+    void unconfigure() override;
 
   public:
-    boost::property_tree::ptree patterns();
+    boost::property_tree::ptree patterns() const;
     template <class T>
-      std::vector<T> make_objects(std::string cfg, std::string element_type, std::string name = "");
-    int pattern_number(std::string name);
-    int configure_febs_from_ptree(boost::property_tree::ptree tr, bool unmask);
-    int configure_addcs_from_ptree(boost::property_tree::ptree tr);
-    int configure_vmms(nsw::FEBConfig feb, boost::property_tree::ptree febpatt, bool unmask);
-    int configure_art_input_phase(nsw::ADDCConfig addc, uint phase);
-    int configure_tps(boost::property_tree::ptree tr);
+      std::vector<T> make_objects(const std::string& cfg, std::string element_type, std::string name = "");
+    int pattern_number(const std::string& name) const;
+    int configure_febs_from_ptree(const boost::property_tree::ptree& tr, bool unmask);
+    int configure_addcs_from_ptree(const boost::property_tree::ptree& tr);
+    int configure_vmms(nsw::FEBConfig feb, const boost::property_tree::ptree& febpatt, bool unmask) const;
+    int configure_art_input_phase(nsw::ADDCConfig addc, uint phase) const;
+    int configure_tps(const boost::property_tree::ptree& tr);
     int addc_tp_watchdog();
 
     //
@@ -61,10 +61,10 @@ namespace nsw {
     //
     // https://espace.cern.ch/ATLAS-NSW-ELX/Shared%20Documents/ART/art2_registers_v.xlsx
     //
-    std::vector<int> read_art_counters(const nsw::ADDCConfig& addc, int art);
+    std::vector<int> read_art_counters(const nsw::ADDCConfig& addc, int art) const;
     int wait_until_done();
-    int announce(std::string name, boost::property_tree::ptree tr, bool unmask);
-    std::string strf_time();
+    int announce(const std::string& name, const boost::property_tree::ptree& tr, bool unmask) const;
+    std::string strf_time() const;
 
   private:
     std::string                    m_calibType = "";
@@ -74,17 +74,17 @@ namespace nsw {
     std::vector<nsw::TPConfig>     m_tps    = {};
     std::vector<int>               m_phases = {};
 
-    bool m_connectivity = 0;
-    bool m_tracks = 0;
-    bool m_noise = 0;
-    bool m_latency = 0;
-    bool m_staircase = 0;
-    bool m_dry_run = 0;
-    bool m_reset_vmm = 0;
+    bool m_connectivity = false;
+    bool m_tracks = false;
+    bool m_noise = false;
+    bool m_latency = false;
+    bool m_staircase = false;
+    bool m_dry_run = false;
+    bool m_reset_vmm = false;
     boost::property_tree::ptree m_patterns;
-    std::unique_ptr< std::vector< std::future<int> > > m_threads = 0;
+    std::unique_ptr<std::vector<std::future<int> > > m_threads = nullptr;
     std::future<int> m_watchdog;
-    std::atomic<bool> m_tpscax_busy = 0;
+    mutable std::atomic<bool> m_tpscax_busy = false;
 
     std::unique_ptr<TFile> m_art_rfile;
     std::shared_ptr<TTree> m_art_rtree;
@@ -93,7 +93,7 @@ namespace nsw {
     std::string m_art_now;
     int m_art_event;
     int m_art_index;
-    std::unique_ptr< std::vector<int> > m_art_hits;
+    std::unique_ptr<std::vector<int> > m_art_hits;
 
   };
 

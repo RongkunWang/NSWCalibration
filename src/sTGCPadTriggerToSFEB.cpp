@@ -10,16 +10,16 @@
 
 #include "ers/ers.h"
 
-nsw::sTGCPadTriggerToSFEB::sTGCPadTriggerToSFEB(std::string calibType) {
+nsw::sTGCPadTriggerToSFEB::sTGCPadTriggerToSFEB(const std::string& calibType) {
   setCounter(-1);
   setTotal(0);
   m_calibType = calibType;
 }
 
-void nsw::sTGCPadTriggerToSFEB::setup(std::string db) {
+void nsw::sTGCPadTriggerToSFEB::setup(const std::string& db) {
   ERS_INFO("setup " << db);
 
-  m_dry_run = 0;
+  m_dry_run = false;
 
   // parse calib type
   if (m_calibType=="sTGCPadTriggerToSFEB") {
@@ -53,14 +53,14 @@ void nsw::sTGCPadTriggerToSFEB::setup(std::string db) {
 
   // keep it simple
   setTotal(1);
-  setToggle(0);
-  setWait4swROD(0);
+  setToggle(false);
+  setWait4swROD(false);
   usleep(1e6);
 }
 
 void nsw::sTGCPadTriggerToSFEB::configure() {
   ERS_INFO("sTGCPadTriggerToSFEB::configure " << counter());
-  int seconds = 600;
+  constexpr int seconds = 600;
   for (int second = 0; second < seconds; second++) {
     usleep(1e6);
     ERS_INFO("sTGCPadTriggerToSFEB::sleeping " << second+1 << " / " << seconds);
@@ -86,7 +86,7 @@ void nsw::sTGCPadTriggerToSFEB::unconfigure() {
   usleep(1e6);
 }
 
-int nsw::sTGCPadTriggerToSFEB::sfeb_watchdog() {
+int nsw::sTGCPadTriggerToSFEB::sfeb_watchdog() const {
   //
   // read sTDS monitoring registers
   //
@@ -96,7 +96,7 @@ int nsw::sTGCPadTriggerToSFEB::sfeb_watchdog() {
   }
 
   // sleep time
-  size_t slp = 1e6;
+  constexpr size_t slp = 1e6;
 
   // output file and announce
   std::string fname = "sfeb_register15_" + strf_time() + ".txt";
@@ -135,18 +135,18 @@ int nsw::sTGCPadTriggerToSFEB::sfeb_watchdog() {
   return 0;
 }
 
-std::vector<uint32_t> nsw::sTGCPadTriggerToSFEB::sfeb_register15(const nsw::FEBConfig & feb) {
+std::vector<uint32_t> nsw::sTGCPadTriggerToSFEB::sfeb_register15(const nsw::FEBConfig & feb) const {
   auto cs = std::make_unique<nsw::ConfigSender>();
   auto opc_ip   = feb.getOpcServerIp();
   auto sca_addr = feb.getAddress();
   auto regs     = std::vector<uint32_t>();
   for (auto tds : feb.getTdss()) {
-    std::string address_to_read("register15");
-    std::string tds_i2c_address("register15_READONLY");
-    std::string full_node_name = sca_addr + "." + tds.getName()  + "." + address_to_read;
+    const std::string address_to_read("register15");
+    const std::string tds_i2c_address("register15_READONLY");
+    const std::string full_node_name = sca_addr + "." + tds.getName()  + "." + address_to_read;
     auto size_in_bytes = tds.getTotalSize(tds_i2c_address) / 8;
     std::vector<uint8_t> dataread(size_in_bytes);
-    size_t attempts = 5;
+    constexpr size_t attempts = 5;
     for (size_t attempt = 0; attempt < attempts; attempt++) {
       try {
         if (!m_dry_run)
@@ -168,7 +168,7 @@ std::vector<uint32_t> nsw::sTGCPadTriggerToSFEB::sfeb_register15(const nsw::FEBC
   return regs;
 }
 
-std::string nsw::sTGCPadTriggerToSFEB::strf_time() {
+std::string nsw::sTGCPadTriggerToSFEB::strf_time() const {
     std::stringstream ss;
     std::string out;
     std::time_t result = std::time(nullptr);

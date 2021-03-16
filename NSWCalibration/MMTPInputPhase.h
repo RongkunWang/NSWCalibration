@@ -28,16 +28,16 @@ namespace nsw {
   class MMTPInputPhase: public CalibAlg {
 
   public:
-    MMTPInputPhase(std::string calibType);
-    ~MMTPInputPhase() {};
-    void setup(std::string db);
-    void configure();
-    void unconfigure();
+    MMTPInputPhase(const std::string& calibType);
+    virtual ~MMTPInputPhase() = default;
+    void setup(const std::string& db) override;
+    void configure() override;
+    void unconfigure() override;
 
   public:
-    int configure_tp(const nsw::TPConfig & tp, int phase, int offset);
+    int configure_tp(const nsw::TPConfig & tp, int phase, int offset) const;
     int read_tp     (const nsw::TPConfig & tp, int phase, int offset);
-    std::string strf_time();
+    std::string strf_time() const;
 
   private:
     /// output text file of TP SCAX reads
@@ -54,13 +54,13 @@ namespace nsw {
     std::unique_ptr< std::vector<int> > m_fiber;
 
     /// number of times to read the TP SCAX registers
-    const int m_nreads = 20;
+    static constexpr int m_nreads = 20;
 
     /// number of input phases available (register 0x0B)
-    const int m_nphases = 8;
+    static constexpr int m_nphases = 8;
 
     /// number of input phase-offsets available (register 0x0C)
-    const int m_noffsets = 8;
+    static constexpr int m_noffsets = 8;
 
     std::string m_calibType;
     std::vector<nsw::TPConfig> m_tps;

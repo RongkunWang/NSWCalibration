@@ -6,9 +6,6 @@
 
 #include "NSWCalibration/CalibrationMath.h"
 
-nsw::CalibrationMath::CalibrationMath(){
-}
-
 float nsw::CalibrationMath::take_median(std::vector<float> &v){
   size_t n = v.size() / 2;
   std::nth_element(v.begin(), v.begin()+n, v.end());
@@ -125,9 +122,7 @@ float nsw::CalibrationMath::take_rms(std::vector<short unsigned int> &v, float m
 }
 
 bool nsw::CalibrationMath::check_channel(float ch_baseline_med, float ch_baseline_rms, float vmm_baseline_med, bool stgc){
-  if (sample_to_mV(ch_baseline_rms, stgc) > nsw::ref_val::RmsCutoff/*RMS_CUTOFF*/)
-    return false;
-  return true;
+  return ! (sample_to_mV(ch_baseline_rms, stgc) > nsw::ref_val::RmsCutoff/*RMS_CUTOFF*/);
 }
 
 std::pair<float,float> nsw::CalibrationMath::get_slopes(float ch_lo,
@@ -146,7 +141,5 @@ std::pair<float,float> nsw::CalibrationMath::get_slopes(float ch_lo,
 }
 
 bool nsw::CalibrationMath::check_slopes(float m1, float m2, float slope_check_val){
-  if ( fabs(m1 - m2) > slope_check_val/*SLOPE_CHECK*/ )
-    return false;
-  return true;
+  return ! ( fabs(m1 - m2) > slope_check_val/*SLOPE_CHECK*/ );
 }

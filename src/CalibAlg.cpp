@@ -11,7 +11,7 @@ nsw::CalibAlg::CalibAlg() {
   setTotal(0);
 }
 
-void nsw::CalibAlg::setup(std::string db) {
+void nsw::CalibAlg::setup(const std::string& db) {
   ERS_INFO("setup");
 }
 

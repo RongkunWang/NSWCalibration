@@ -22,7 +22,7 @@ nsw::NSWCalibRc::NSWCalibRc(bool simulation):m_simulation {simulation} {
     ERS_LOG("Constructing NSWCalibRc instance");
     if (m_simulation) {
         ERS_INFO("Running in simulation mode, no configuration will be sent");
-        m_simulation_lock = 1;
+        m_simulation_lock = true;
     }
 }
 
@@ -86,7 +86,7 @@ void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd& cmd) {
 
 void nsw::NSWCalibRc::prepareForRun(const daq::rc::TransitionCmd& cmd) {
     ERS_LOG("Start");
-    end_of_run = 0;
+    end_of_run = false;
     handler_thread = std::async(std::launch::async, &nsw::NSWCalibRc::handler, this);
     ERS_LOG("End");
 }
@@ -104,7 +104,7 @@ void nsw::NSWCalibRc::unconfigure(const daq::rc::TransitionCmd& cmd) {
 
 void nsw::NSWCalibRc::stopRecording(const daq::rc::TransitionCmd& cmd) {
     ERS_LOG("Start");
-    end_of_run = 1;
+    end_of_run = true;
     ERS_LOG("End");
 }
 
@@ -220,8 +220,8 @@ void nsw::NSWCalibRc::alti_toggle_pattern() {
 }
 
 void nsw::NSWCalibRc::alti_setup() {
-  alti_monitoring(1);
-  alti_pg_duration(1);
+  alti_monitoring(true);
+  alti_pg_duration(true);
   if (alti_monitoring() != "") {
     m_rec = new ISInfoReceiver(m_ipcpartition, false);
     m_rec->subscribe(alti_monitoring(), &nsw::NSWCalibRc::alti_callback);
@@ -379,8 +379,8 @@ void nsw::NSWCalibRc::wait4swrod() {
     return;
   ISInfoInt counter(-1);
   ERS_INFO("calib waiting for swROD...");
-  int attempt_i = 0;
-  int attempts_max = 5;
+  size_t attempt_i = 0;
+  constexpr size_t attempts_max = 5;
   while (counter.getValue() != calib->counter()) {
     try {
       is_dictionary->getValue(m_calibCounter_readback, counter);
@@ -438,7 +438,7 @@ bool nsw::NSWCalibRc::simulationFromIS() {
     ERS_INFO("Simulation from IS: " << val);
     return val;
   }
-  return 0;
+  return false;
 }
 
 uint32_t nsw::NSWCalibRc::runNumberFromIS() {

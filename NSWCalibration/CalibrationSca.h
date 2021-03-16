@@ -16,8 +16,8 @@ namespace nsw{
   class CalibrationSca{
 
   public:
-    CalibrationSca();
-    ~CalibrationSca() {};
+    CalibrationSca() = default;
+    virtual ~CalibrationSca() = default;
 
     void read_config(std::string config_filename,
                      std::string fe_name,

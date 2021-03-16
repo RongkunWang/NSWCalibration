@@ -1707,13 +1707,13 @@ void nsw::CalibrationSca::merge_json(std::string & mod_json, std::string io_conf
   //---------------------------------------------------------------------
   std::vector <std::string> in_files;
   //------------ filling file name vector --------------------------
-  DIR *dir=NULL;
-  struct dirent *ent=NULL;
+  DIR *dir=nullptr;
+  struct dirent *ent=nullptr;
   dir = opendir(json_dir.c_str()); // make sure there is a propper path specified to generated MMFE children node files
 
   std::printf("Reading json file directory, omitting swaps and dots ...\n");    //debug msg
   char s = '.';
-  if(dir!=NULL)
+  if(dir!=nullptr)
     {
       while(ent = readdir(dir))
         {

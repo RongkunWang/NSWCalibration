@@ -5,40 +5,40 @@
 
 #include <vector>
 
-namespace nsw{
+namespace nsw {
 
-  class CalibrationMath{
+  class CalibrationMath {
 
   public:
-    CalibrationMath();
-    ~CalibrationMath() {};
+    CalibrationMath() = default;
+    ~CalibrationMath() = default;
 
-    float take_median(std::vector<short unsigned int> &v);
+    static float take_median(std::vector<short unsigned int> &v);
 
-    float take_mode(std::vector<short unsigned int> &v);
+    static float take_mode(std::vector<short unsigned int> &v);
 
-    float take_median(std::vector<float> &v);
+    static float take_median(std::vector<float> &v);
 
-    float take_rms(std::vector<short unsigned int> &v, float mean);
+    static float take_rms(std::vector<short unsigned int> &v, float mean);
 
-    float take_rms(std::vector<float> &v, float mean);
+    static float take_rms(std::vector<float> &v, float mean);
 
-    float sample_to_mV(float sample, bool stgc);
+    static float sample_to_mV(float sample, bool stgc);
 
-    float sample_to_mV(short unsigned int sample, bool stgc);
+    static float sample_to_mV(short unsigned int sample, bool stgc);
 
-    float mV_to_sample(float mV_read, bool stgc);
+    static float mV_to_sample(float mV_read, bool stgc);
 
-    bool check_channel(float ch_baseline_med, float ch_baseline_rms, float vmm_baseline_med, bool stgc);
+    static bool check_channel(float ch_baseline_med, float ch_baseline_rms, float vmm_baseline_med, bool stgc);
 
-    bool check_slopes(float m1, float m2, float slope_check_val);
+    static bool check_slopes(float m1, float m2, float slope_check_val);
 
-    std::pair<float,float> get_slopes(float ch_lo,
-                                      float ch_mid,
-                                      float ch_hi,
-                                      int trim_hi, /*= TrimHiTRIM_HI*/
-                                      int trim_mid, /*= TrimMidTRIM_MID*/
-                                      int trim_lo/* = TrimLoTRIM_LO*/);
+    static std::pair<float,float> get_slopes(float ch_lo,
+                                             float ch_mid,
+                                             float ch_hi,
+                                             int trim_hi, /*= TrimHiTRIM_HI*/
+                                             int trim_mid, /*= TrimMidTRIM_MID*/
+                                             int trim_lo/* = TrimLoTRIM_LO*/);
 
   };
 
