@@ -17,6 +17,7 @@ tdaq_add_library(nswcalibdal DAL
 
 #--------- nswcalibration lib -----------------------
 tdaq_add_library(nswcalib
+    src/Utility.cpp
     src/CalibrationMath.cpp
     src/CalibrationSca.cpp
     src/CalibAlg.cpp

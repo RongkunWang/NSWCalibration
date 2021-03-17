@@ -9,9 +9,11 @@
 #include <thread>
 #include <future>
 #include <chrono>
+
 #include "NSWConfiguration/ConfigReader.h"
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/Utility.h"
+
 #include "boost/program_options.hpp"
 
 namespace po = boost::program_options;
@@ -25,7 +27,6 @@ int configure_vmm(nsw::ConfigSender* cs, nsw::FEBConfig feb, int vmm_id);
 std::vector<nsw::FEBConfig>  parse_feb_name (std::string name, std::string cfg);
 //std::vector<nsw::ADDCConfig> parse_addc_name(std::string name, std::string cfg);
 std::vector< std::vector< std::tuple<std::string, int, int> > > patterns();
-std::string strf_time();
 
 int main(int argc, const char *argv[])
 {
@@ -225,16 +226,6 @@ int wait_until_fewer(std::vector< std::future<int> >* threads, int max_threads) 
         }
     }
     return 0;
-}
-
-std::string strf_time() {
-    std::stringstream ss;
-    std::string out;
-    std::time_t result = std::time(nullptr);
-    std::tm tm = *std::localtime(&result);
-    ss << std::put_time(&tm, "%Y_%m_%d_%Hh%Mm%Ss");
-    ss >> out;
-    return out;
 }
 
 std::vector< std::vector< std::tuple<std::string, int, int> > > patterns() {

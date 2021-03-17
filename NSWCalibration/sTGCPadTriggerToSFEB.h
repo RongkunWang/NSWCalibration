@@ -36,7 +36,6 @@ namespace nsw {
   public:
     int sfeb_watchdog() const;
     std::vector<uint32_t> sfeb_register15(const nsw::FEBConfig & feb) const;
-    std::string strf_time() const;
 
   private:
     bool m_dry_run = false;

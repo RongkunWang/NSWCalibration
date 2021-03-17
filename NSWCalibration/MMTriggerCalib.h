@@ -64,7 +64,6 @@ namespace nsw {
     std::vector<int> read_art_counters(const nsw::ADDCConfig& addc, int art) const;
     int wait_until_done();
     int announce(const std::string& name, const boost::property_tree::ptree& tr, bool unmask) const;
-    std::string strf_time() const;
 
   private:
     std::string                    m_calibType = "";

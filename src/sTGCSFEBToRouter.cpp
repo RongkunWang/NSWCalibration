@@ -1,4 +1,5 @@
 #include "NSWCalibration/sTGCSFEBToRouter.h"
+#include "NSWCalibration/Utility.h"
 
 #include "NSWConfiguration/ConfigReader.h"
 #include "NSWConfiguration/ConfigSender.h"
@@ -179,7 +180,7 @@ int nsw::sTGCSFEBToRouter::router_watchdog() const {
   size_t slp = 1e5;
 
   // output file and announce
-  std::string fname = "router_ClkReady_" + strf_time() + ".txt";
+  std::string fname = "router_ClkReady_" + nsw::calib::utils::strf_time() + ".txt";
   std::ofstream myfile;
   myfile.open(fname);
   ERS_INFO("Router ClkReady watchdog. Output: " << fname << ". Sleep: " << slp << "s");
@@ -187,7 +188,7 @@ int nsw::sTGCSFEBToRouter::router_watchdog() const {
   // monitor
   auto threads = std::make_unique<std::vector< std::future<bool> > >();
   while (counter() < total()) {
-    myfile << "Time " << strf_time() << std::endl;
+    myfile << "Time " << nsw::calib::utils::strf_time() << std::endl;
     for (auto & router : m_routers)
       threads->push_back( std::async(std::launch::async,
                                      &nsw::sTGCSFEBToRouter::router_ClkReady,
@@ -217,14 +218,4 @@ bool nsw::sTGCSFEBToRouter::router_ClkReady(const nsw::RouterConfig & router) co
   auto rx_val   = m_dry_run ? false : cs->readGPIO(opc_ip, rx_addr);
   auto tx_val   = m_dry_run ? false : cs->readGPIO(opc_ip, tx_addr);
   return rx_val && tx_val;
-}
-
-std::string nsw::sTGCSFEBToRouter::strf_time() const {
-    std::stringstream ss;
-    std::string out;
-    std::time_t result = std::time(nullptr);
-    std::tm tm = *std::localtime(&result);
-    ss << std::put_time(&tm, "%Y_%m_%d_%Hh%Mm%Ss");
-    ss >> out;
-    return out;
 }

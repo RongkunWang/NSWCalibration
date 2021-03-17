@@ -1,4 +1,5 @@
 #include "NSWCalibration/MMTriggerCalib.h"
+#include "NSWCalibration/Utility.h"
 
 #include "NSWConfiguration/ConfigReader.h"
 #include "NSWConfiguration/ConfigSender.h"
@@ -608,16 +609,6 @@ ptree nsw::MMTriggerCalib::patterns() const {
   return patts;
 }
 
-std::string nsw::MMTriggerCalib::strf_time() const {
-  std::stringstream ss;
-  std::string out;
-  std::time_t result = std::time(nullptr);
-  std::tm tm = *std::localtime(&result);
-  ss << std::put_time(&tm, "%Y_%m_%d_%Hh%Mm%Ss");
-  ss >> out;
-  return out;
-}
-
 int nsw::MMTriggerCalib::addc_tp_watchdog() {
   //
   // Be forewarned: this function reads TP SCAX registers.
@@ -640,7 +631,7 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
   auto regAddrVec = nsw::hexStringToByteVector("0x02", 4, true);
 
   // output file and announce
-  auto now = strf_time();
+  auto now = nsw::calib::utils::strf_time();
   std::string rname = "addc_alignment."
     + std::to_string(runNumber()) + "." + applicationName() + "." + now + ".root";
   ERS_INFO("ADDC-TP watchdog. Output: " << rname << ". Sleep: " << slp << "s");
@@ -659,7 +650,7 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
   // monitor
   try {
     while (counter() < total()) {
-      now = strf_time();
+      now = nsw::calib::utils::strf_time();
       addc_address->clear();
       art_name    ->clear();
       art_fiber   ->clear();
@@ -706,13 +697,13 @@ int nsw::MMTriggerCalib::read_arts_counters() {
     if (counter() == 0) {
       // file and tree
       std::string rname_hit = "art_counters."
-        + std::to_string(runNumber()) + "." + applicationName() + "." + strf_time() + ".root";
+        + std::to_string(runNumber()) + "." + applicationName() + "." + nsw::calib::utils::strf_time() + ".root";
       m_art_rfile = std::make_unique< TFile >(rname_hit.c_str(), "recreate");
       m_art_rtree = std::make_shared< TTree >("nsw", "nsw");
       ERS_INFO("ART hit counter. Output: "  << rname_hit);
 
       // branches
-      m_art_now = strf_time();
+      m_art_now = nsw::calib::utils::strf_time();
       m_art_event    = -1;
       m_addc_address = "";
       m_art_name     = "";
@@ -738,7 +729,7 @@ int nsw::MMTriggerCalib::read_arts_counters() {
       std::vector< std::future< std::vector<int> > >
       >();
     m_art_event = counter();
-    m_art_now   = strf_time();
+    m_art_now   = nsw::calib::utils::strf_time();
 
     // launch reader threads
     // https://its.cern.ch/jira/browse/OPCUA-2188

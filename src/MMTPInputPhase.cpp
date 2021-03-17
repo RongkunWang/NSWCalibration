@@ -1,4 +1,5 @@
 #include "NSWCalibration/MMTPInputPhase.h"
+#include "NSWCalibration/Utility.h"
 
 #include "NSWConfiguration/ConfigReader.h"
 #include "NSWConfiguration/ConfigSender.h"
@@ -33,7 +34,7 @@ void nsw::MMTPInputPhase::setup(const std::string& db) {
   ERS_INFO("Found " << m_tps.size() << " MMTPs");
 
   // make output
-  m_now = strf_time();
+  m_now = nsw::calib::utils::strf_time();
   std::string rname = "tpscax." + std::to_string(runNumber()) + "."
     + applicationName() + "." + m_now + ".root";
   m_phase  = 0;
@@ -143,8 +144,8 @@ int nsw::MMTPInputPhase::read_tp(const nsw::TPConfig & tp, int phase, int offset
   }
 
   // write the header
-  m_myfile << strf_time() << " " << phase << " " << offset << " ";
-  m_now    = strf_time();
+  m_myfile << nsw::calib::utils::strf_time() << " " << phase << " " << offset << " ";
+  m_now    = nsw::calib::utils::strf_time();
   m_phase  = phase;
   m_offset = offset;
 
@@ -190,14 +191,4 @@ int nsw::MMTPInputPhase::read_tp(const nsw::TPConfig & tp, int phase, int offset
   }
 
   return 0;
-}
-
-std::string nsw::MMTPInputPhase::strf_time() const {
-    std::stringstream ss;
-    std::string out;
-    std::time_t result = std::time(nullptr);
-    std::tm tm = *std::localtime(&result);
-    ss << std::put_time(&tm, "%Y_%m_%d_%Hh%Mm%Ss");
-    ss >> out;
-    return out;
 }

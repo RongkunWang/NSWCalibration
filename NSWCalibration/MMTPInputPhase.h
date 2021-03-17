@@ -37,7 +37,6 @@ namespace nsw {
   public:
     int configure_tp(const nsw::TPConfig & tp, int phase, int offset) const;
     int read_tp     (const nsw::TPConfig & tp, int phase, int offset);
-    std::string strf_time() const;
 
   private:
     /// output text file of TP SCAX reads

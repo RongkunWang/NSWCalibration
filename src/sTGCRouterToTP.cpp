@@ -73,13 +73,3 @@ int nsw::sTGCRouterToTP::configure_router(const nsw::RouterConfig & router, int 
     }
     return 0;
 }
-
-std::string nsw::sTGCRouterToTP::strf_time() const {
-    std::stringstream ss;
-    std::string out;
-    std::time_t result = std::time(nullptr);
-    std::tm tm = *std::localtime(&result);
-    ss << std::put_time(&tm, "%Y_%m_%d_%Hh%Mm%Ss");
-    ss >> out;
-    return out;
-}

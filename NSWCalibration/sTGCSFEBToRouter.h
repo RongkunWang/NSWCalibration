@@ -46,7 +46,6 @@ namespace nsw {
     int pattern_number(const std::string& name) const;
     int router_watchdog() const;
     bool router_ClkReady(const nsw::RouterConfig & router) const;
-    std::string strf_time() const;
 
   private:
     bool m_dry_run = false;

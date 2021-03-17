@@ -1,4 +1,5 @@
 #include "NSWCalibration/sTGCPadTriggerToSFEB.h"
+#include "NSWCalibration/Utility.h"
 
 #include "NSWConfiguration/ConfigReader.h"
 #include "NSWConfiguration/ConfigSender.h"
@@ -99,7 +100,7 @@ int nsw::sTGCPadTriggerToSFEB::sfeb_watchdog() const {
   constexpr size_t slp = 1e6;
 
   // output file and announce
-  std::string fname = "sfeb_register15_" + strf_time() + ".txt";
+  std::string fname = "sfeb_register15_" + nsw::calib::utils::strf_time() + ".txt";
   std::ofstream myfile;
   myfile.open(fname);
   ERS_INFO("SFEB watchdog. Output: " << fname << ". Sleep: " << slp/1e3 << "ms");
@@ -108,7 +109,7 @@ int nsw::sTGCPadTriggerToSFEB::sfeb_watchdog() const {
   // pointer < sfebs < threads < tds < register15 > > > >
   auto threads = std::make_unique<std::vector< std::future< std::vector<uint32_t> > > >();
   while (counter() < total()) {
-    myfile << "Time " << strf_time() << std::endl;
+    myfile << "Time " << nsw::calib::utils::strf_time() << std::endl;
     for (auto & feb : m_sfebs)
       threads->push_back( std::async(std::launch::async,
                                      &nsw::sTGCPadTriggerToSFEB::sfeb_register15,
@@ -166,14 +167,4 @@ std::vector<uint32_t> nsw::sTGCPadTriggerToSFEB::sfeb_register15(const nsw::FEBC
     }
   }
   return regs;
-}
-
-std::string nsw::sTGCPadTriggerToSFEB::strf_time() const {
-    std::stringstream ss;
-    std::string out;
-    std::time_t result = std::time(nullptr);
-    std::tm tm = *std::localtime(&result);
-    ss << std::put_time(&tm, "%Y_%m_%d_%Hh%Mm%Ss");
-    ss >> out;
-    return out;
 }

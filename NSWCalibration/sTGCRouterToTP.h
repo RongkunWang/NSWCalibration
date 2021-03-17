@@ -33,7 +33,6 @@ namespace nsw {
 
   public:
     int configure_router(const nsw::RouterConfig & router, int hold_reset) const;
-    std::string strf_time() const;
 
   private:
     bool m_dry_run = false;
