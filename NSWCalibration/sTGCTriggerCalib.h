@@ -36,16 +36,16 @@ namespace nsw {
     int latencyscan_current() {return latencyscan_offset() + counter();}
     bool order_pfebs()        {return m_order_pfebs;}
     void gather_pfebs();
+    void set_latencyscan_offset(int val) {m_offset_for_latency = val;}
+    void set_latencyscan_nbc(int val)    {m_nbc_for_latency    = val;}
 
   private:
-    bool m_dry_run;
     bool m_order_pfebs = 1;
-    int m_offset_for_latency = 27;
-    int m_nbc_for_latency = 7;
+    int m_offset_for_latency = 0;
+    int m_nbc_for_latency = 0;
     std::string m_calibType = "";
     std::vector<nsw::FEBConfig> m_pfebs = {};
     std::vector<nsw::PadTriggerSCAConfig> m_pts = {};
-    std::map<std::string, std::unique_ptr<nsw::ConfigSender> > m_senders = {};
     std::vector<std::string> m_pfebs_ordered = {};
 
   };
