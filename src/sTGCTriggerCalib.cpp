@@ -173,7 +173,7 @@ void nsw::sTGCTriggerCalib::gather_pfebs() {
     firmware = pt.firmware();
     break;
   }
-  ERS_INFO("Gather pFEBs: found firmware " << partition);
+  ERS_INFO("Gather pFEBs: found firmware " << firmware);
   if (partition.find("VS") != std::string::npos) {
     // VS
     ERS_INFO("Gather pFEBs: VS pFEBs");
