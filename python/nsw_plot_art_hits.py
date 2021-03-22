@@ -1,3 +1,7 @@
+"""
+To setup the environment, try:
+setupATLAS && lsetup 'views LCG_98python3 x86_64-centos7-gcc8-opt'
+"""
 import argparse
 import os
 import sys
