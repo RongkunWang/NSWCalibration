@@ -320,7 +320,7 @@ ptree nsw::MMTriggerCalib::patterns() {
     //
     // cable noise loop: no patterns
     //
-    int npatts = 1000;
+    int npatts = 500;
     for (int i = 0; i < npatts; i++) {
       ptree feb_patt;
       ptree top_patt;

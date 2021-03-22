@@ -77,4 +77,8 @@ tdaq_add_executable(nsw_art_hit_counters app/art_hit_counters.cpp
   LINK_LIBRARIES nswcalib tdaq-common::ers Boost::program_options
 )
 
+tdaq_add_executable(nsw_mmtp_diagnostics app/mmtp_diagnostics.cpp
+  LINK_LIBRARIES nswcalib tdaq-common::ers Boost::program_options
+)
+
 tdaq_add_schema(schema/NSWCalib.schema.xml)
