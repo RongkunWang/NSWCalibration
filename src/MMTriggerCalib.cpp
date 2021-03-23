@@ -626,6 +626,9 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
     for (auto art : addc.getARTs())
       tps.emplace(std::make_pair(art.getOpcServerIp_TP(), art.getOpcNodeId_TP()));
   auto regAddrVec = nsw::hexStringToByteVector("0x02", 4, true);
+  std::vector<std::string> bxlsb  = {"0x04", "0x05", "0x06", "0x07"};
+  std::vector<uint8_t> data_bcids = {0x55, 0x55, 0x55, 0x55};
+  std::vector<uint8_t> data_bcids_total = {};
 
   // output file and announce
   auto now = strf_time();
@@ -638,11 +641,13 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
   auto art_name     = std::make_unique< std::vector<std::string> >();
   auto art_fiber    = std::make_unique< std::vector<int> >();
   auto art_aligned  = std::make_unique< std::vector<int> >();
+  auto art_bcid     = std::make_unique< std::vector<int> >();
   rtree->Branch("time",         &now);
   rtree->Branch("addc_address", addc_address.get());
   rtree->Branch("art_name",     art_name.get());
   rtree->Branch("art_fiber",    art_fiber.get());
   rtree->Branch("art_aligned",  art_aligned.get());
+  rtree->Branch("art_bcid",     art_bcid.get());
 
   // monitor
   try {
@@ -658,15 +663,24 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
         m_tpscax_busy = 1;
         auto outdata = m_dry_run ? std::vector<uint8_t>(4) :
           cs.readI2cAtAddress(tp.first, tp.second, regAddrVec.data(), regAddrVec.size(), 4);
+        for (auto reg : bxlsb) {
+          auto bxdata = nsw::hexStringToByteVector(reg, 4, true);
+          if (!m_dry_run)
+            data_bcids = cs.readI2cAtAddress(tp.first, tp.second, bxdata.data(), bxdata.size(), 4);
+          for (auto byte : data_bcids)
+            data_bcids_total.push_back(byte);
+        }
         m_tpscax_busy = 0;
         for (auto & addc : m_addcs) {
           for (auto art : addc.getARTs()) {
             if (art.IsMyTP(tp.first, tp.second)) {
               auto aligned = art.IsAlignedWithTP(outdata);
+              auto tpbcid  = art.BcidFromTp(data_bcids_total);
               addc_address->push_back(addc.getAddress());
               art_name    ->push_back(art.getName());
               art_fiber   ->push_back(art.TP_GBTxAlignmentBit());
-              art_aligned ->push_back((int)(aligned));
+              art_aligned ->push_back(static_cast<int>(aligned));
+              art_bcid    ->push_back(tpbcid);
             }
           }
         }
