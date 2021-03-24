@@ -663,6 +663,7 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
         m_tpscax_busy = 1;
         auto outdata = m_dry_run ? std::vector<uint8_t>(4) :
           cs.readI2cAtAddress(tp.first, tp.second, regAddrVec.data(), regAddrVec.size(), 4);
+        data_bcids_total.clear();
         for (auto reg : bxlsb) {
           auto bxdata = nsw::hexStringToByteVector(reg, 4, true);
           if (!m_dry_run)
