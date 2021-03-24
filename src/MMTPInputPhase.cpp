@@ -1,13 +1,21 @@
 #include "NSWCalibration/MMTPInputPhase.h"
-using boost::property_tree::ptree;
+#include "NSWCalibration/Utility.h"
 
-nsw::MMTPInputPhase::MMTPInputPhase(std::string calibType) {
+#include "NSWConfiguration/ConfigReader.h"
+#include "NSWConfiguration/ConfigSender.h"
+
+#include <unistd.h>
+#include <stdexcept>
+
+#include "ers/ers.h"
+
+nsw::MMTPInputPhase::MMTPInputPhase(const std::string& calibType) {
   setCounter(-1);
   setTotal(0);
   m_calibType = calibType;
 }
 
-void nsw::MMTPInputPhase::setup(std::string db) {
+void nsw::MMTPInputPhase::setup(const std::string& db) {
   ERS_INFO("setup " << db);
 
   // parse calib type
@@ -26,7 +34,7 @@ void nsw::MMTPInputPhase::setup(std::string db) {
   ERS_INFO("Found " << m_tps.size() << " MMTPs");
 
   // make output
-  m_now = strf_time();
+  m_now = nsw::calib::utils::strf_time();
   std::string rname = "tpscax." + std::to_string(runNumber()) + "."
     + applicationName() + "." + m_now + ".root";
   m_phase  = 0;
@@ -45,8 +53,8 @@ void nsw::MMTPInputPhase::setup(std::string db) {
 
   // set number of iterations
   setTotal(m_nreads * m_nphases * m_noffsets);
-  setToggle(1);
-  setWait4swROD(0);
+  setToggle(true);
+  setWait4swROD(false);
   usleep(1e6);
 }
 
@@ -66,10 +74,10 @@ void nsw::MMTPInputPhase::configure() {
   // etc
   //
   ERS_INFO("MMTPInputPhase::configure " << counter());
-  int phase_offset = counter() / m_nreads;
-  int nth_read     = counter() % m_nreads;
-  int phase  = phase_offset / m_noffsets;
-  int offset = phase_offset % m_noffsets;
+  const int phase_offset = counter() / m_nreads;
+  const int nth_read     = counter() % m_nreads;
+  const int phase        = phase_offset / m_noffsets;
+  const int offset       = phase_offset % m_noffsets;
   for (auto & tp : m_tps) {
     if (nth_read == 0)
       configure_tp(tp, phase, offset);
@@ -81,15 +89,15 @@ void nsw::MMTPInputPhase::unconfigure() {
   ERS_INFO("MMTPInputPhase::unconfigure " << counter());
 }
 
-int nsw::MMTPInputPhase::configure_tp(const nsw::TPConfig & tp, int phase, int offset) {
+int nsw::MMTPInputPhase::configure_tp(const nsw::TPConfig & tp, int phase, int offset) const {
     ERS_INFO("Configuring " << tp.getAddress()
            << " with phase=" << phase
            << " and offset=" << offset);
-    uint8_t phreg     = 0x0B;
-    uint8_t offsetreg = 0x0C;
-    auto ip           = tp.getOpcServerIp();
-    auto addr         = tp.getAddress();
-    auto cs = std::make_unique<nsw::ConfigSender>();
+    constexpr uint8_t phreg     = 0x0B;
+    constexpr uint8_t offsetreg = 0x0C;
+    auto ip   = tp.getOpcServerIp();
+    auto addr = tp.getAddress();
+    auto cs   = std::make_unique<nsw::ConfigSender>();
     if (!simulation()) {
       cs->sendI2cAtAddress(ip, addr, {0x00, 0x00, 0x00, phreg},
                            nsw::intToByteVector(phase, 4, true));
@@ -116,11 +124,11 @@ int nsw::MMTPInputPhase::read_tp(const nsw::TPConfig & tp, int phase, int offset
   m_bcid ->clear();
   m_fiber->clear();
 
-  auto fiber_alignment            = nsw::hexStringToByteVector("0x02", 4, true);
-  std::vector<std::string> bxlsb  = {"0x04", "0x05", "0x06", "0x07"};
-  std::vector<uint8_t> data_align = {0x11, 0x11, 0x11, 0x11};
-  std::vector<uint8_t> data_bcids = {0x55, 0x55, 0x55, 0x55};
-  std::vector<uint8_t> data_bcids_total = {}; 
+  auto fiber_alignment                  = nsw::hexStringToByteVector("0x02", 4, true);
+  const std::vector<std::string> bxlsb  = {"0x04", "0x05", "0x06", "0x07"};
+  std::vector<uint8_t> data_align       = {0x11, 0x11, 0x11, 0x11};
+  std::vector<uint8_t> data_bcids       = {0x55, 0x55, 0x55, 0x55};
+  std::vector<uint8_t> data_bcids_total = {};
 
   // read the 32-bit word of fiber alignment
   if (!simulation())
@@ -136,8 +144,8 @@ int nsw::MMTPInputPhase::read_tp(const nsw::TPConfig & tp, int phase, int offset
   }
 
   // write the header
-  m_myfile << strf_time() << " " << phase << " " << offset << " ";
-  m_now    = strf_time();
+  m_myfile << nsw::calib::utils::strf_time() << " " << phase << " " << offset << " ";
+  m_now    = nsw::calib::utils::strf_time();
   m_phase  = phase;
   m_offset = offset;
 
@@ -183,14 +191,4 @@ int nsw::MMTPInputPhase::read_tp(const nsw::TPConfig & tp, int phase, int offset
   }
 
   return 0;
-}
-
-std::string nsw::MMTPInputPhase::strf_time() {
-    std::stringstream ss;
-    std::string out;
-    std::time_t result = std::time(nullptr);
-    std::tm tm = *std::localtime(&result);
-    ss << std::put_time(&tm, "%Y_%m_%d_%Hh%Mm%Ss");
-    ss >> out;
-    return out;
 }

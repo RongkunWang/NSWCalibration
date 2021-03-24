@@ -14,16 +14,25 @@
 //     disable TDS1, TDS2, TDS3
 //
 
-#include <regex>
 #include "NSWCalibration/sTGCStripsTriggerCalib.h"
 
-nsw::sTGCStripsTriggerCalib::sTGCStripsTriggerCalib(std::string calibType) {
+#include "NSWConfiguration/ConfigReader.h"
+#include "NSWConfiguration/ConfigSender.h"
+
+#include <cstdlib>
+#include <unistd.h>
+#include <regex>
+#include <stdexcept>
+
+#include "ers/ers.h"
+
+nsw::sTGCStripsTriggerCalib::sTGCStripsTriggerCalib(const std::string& calibType) {
   setCounter(-1);
   setTotal(0);
   m_calibType = calibType;
 }
 
-void nsw::sTGCStripsTriggerCalib::setup(std::string db) {
+void nsw::sTGCStripsTriggerCalib::setup(const std::string& db) {
   ERS_INFO("setup " << db);
 
   // parse calib type
@@ -62,31 +71,31 @@ void nsw::sTGCStripsTriggerCalib::setup(std::string db) {
   for (auto & name: m_sfebs_ordered)
     for (auto tds: m_tdss)
       if (tds.size() == 1)
-        configure_tds(name, tds, 1, 0);
+        configure_tds(name, tds, true, false);
 
   // set number of loops in the iteration
-  setTotal((int)(m_sfebs_ordered.size() * m_tdss.size()));
-  setToggle(0);
-  setWait4swROD(0);
+  setTotal(static_cast<int>(m_sfebs_ordered.size() * m_tdss.size()));
+  setToggle(false);
+  setWait4swROD(false);
   usleep(1e6);
 }
 
 void nsw::sTGCStripsTriggerCalib::configure() {
   ERS_INFO("sTGCStripsTriggerCalib::configure " << counter());
-  int this_sfeb = counter() / m_tdss.size();
-  int this_tdss = counter() % m_tdss.size();
-  configure_tds(m_sfebs_ordered.at(this_sfeb), m_tdss.at(this_tdss), 0, 1);
+  const int this_sfeb = counter() / m_tdss.size();
+  const int this_tdss = counter() % m_tdss.size();
+  configure_tds(m_sfebs_ordered.at(this_sfeb), m_tdss.at(this_tdss), false, true);
 }
 
 void nsw::sTGCStripsTriggerCalib::unconfigure() {
   ERS_INFO("sTGCStripsTriggerCalib::unconfigure " << counter());
-  int this_sfeb = counter() / m_tdss.size();
-  int this_tdss = counter() % m_tdss.size();
-  configure_tds(m_sfebs_ordered.at(this_sfeb), m_tdss.at(this_tdss), 1, 1);
+  const int this_sfeb = counter() / m_tdss.size();
+  const int this_tdss = counter() % m_tdss.size();
+  configure_tds(m_sfebs_ordered.at(this_sfeb), m_tdss.at(this_tdss), true, true);
 }
 
-int nsw::sTGCStripsTriggerCalib::configure_tds(std::string name,
-                                               std::vector<std::string> tdss,
+int nsw::sTGCStripsTriggerCalib::configure_tds(const std::string& name,
+                                               const std::vector<std::string>& tdss,
                                                bool prbs_e, bool pause) {
   for (auto & sfeb: m_sfebs) {
     if (name == simplified(sfeb.getAddress())) {
@@ -108,24 +117,24 @@ int nsw::sTGCStripsTriggerCalib::configure_tds(std::string name,
   return 0;
 }
 
-int nsw::sTGCStripsTriggerCalib::configure_tds(nsw::FEBConfig feb,
-                                               std::string tds,
+int nsw::sTGCStripsTriggerCalib::configure_tds(const nsw::FEBConfig& feb,
+                                               const std::string& tds,
                                                bool prbs_e) {
   auto cs = std::make_unique<nsw::ConfigSender>();
   auto opc_ip = feb.getOpcServerIp();
   auto sca_address = feb.getAddress();
-  bool exists = 0;
+  bool exists = false;
   for (auto tdsi2c : feb.getTdss()) {
     if(tdsi2c.getName() != tds)
       continue;
-    exists = 1;
-    ERS_INFO("Configuring" 
+    exists = true;
+    ERS_INFO("Configuring"
              << " " << opc_ip
              << " " << sca_address
              << " " << tds
              << " -> PRBS_e = " << prbs_e
              );
-    tdsi2c.setRegisterValue("register12", "PRBS_e", (int)(prbs_e));
+    tdsi2c.setRegisterValue("register12", "PRBS_e", static_cast<int>(prbs_e));
     if (!simulation())
       cs->sendI2cMasterSingle(opc_ip, sca_address, tdsi2c, "register12");
   }
@@ -139,8 +148,8 @@ int nsw::sTGCStripsTriggerCalib::configure_tds(nsw::FEBConfig feb,
   return 0;
 }
 
-std::string nsw::sTGCStripsTriggerCalib::simplified(std::string name) {
-  std::string ret = std::string(name);
+std::string nsw::sTGCStripsTriggerCalib::simplified(const std::string& name) const {
+  auto ret = name;
   ret = std::regex_replace(ret, std::regex("SFEB8"), "SFEB");
   ret = std::regex_replace(ret, std::regex("SFEB6"), "SFEB");
   ret = std::regex_replace(ret, std::regex("IPR"),   "IP");
@@ -152,7 +161,7 @@ std::string nsw::sTGCStripsTriggerCalib::simplified(std::string name) {
 
 void nsw::sTGCStripsTriggerCalib::gather_sfebs() {
   auto part = std::getenv("TDAQ_PARTITION");
-  if (!part)
+  if (part == nullptr)
     throw std::runtime_error("Error: TDAQ_PARTITION not defined");
   std::string partition(part);
   ERS_INFO("Gather sFEBs: found partition " << partition);
@@ -209,10 +218,10 @@ std::vector<std::pair <std::string, std::string > > nsw::sTGCStripsTriggerCalib:
   return m_router_recovery_tds;
 }
 
-bool nsw::sTGCStripsTriggerCalib::dont_touch(std::string name, std::string tds) {
+bool nsw::sTGCStripsTriggerCalib::dont_touch(const std::string& name, const std::string& tds) {
   for (auto & sfeb_tds: router_recovery_tds())
     if (sfeb_tds.first == name && sfeb_tds.second == tds)
-      return 1;
-  return 0;
+      return true;
+  return false;
 }
 

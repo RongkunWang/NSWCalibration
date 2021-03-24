@@ -1,16 +1,28 @@
 #include "NSWCalibration/sTGCSFEBToRouter.h"
-using boost::property_tree::ptree;
+#include "NSWCalibration/Utility.h"
 
-nsw::sTGCSFEBToRouter::sTGCSFEBToRouter(std::string calibType) {
+#include "NSWConfiguration/ConfigReader.h"
+#include "NSWConfiguration/ConfigSender.h"
+#include "NSWConfiguration/I2cMasterConfig.h"
+
+#include <cstdlib>
+#include <unistd.h>
+#include <sstream>
+#include <fstream>
+#include <stdexcept>
+
+#include "ers/ers.h"
+
+nsw::sTGCSFEBToRouter::sTGCSFEBToRouter(const std::string& calibType) {
   setCounter(-1);
   setTotal(0);
   m_calibType = calibType;
 }
 
-void nsw::sTGCSFEBToRouter::setup(std::string db) {
+void nsw::sTGCSFEBToRouter::setup(const std::string& db) {
   ERS_INFO("setup " << db);
 
-  m_dry_run = 0;
+  m_dry_run = false;
 
   // parse calib type
   if (m_calibType=="sTGCSFEBToRouter"   ||
@@ -43,8 +55,8 @@ void nsw::sTGCSFEBToRouter::setup(std::string db) {
   // set number of iterations
   gather_sfebs();
   setTotal((int)(m_sfebs_ordered.size()));
-  setToggle(0);
-  setWait4swROD(0);
+  setToggle(false);
+  setWait4swROD(false);
   usleep(1e6);
 }
 
@@ -53,7 +65,7 @@ void nsw::sTGCSFEBToRouter::configure() {
   auto name = m_sfebs_ordered.at(counter());
   for (auto & sfeb: m_sfebs)
     if (sfeb.getAddress().find(name) != std::string::npos)
-      configure_tds(sfeb, 1);
+      configure_tds(sfeb, true);
   configure_routers();
   usleep(15e6);
 }
@@ -63,12 +75,12 @@ void nsw::sTGCSFEBToRouter::unconfigure() {
   auto name = m_sfebs_ordered.at(counter());
   for (auto & sfeb: m_sfebs)
     if (sfeb.getAddress().find(name) != std::string::npos)
-      configure_tds(sfeb, 0);
+      configure_tds(sfeb, false);
   configure_routers();
   usleep(15e6);
 }
 
-int nsw::sTGCSFEBToRouter::configure_routers() {
+int nsw::sTGCSFEBToRouter::configure_routers() const {
     auto threads = std::make_unique<std::vector< std::future<int> > >();
     for (auto & router : m_routers)
         threads->push_back( std::async(std::launch::async,
@@ -80,7 +92,7 @@ int nsw::sTGCSFEBToRouter::configure_routers() {
     return 0;
 }
 
-int nsw::sTGCSFEBToRouter::configure_router(const nsw::RouterConfig & router) {
+int nsw::sTGCSFEBToRouter::configure_router(const nsw::RouterConfig & router) const {
     ERS_INFO("Configuring " << router.getAddress());
     auto cs = std::make_unique<nsw::ConfigSender>();
     if (!m_dry_run)
@@ -88,7 +100,7 @@ int nsw::sTGCSFEBToRouter::configure_router(const nsw::RouterConfig & router) {
     return 0;
 }
 
-int nsw::sTGCSFEBToRouter::configure_tds(const nsw::FEBConfig & feb, bool enable) {
+int nsw::sTGCSFEBToRouter::configure_tds(const nsw::FEBConfig & feb, bool enable) const {
   auto cs = std::make_unique<nsw::ConfigSender>();
   auto opc_ip = feb.getOpcServerIp();
   auto sca_address = feb.getAddress();
@@ -156,7 +168,7 @@ void nsw::sTGCSFEBToRouter::gather_sfebs() {
   }
 }
 
-int nsw::sTGCSFEBToRouter::router_watchdog() {
+int nsw::sTGCSFEBToRouter::router_watchdog() const {
     //
     // Be forewarned: this function reads Router SCA registers.
     // Dont race elsewhere.
@@ -168,7 +180,7 @@ int nsw::sTGCSFEBToRouter::router_watchdog() {
   size_t slp = 1e5;
 
   // output file and announce
-  std::string fname = "router_ClkReady_" + strf_time() + ".txt";
+  std::string fname = "router_ClkReady_" + nsw::calib::utils::strf_time() + ".txt";
   std::ofstream myfile;
   myfile.open(fname);
   ERS_INFO("Router ClkReady watchdog. Output: " << fname << ". Sleep: " << slp << "s");
@@ -176,7 +188,7 @@ int nsw::sTGCSFEBToRouter::router_watchdog() {
   // monitor
   auto threads = std::make_unique<std::vector< std::future<bool> > >();
   while (counter() < total()) {
-    myfile << "Time " << strf_time() << std::endl;
+    myfile << "Time " << nsw::calib::utils::strf_time() << std::endl;
     for (auto & router : m_routers)
       threads->push_back( std::async(std::launch::async,
                                      &nsw::sTGCSFEBToRouter::router_ClkReady,
@@ -197,23 +209,13 @@ int nsw::sTGCSFEBToRouter::router_watchdog() {
   return 0;
 }
 
-bool nsw::sTGCSFEBToRouter::router_ClkReady(const nsw::RouterConfig & router) {
+bool nsw::sTGCSFEBToRouter::router_ClkReady(const nsw::RouterConfig & router) const {
   auto cs = std::make_unique<nsw::ConfigSender>();
   auto opc_ip   = router.getOpcServerIp();
   auto sca_addr = router.getAddress();
   auto rx_addr  = sca_addr + ".gpio." + "rxClkReady";
   auto tx_addr  = sca_addr + ".gpio." + "txClkReady";
-  auto rx_val   = m_dry_run ? 0 : cs->readGPIO(opc_ip, rx_addr);
-  auto tx_val   = m_dry_run ? 0 : cs->readGPIO(opc_ip, tx_addr);
+  auto rx_val   = m_dry_run ? false : cs->readGPIO(opc_ip, rx_addr);
+  auto tx_val   = m_dry_run ? false : cs->readGPIO(opc_ip, tx_addr);
   return rx_val && tx_val;
-}
-
-std::string nsw::sTGCSFEBToRouter::strf_time() {
-    std::stringstream ss;
-    std::string out;
-    std::time_t result = std::time(nullptr);
-    std::tm tm = *std::localtime(&result);
-    ss << std::put_time(&tm, "%Y_%m_%d_%Hh%Mm%Ss");
-    ss >> out;
-    return out;
 }

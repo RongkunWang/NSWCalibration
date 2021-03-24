@@ -1,12 +1,17 @@
 #include "NSWCalibration/CalibAlg.h"
 
+#include <iostream>
+#include <iomanip>
+
+#include "ers/ers.h"
+
 nsw::CalibAlg::CalibAlg() {
   ERS_INFO("CalibAlg::CalibAlg");
   setCounter(-1);
   setTotal(0);
 }
 
-void nsw::CalibAlg::setup(std::string db) {
+void nsw::CalibAlg::setup(const std::string& db) {
   ERS_INFO("setup");
 }
 
