@@ -144,6 +144,9 @@ def plot_last(ttree, names, ofile):
             layer      = nsw_trigger_mapping.addc2layer(addc)
             vmm_global = nsw_trigger_mapping.artchannel2globalvmm(addc, art, artchannel)
             feb_global = int(vmm_global / 8)
+            if hit < 0:
+                print(f"Warning: Layer {layer}, VMM {vmm_global} has negative hits: {hit}. Setting to -1.")
+                hit = -1
             hist_vmm.Fill(vmm_global, layer, hit)
             hist_feb.Fill(feb_global, layer, hit)
 
@@ -311,7 +314,7 @@ def overflow_tex(hist):
     texs = []
     for binx in range(1, hist.GetNbinsX()+1):
         for biny in range(1, hist.GetNbinsY()+1):
-            if hist.GetBinContent(binx, biny) > hist.GetMaximum():
+            if hist.GetBinContent(binx, biny) > hist.GetMaximum() or hist.GetBinContent(binx, biny) < 0:
                 binwidthy = hist.GetYaxis().GetBinWidth(biny)
                 offset    = (binwidthy / 10) if (binx % 2 == 0) else (-binwidthy / 10)
                 texs.append( ROOT.TLatex(hist.GetXaxis().GetBinCenter(binx),
