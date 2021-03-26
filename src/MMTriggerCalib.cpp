@@ -671,7 +671,7 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
           for (auto byte : data_bcids)
             data_bcids_total.push_back(byte);
         }
-        m_tpscax_busy = 0;
+        m_tpscax_busy = false;
         for (auto & addc : m_addcs) {
           for (auto art : addc.getARTs()) {
             if (art.IsMyTP(tp.first, tp.second)) {
