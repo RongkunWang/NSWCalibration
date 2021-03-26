@@ -5,10 +5,15 @@
 // Derived class for all things sTGC trigger calib
 //
 
+#include <string>
+#include <vector>
+
 #include "NSWCalibration/CalibAlg.h"
+
 #include "NSWConfiguration/FEBConfig.h"
 #include "NSWConfiguration/PadTriggerSCAConfig.h"
-using boost::property_tree::ptree;
+
+#include "ers/Issue.h"
 
 ERS_DECLARE_ISSUE(nsw,
                   NSWsTGCTriggerCalibIssue,
@@ -17,30 +22,31 @@ ERS_DECLARE_ISSUE(nsw,
                   )
 
 namespace nsw {
+  class ConfigSender;
 
   class sTGCTriggerCalib: public CalibAlg {
 
   public:
-    sTGCTriggerCalib(std::string calibType);
-    ~sTGCTriggerCalib() {};
-    void setup(std::string db);
-    void configure();
-    void unconfigure();
+    sTGCTriggerCalib(const std::string& calibType);
+    virtual ~sTGCTriggerCalib() = default;
+    void setup(const std::string& db) override;
+    void configure() override;
+    void unconfigure() override;
 
   public:
     int configure_vmms(nsw::FEBConfig feb, bool unmask);
     int configure_pad_trigger();
     std::string next_pfeb(bool pop);
-    int latencyscan_offset()  {return m_offset_for_latency;}
-    int latencyscan_nbc()     {return m_nbc_for_latency;}
-    int latencyscan_current() {return latencyscan_offset() + counter();}
-    bool order_pfebs()        {return m_order_pfebs;}
+    int latencyscan_offset()  const {return m_offset_for_latency;}
+    int latencyscan_nbc()     const {return m_nbc_for_latency;}
+    int latencyscan_current() const {return latencyscan_offset() + counter();}
+    bool order_pfebs()        const {return m_order_pfebs;}
     void gather_pfebs();
     void set_latencyscan_offset(int val) {m_offset_for_latency = val;}
     void set_latencyscan_nbc(int val)    {m_nbc_for_latency    = val;}
 
   private:
-    bool m_order_pfebs = 1;
+    bool m_order_pfebs = true;
     int m_offset_for_latency = 0;
     int m_nbc_for_latency = 0;
     std::string m_calibType = "";

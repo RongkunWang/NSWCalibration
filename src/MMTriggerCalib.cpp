@@ -1,20 +1,39 @@
 #include "NSWCalibration/MMTriggerCalib.h"
+#include "NSWCalibration/Utility.h"
+
+#include "NSWConfiguration/ConfigReader.h"
+#include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/Utility.h"
+#include "NSWConfiguration/Constants.h"
+
+#include <unistd.h>
+#include <iostream>
+#include <regex>
+#include <set>
+#include <sstream>
+#include <stdexcept>
+#include <utility>
+
+#include <boost/property_tree/json_parser.hpp>  // for write_json
+
+#include "ers/ers.h"
+
 #include "TROOT.h"
+
 using boost::property_tree::ptree;
 
-nsw::MMTriggerCalib::MMTriggerCalib(std::string calibType) {
+nsw::MMTriggerCalib::MMTriggerCalib(const std::string& calibType) {
   ROOT::EnableThreadSafety();
   setCounter(-1);
   setTotal(0);
   m_calibType = calibType;
 }
 
-void nsw::MMTriggerCalib::setup(std::string db) {
+void nsw::MMTriggerCalib::setup(const std::string& db) {
   ERS_INFO("setup " << db);
 
-  m_dry_run   = 0;
-  m_reset_vmm = 0;
+  m_dry_run   = false;
+  m_reset_vmm = false;
   m_threads = std::make_unique< std::vector< std::future<int> > >();
   m_threads->clear();
 
@@ -67,11 +86,11 @@ void nsw::MMTriggerCalib::setup(std::string db) {
 
   m_patterns = patterns();
   write_json("test.json", m_patterns);
-  setTotal((int)(m_patterns.size()));
-  setToggle(1);
-  setWait4swROD(0);
+  setTotal(static_cast<int>(m_patterns.size()));
+  setToggle(true);
+  setWait4swROD(false);
   if (m_latency || m_staircase)
-    setToggle(0);
+    setToggle(false);
 
   m_febs   = nsw::ConfigReader::makeObjects<nsw::FEBConfig> (db, "MMFE8");
   m_addcs  = nsw::ConfigReader::makeObjects<nsw::ADDCConfig>(db, "ADDC");
@@ -143,11 +162,11 @@ int nsw::MMTriggerCalib::wait_until_done() {
   return 0;
 }
 
-int nsw::MMTriggerCalib::pattern_number(std::string name) {
+int nsw::MMTriggerCalib::pattern_number(const std::string& name) const {
   return std::stoi( std::regex_replace(name, std::regex("pattern_"), "") );
 }
 
-int nsw::MMTriggerCalib::configure_febs_from_ptree(ptree tr, bool unmask) {
+int nsw::MMTriggerCalib::configure_febs_from_ptree(const ptree& tr, bool unmask) {
   //
   // if unmask and first art phase: send configuration
   // if   mask and  last art phase: send configuration
@@ -184,7 +203,7 @@ int nsw::MMTriggerCalib::configure_febs_from_ptree(ptree tr, bool unmask) {
   return 0;
 }
 
-int nsw::MMTriggerCalib::configure_addcs_from_ptree(ptree tr) {
+int nsw::MMTriggerCalib::configure_addcs_from_ptree(const ptree& tr) {
   std::string name = tr.count("addc") ? tr.get<std::string>("addc") : "";
   if (name != "")
     ERS_INFO("Configuring " << name);
@@ -205,7 +224,7 @@ int nsw::MMTriggerCalib::configure_addcs_from_ptree(ptree tr) {
   return 0;
 }
 
-int nsw::MMTriggerCalib::configure_tps(ptree tr) {
+int nsw::MMTriggerCalib::configure_tps(const ptree& tr) {
   auto latency = tr.get<int>("tp_latency");
   for (auto & tp : m_tps) {
     if (latency != -1)
@@ -213,15 +232,15 @@ int nsw::MMTriggerCalib::configure_tps(ptree tr) {
     auto cs = std::make_unique<nsw::ConfigSender>();
     while (m_tpscax_busy)
       usleep(1e5);
-    m_tpscax_busy = 1;
+    m_tpscax_busy = true;
     if (!m_dry_run)
       cs->sendTpConfig(tp);
-    m_tpscax_busy = 0;
+    m_tpscax_busy = false;
   }
   return 0;
 }
 
-int nsw::MMTriggerCalib::announce(std::string name, ptree tr, bool unmask) {
+int nsw::MMTriggerCalib::announce(const std::string& name, const ptree& tr, bool unmask) const {
   std::cout << " Configure MMFE8s (" << (unmask ? "unmask" : "mask") << ") with " << name << std::endl << std::flush;
   for (auto febkv : tr) {
     std::cout << "  " << febkv.first;
@@ -235,7 +254,7 @@ int nsw::MMTriggerCalib::announce(std::string name, ptree tr, bool unmask) {
   return 0;
 }
 
-int nsw::MMTriggerCalib::configure_vmms(nsw::FEBConfig feb, ptree febpatt, bool unmask) {
+int nsw::MMTriggerCalib::configure_vmms(nsw::FEBConfig feb, const ptree& febpatt, bool unmask) const {
   //
   // Example febpatt ptree:
   // {
@@ -277,7 +296,7 @@ int nsw::MMTriggerCalib::configure_vmms(nsw::FEBConfig feb, ptree febpatt, bool 
   return 0;
 }
 
-int nsw::MMTriggerCalib::configure_art_input_phase(nsw::ADDCConfig addc, uint phase) {
+int nsw::MMTriggerCalib::configure_art_input_phase(nsw::ADDCConfig addc, uint phase) const {
   auto cs = std::make_unique<nsw::ConfigSender>();
   if (m_staircase) {
     ERS_LOG("Writing ADDC config: " << addc.getAddress());
@@ -287,13 +306,13 @@ int nsw::MMTriggerCalib::configure_art_input_phase(nsw::ADDCConfig addc, uint ph
   }
   if (phase > std::pow(2, 4))
     throw std::runtime_error("Gave bad phase to configure_art_input_phase: " + std::to_string(phase));
-  size_t art_size = 2;
+  constexpr size_t art_size = 2;
   uint8_t art_data[] = {0x0, 0x0};
   auto opc_ip   = addc.getOpcServerIp();
   auto sca_addr = addc.getAddress();
   uint8_t this_phase = phase + (phase << 4);
   // std::cout << "Setting input phase of " << sca_addr << " to be 0x"
-  //           << std::hex << (uint)(this_phase) << std::dec << std::endl;
+  //           << std::hex << static_cast<uint>(this_phase) << std::dec << std::endl;
   for (auto art : addc.getARTs()) {
     auto name = sca_addr + "." + art.getName() + "Ps" + "." + art.getName() + "Ps";
     ERS_LOG("Writing ART phase " << name << ": 0x" << std::hex << phase);
@@ -302,7 +321,7 @@ int nsw::MMTriggerCalib::configure_art_input_phase(nsw::ADDCConfig addc, uint ph
           36, 37, 38, 39,
           51, 52, 53, 54,
           }) {
-      art_data[0] = (uint8_t)(reg);
+      art_data[0] = static_cast<uint8_t>(reg);
       art_data[1] = this_phase;
       if (!m_dry_run)
         cs->sendI2cRaw(opc_ip, name, art_data, art_size);
@@ -311,7 +330,7 @@ int nsw::MMTriggerCalib::configure_art_input_phase(nsw::ADDCConfig addc, uint ph
   return 0;
 }
 
-ptree nsw::MMTriggerCalib::patterns() {
+ptree nsw::MMTriggerCalib::patterns() const {
   ptree patts;
   int ipatts   = 0;
   int ifebpatt = 0;
@@ -320,7 +339,7 @@ ptree nsw::MMTriggerCalib::patterns() {
     //
     // cable noise loop: no patterns
     //
-    int npatts = 500;
+    constexpr int npatts = 500;
     for (int i = 0; i < npatts; i++) {
       ptree feb_patt;
       ptree top_patt;
@@ -370,7 +389,7 @@ ptree nsw::MMTriggerCalib::patterns() {
     // latency loop: incrementing latency
     //               no FEB or ADDC patterns
     //
-    int npatts = 100;
+    constexpr int npatts = 100;
     for (int i = 0; i < npatts; i++) {
       ptree feb_patt;
       ptree top_patt;
@@ -385,16 +404,12 @@ ptree nsw::MMTriggerCalib::patterns() {
     //
     // connectivity max-parallel loop
     //
-    bool even;
-    int nvmm = 8;
-    int nchan = 64;
-    int pcb = 0;
-    for (int pos = 0; pos < 8; pos++) {
-      even = pos % 2 == 0;
-      pcb  = pos / 2 + 1;
+    for (int pos = 0; pos < nsw::mmfe8::MMFE8_PER_LAYER/2; pos++) {
+      bool even = pos % 2 == 0;
+      int pcb  = pos / 2 + 1;
       auto pcbstr       = std::to_string(pcb);
       auto pcbstr_plus4 = std::to_string(pcb+4);
-      for (int chan = 0; chan < nchan; chan++) {
+      for (int chan = 0; chan < nsw::vmm::NUM_CH_PER_VMM; chan++) {
         if (m_calibType == "MMARTConnectivityTest" && chan % 10 != 0)
           continue;
         if (m_calibType == "MMARTPhase"            && chan % 10 != 0)
@@ -419,7 +434,7 @@ ptree nsw::MMTriggerCalib::patterns() {
               "MMFE8_L1P" + pcbstr_plus4 + "_IP" + (even ? "L" : "R"),
               }) {
           ptree febtree;
-          for (int vmmid = 0; vmmid < nvmm; vmmid++) {
+          for (int vmmid = 0; vmmid < nsw::MAX_NUMBER_OF_VMM; vmmid++) {
 
             //if (vmm_of_interest >= 0 && vmmid != vmm_of_interest)
             //  continue;
@@ -453,17 +468,15 @@ ptree nsw::MMTriggerCalib::patterns() {
         // track-like loop
         //
         bool even;
-        int nvmm = 8;
-        int nchan = 64;
         int pcb = 0;
-        for (int pos = 0; pos < 16; pos++) {
+        for (int pos = 0; pos < nsw::MMFE8_PER_LAYER; pos++) {
             even = pos % 2 == 0;
             pcb  = pos / 2 + 1;
             auto pcbstr = std::to_string(pcb);
-            for (int vmmid = 0; vmmid < nvmm; vmmid++) {
+            for (int vmmid = 0; vmmid < nsw::MAX_NUMBER_OF_VMM; vmmid++) {
                 // if (vmm_of_interest >= 0 && vmmid != vmm_of_interest)
                 //     continue;
-                for (int chan = 0; chan < nchan; chan++) {
+                for (int chan = 0; chan < nsw::vmm::NUM_CH_PER_VMM; chan++) {
                     if (chan % 10 != 0)
                         continue;
                     ptree feb_patt;
@@ -503,14 +516,14 @@ ptree nsw::MMTriggerCalib::patterns() {
         //
 
         bool even;
-        int nvmm = 8;
-        int nchan = 64;
-        int countId[8192][4];
-        for (int pos = 0; pos < 16; pos++) {
+        int countId[nsw::mmfe8::NUM_CH_PER_LAYER][4]; // TODO Use NSWConfiguration::Constants
+        for (int pos = 0; pos < nsw::mmfe8::MMFE8_PER_LAYER; pos++) {
             even = pos % 2 == 0;
-            for (int vmmid = 0; vmmid < nvmm; vmmid++) {
-                for (int chan = 0; chan < nchan; chan++) {
-                    int count = (even ? ((pos+1)*512-vmmid*64-chan-1) : (pos*512+vmmid*64+chan));
+            for (int vmmid = 0; vmmid < nsw::MAX_NUMBER_OF_VMM; vmmid++) {
+              for (int chan = 0; chan < nsw::vmm::NUM_CH_PER_VMM; chan++) {
+                    int count = (even ?
+                                 ((pos+1)*nsw::mmfe8::NUM_CH_PER_MMFE8-vmmid*nsw::vmm::NUM_CH_PER_VMM-chan-1) :
+                                 (pos*nsw::mmfe8::NUM_CH_PER_MMFE8+vmmid*nsw::vmm::NUM_CH_PER_VMM+chan));
                     countId[count][0] = count;
                     countId[count][1] = pos;
                     countId[count][2] = vmmid;
@@ -518,7 +531,7 @@ ptree nsw::MMTriggerCalib::patterns() {
                 }
             }
         }
-        for (int cx = 0; cx < 8192; cx++) {
+        for (int cx = 0; cx < nsw::mmfe8::NUM_CH_PER_LAYER; cx++) { // TODO Use NSWConfiguration::Constants
             if (cx % 300 != 0)
                 continue;
             for (int dif = -70; dif < 71; dif++) {
@@ -544,7 +557,7 @@ ptree nsw::MMTriggerCalib::patterns() {
                     feb_patt.add_child(name, febtree);
                 }
                 int cu = cx + dif;
-                if (cu >= 0 && cu < 8192){
+                if (cu >= 0 && cu < 8192){ // TODO Use NSWConfiguration::Constants
                     int posu = countId[cu][1];
                     int vmmidu = countId[cu][2];
                     int chanu = countId[cu][3];
@@ -563,7 +576,7 @@ ptree nsw::MMTriggerCalib::patterns() {
                     }
                 }
                 int cv = cx - dif;
-                if (cv >= 0 && cv < 8192){
+                if (cv >= 0 && cv < 8192){ // TODO Use NSWConfiguration::Constants
                     int posv = countId[cv][1];
                     int vmmidv = countId[cv][2];
                     int chanv = countId[cv][3];
@@ -596,16 +609,6 @@ ptree nsw::MMTriggerCalib::patterns() {
   return patts;
 }
 
-std::string nsw::MMTriggerCalib::strf_time() {
-  std::stringstream ss;
-  std::string out;
-  std::time_t result = std::time(nullptr);
-  std::tm tm = *std::localtime(&result);
-  ss << std::put_time(&tm, "%Y_%m_%d_%Hh%Mm%Ss");
-  ss >> out;
-  return out;
-}
-
 int nsw::MMTriggerCalib::addc_tp_watchdog() {
   //
   // Be forewarned: this function reads TP SCAX registers.
@@ -618,7 +621,7 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
   nsw::ConfigSender cs;
 
   // sleep time
-  size_t slp = 1;
+  constexpr size_t slp = 1;
 
   // collect all TPs from the ARTs
   std::set< std::pair<std::string, std::string> > tps;
@@ -631,7 +634,7 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
   std::vector<uint8_t> data_bcids_total = {};
 
   // output file and announce
-  auto now = strf_time();
+  auto now = nsw::calib::utils::strf_time();
   std::string rname = "addc_alignment."
     + std::to_string(runNumber()) + "." + applicationName() + "." + now + ".root";
   ERS_INFO("ADDC-TP watchdog. Output: " << rname << ". Sleep: " << slp << "s");
@@ -652,7 +655,7 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
   // monitor
   try {
     while (counter() < total()) {
-      now = strf_time();
+      now = nsw::calib::utils::strf_time();
       addc_address->clear();
       art_name    ->clear();
       art_fiber   ->clear();
@@ -660,7 +663,7 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
       for (auto tp : tps) {
         while (m_tpscax_busy)
           usleep(1e5);
-        m_tpscax_busy = 1;
+        m_tpscax_busy = true;
         auto outdata = m_dry_run ? std::vector<uint8_t>(4) :
           cs.readI2cAtAddress(tp.first, tp.second, regAddrVec.data(), regAddrVec.size(), 4);
         data_bcids_total.clear();
@@ -709,13 +712,13 @@ int nsw::MMTriggerCalib::read_arts_counters() {
     if (counter() == 0) {
       // file and tree
       std::string rname_hit = "art_counters."
-        + std::to_string(runNumber()) + "." + applicationName() + "." + strf_time() + ".root";
+        + std::to_string(runNumber()) + "." + applicationName() + "." + nsw::calib::utils::strf_time() + ".root";
       m_art_rfile = std::make_unique< TFile >(rname_hit.c_str(), "recreate");
       m_art_rtree = std::make_shared< TTree >("nsw", "nsw");
       ERS_INFO("ART hit counter. Output: "  << rname_hit);
 
       // branches
-      m_art_now = strf_time();
+      m_art_now = nsw::calib::utils::strf_time();
       m_art_event    = -1;
       m_addc_address = "";
       m_art_name     = "";
@@ -741,7 +744,7 @@ int nsw::MMTriggerCalib::read_arts_counters() {
       std::vector< std::future< std::vector<int> > >
       >();
     m_art_event = counter();
-    m_art_now   = strf_time();
+    m_art_now   = nsw::calib::utils::strf_time();
 
     // launch reader threads
     // https://its.cern.ch/jira/browse/OPCUA-2188
@@ -786,17 +789,17 @@ int nsw::MMTriggerCalib::read_arts_counters() {
   return 0;
 }
 
-std::vector<int> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConfig& addc, int art) {
+std::vector<int> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConfig& addc, int art) const {
 
   // setup
   auto cs = std::make_unique<nsw::ConfigSender>();
   uint8_t art_data[] = {0x0, 0x0};
   auto opc_ip    = addc.getOpcServerIp();
   auto sca_addr  = addc.getAddress() + "." + addc.getART(art).getNameCore();
-  int reg_start   = 128;
-  int reg_end     = 256;
-  int reg_len     = 4;
-  int regs_simult = 16;
+  constexpr int reg_start   = 128;
+  constexpr int reg_end     = 256;
+  constexpr int reg_len     = 4;
+  constexpr int regs_simult = 16;
   int reg_local   = 0;
   int word        = 0;
   int index       = 0;
@@ -837,7 +840,7 @@ std::vector<int> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConfig& a
       index = it % reg_len;
       if (index == 0)
         word = 0;
-      word += (readback.at(it) << index*8);
+      word += (readback.at(it) << index*8); // TODO Use NSWConfiguration::Constants
       if (index == reg_len - 1)
         results.push_back(word);
     }

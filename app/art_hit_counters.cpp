@@ -7,6 +7,8 @@
 #include <thread>
 #include <future>
 
+#include "NSWCalibration/Utility.h"
+
 #include "NSWConfiguration/ConfigReader.h"
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/ADDCConfig.h"
@@ -20,7 +22,6 @@ namespace po = boost::program_options;
 
 int addc_hit_watchdog(const std::vector<nsw::ADDCConfig>& addcs, bool simulation);
 std::vector<int> addc_read_register(const nsw::ADDCConfig& addc, int art, bool simulation);
-std::string strf_time();
 std::atomic<bool> end(false);
 
 int main(int argc, const char *argv[])
@@ -75,7 +76,7 @@ int addc_hit_watchdog(const std::vector<nsw::ADDCConfig>& addcs, bool simulation
   //
 
   // output
-  auto now = strf_time();
+  auto now = nsw::calib::utils::strf_time();
   std::string rname = "addc_hits." + now + ".root";
   auto rfile        = std::make_unique< TFile >(rname.c_str(), "recreate");
   auto rtree        = std::make_shared< TTree >("nsw", "nsw");
@@ -103,7 +104,7 @@ int addc_hit_watchdog(const std::vector<nsw::ADDCConfig>& addcs, bool simulation
       //
       threads->clear();
       event = event + 1;
-      now = strf_time();
+      now = nsw::calib::utils::strf_time();
 
       //
       // launch threads
@@ -236,14 +237,4 @@ std::vector<int> addc_read_register(const nsw::ADDCConfig& addc, int art, bool s
 
   }
   return results;
-}
-
-std::string strf_time() {
-    std::stringstream ss;
-    std::string out;
-    std::time_t result = std::time(nullptr);
-    std::tm tm = *std::localtime(&result);
-    ss << std::put_time(&tm, "%Y_%m_%d_%Hh%Mm%Ss");
-    ss >> out;
-    return out;
 }
