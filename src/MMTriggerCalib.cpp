@@ -681,7 +681,7 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
               art_name    ->push_back(art.getName());
               art_fiber   ->push_back(art.TP_GBTxAlignmentBit());
               art_aligned ->push_back(static_cast<int>(aligned));
-              art_bcid    ->push_back(tpbcid);
+              art_bcid    ->push_back(static_cast<int>(tpbcid));
             }
           }
         }
