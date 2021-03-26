@@ -7,8 +7,6 @@
 #include <map>
 #include <future>
 
-#include "ers/ers.h"
-
 #include "ipc/partition.h"
 #include "ipc/core.h"
 #include "is/info.h"
@@ -24,7 +22,7 @@
 #include "NSWConfiguration/NSWConfig.h"
 #include "NSWCalibration/CalibAlg.h"
 
-using boost::property_tree::ptree;
+#include "ers/Issue.h"
 
 ERS_DECLARE_ISSUE(nsw,
                   NSWCalibIssue,
