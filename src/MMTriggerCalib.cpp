@@ -316,11 +316,7 @@ int nsw::MMTriggerCalib::configure_art_input_phase(nsw::ADDCConfig addc, uint ph
   for (auto art : addc.getARTs()) {
     auto name = sca_addr + "." + art.getName() + "Ps" + "." + art.getName() + "Ps";
     ERS_LOG("Writing ART phase " << name << ": 0x" << std::hex << phase);
-    for (auto reg : { 6,  7,  8,  9,
-          21, 22, 23, 24,
-          36, 37, 38, 39,
-          51, 52, 53, 54,
-          }) {
+    for (auto reg : nsw::art::REG_INPUT_PHASES) {
       art_data[0] = static_cast<uint8_t>(reg);
       art_data[1] = this_phase;
       if (!m_dry_run)
@@ -339,7 +335,7 @@ ptree nsw::MMTriggerCalib::patterns() const {
     //
     // cable noise loop: no patterns
     //
-    constexpr int npatts = 500;
+    constexpr int npatts = 100;
     for (int i = 0; i < npatts; i++) {
       ptree feb_patt;
       ptree top_patt;
@@ -404,9 +400,9 @@ ptree nsw::MMTriggerCalib::patterns() const {
     //
     // connectivity max-parallel loop
     //
-    for (int pos = 0; pos < nsw::mmfe8::MMFE8_PER_LAYER/2; pos++) {
+    for (size_t pos = 0; pos < nsw::mmfe8::MMFE8_PER_LAYER/2; pos++) {
       bool even = pos % 2 == 0;
-      int pcb  = pos / 2 + 1;
+      int pcb   = pos / 2 + 1;
       auto pcbstr       = std::to_string(pcb);
       auto pcbstr_plus4 = std::to_string(pcb+4);
       for (int chan = 0; chan < nsw::vmm::NUM_CH_PER_VMM; chan++) {
@@ -434,7 +430,7 @@ ptree nsw::MMTriggerCalib::patterns() const {
               "MMFE8_L1P" + pcbstr_plus4 + "_IP" + (even ? "L" : "R"),
               }) {
           ptree febtree;
-          for (int vmmid = 0; vmmid < nsw::MAX_NUMBER_OF_VMM; vmmid++) {
+          for (size_t vmmid = 0; vmmid < nsw::MAX_NUMBER_OF_VMM; vmmid++) {
 
             //if (vmm_of_interest >= 0 && vmmid != vmm_of_interest)
             //  continue;
@@ -628,9 +624,13 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
   for (auto & addc : m_addcs)
     for (auto art : addc.getARTs())
       tps.emplace(std::make_pair(art.getOpcServerIp_TP(), art.getOpcNodeId_TP()));
-  auto regAddrVec = nsw::hexStringToByteVector("0x02", 4, true);
-  std::vector<std::string> bxlsb  = {"0x04", "0x05", "0x06", "0x07"};
-  std::vector<uint8_t> data_bcids = {0x55, 0x55, 0x55, 0x55};
+  auto regAddrVec = nsw::intToByteVector(nsw::mmtp::REG_FIBER_ALIGNMENT, nsw::NUM_BYTES_IN_WORD32, true);
+  std::vector<uint8_t> data_bcids = {
+    nsw::mmtp::DUMMY_VAL,
+    nsw::mmtp::DUMMY_VAL,
+    nsw::mmtp::DUMMY_VAL,
+    nsw::mmtp::DUMMY_VAL,
+  };
   std::vector<uint8_t> data_bcids_total = {};
 
   // output file and announce
@@ -664,13 +664,13 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
         while (m_tpscax_busy)
           usleep(1e5);
         m_tpscax_busy = true;
-        auto outdata = m_dry_run ? std::vector<uint8_t>(4) :
-          cs.readI2cAtAddress(tp.first, tp.second, regAddrVec.data(), regAddrVec.size(), 4);
+        auto outdata = m_dry_run ? std::vector<uint8_t>(nsw::NUM_BYTES_IN_WORD32) :
+          cs.readI2cAtAddress(tp.first, tp.second, regAddrVec.data(), regAddrVec.size(), nsw::NUM_BYTES_IN_WORD32);
         data_bcids_total.clear();
-        for (auto reg : bxlsb) {
-          auto bxdata = nsw::hexStringToByteVector(reg, 4, true);
+        for (auto reg : nsw::mmtp::REG_FIBER_BCIDS) {
+          auto bxdata = nsw::intToByteVector(reg, nsw::NUM_BYTES_IN_WORD32, nsw::mmtp::SCAX_LITTLE_ENDIAN);
           if (!m_dry_run)
-            data_bcids = cs.readI2cAtAddress(tp.first, tp.second, bxdata.data(), bxdata.size(), 4);
+            data_bcids = cs.readI2cAtAddress(tp.first, tp.second, bxdata.data(), bxdata.size(), nsw::NUM_BYTES_IN_WORD32);
           for (auto byte : data_bcids)
             data_bcids_total.push_back(byte);
         }
@@ -796,22 +796,18 @@ std::vector<int> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConfig& a
   uint8_t art_data[] = {0x0, 0x0};
   auto opc_ip    = addc.getOpcServerIp();
   auto sca_addr  = addc.getAddress() + "." + addc.getART(art).getNameCore();
-  constexpr int reg_start   = 128;
-  constexpr int reg_end     = 256;
-  constexpr int reg_len     = 4;
-  constexpr int regs_simult = 16;
-  int reg_local   = 0;
-  int word        = 0;
-  int index       = 0;
+  size_t reg_local  = 0;
+  size_t word32     = 0;
+  size_t index      = 0;
   std::vector<uint8_t> readback = {};
-  std::vector<int> results = {};
+  std::vector<int> results      = {};
 
   // query registers
-  for (int reg = reg_start; reg < reg_end; reg++) {
+  for (size_t reg = nsw::art::REG_COUNTERS_START; reg < nsw::art::REG_COUNTERS_END; reg++) {
 
     // read N registers per transaction
-    reg_local = reg - reg_start;
-    if ((reg_local % regs_simult) > 0)
+    reg_local = reg - nsw::art::REG_COUNTERS_START;
+    if ((reg_local % nsw::art::REG_COUNTERS_SIMULT) > 0)
       continue;
 
     // register address
@@ -819,15 +815,15 @@ std::vector<int> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConfig& a
 
     // read the register
     if (!simulation()) {
-      readback = cs->readI2cAtAddress(opc_ip, sca_addr, art_data, 1, regs_simult);
+      readback = cs->readI2cAtAddress(opc_ip, sca_addr, art_data, nsw::art::ADDRESS_SIZE, nsw::art::REG_COUNTERS_SIMULT);
     } else {
       readback.clear();
-      for (int it = 0; it < regs_simult; it++)
-        readback.push_back(static_cast<uint8_t>(it % 4));
+      for (size_t it = 0; it < nsw::art::REG_COUNTERS_SIMULT; it++)
+        readback.push_back(static_cast<uint8_t>(it));
     }
 
     // check the size
-    if (readback.size() != static_cast<size_t>(regs_simult)) {
+    if (readback.size() != static_cast<size_t>(nsw::art::REG_COUNTERS_SIMULT)) {
       std::stringstream msg;
       msg << "Problem reading ART reg: " << sca_addr;
       nsw::NSWMMTriggerCalibIssue issue(ERS_HERE, msg.str());
@@ -836,13 +832,13 @@ std::vector<int> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConfig& a
     }
 
     // convert N 1-byte registers into N/4 32-bit word
-    for (int it = 0; it < regs_simult; it++) {
-      index = it % reg_len;
+    for (size_t it = 0; it < nsw::art::REG_COUNTERS_SIMULT; it++) {
+      index = it % nsw::art::REG_COUNTERS_SIZE;
       if (index == 0)
-        word = 0;
-      word += (readback.at(it) << index*8); // TODO Use NSWConfiguration::Constants
-      if (index == reg_len - 1)
-        results.push_back(word);
+        word32 = 0;
+      word32 += (readback.at(it) << index*nsw::NUM_BITS_IN_BYTE);
+      if (index == nsw::art::REG_COUNTERS_SIZE - 1)
+        results.push_back(static_cast<int>(word32));
     }
 
   }
