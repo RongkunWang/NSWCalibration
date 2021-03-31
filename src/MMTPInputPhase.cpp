@@ -74,10 +74,10 @@ void nsw::MMTPInputPhase::configure() {
   // etc
   //
   ERS_INFO("MMTPInputPhase::configure " << counter());
-  const int phase_offset = counter() / m_nreads;
-  const int nth_read     = counter() % m_nreads;
-  const int phase        = phase_offset / m_noffsets;
-  const int offset       = phase_offset % m_noffsets;
+  const uint32_t phase_offset = counter() / m_nreads;
+  const uint32_t nth_read     = counter() % m_nreads;
+  const uint32_t phase        = phase_offset / m_noffsets;
+  const uint32_t offset       = phase_offset % m_noffsets;
   for (auto & tp : m_tps) {
     if (nth_read == 0)
       configure_tp(tp, phase, offset);
@@ -89,25 +89,19 @@ void nsw::MMTPInputPhase::unconfigure() {
   ERS_INFO("MMTPInputPhase::unconfigure " << counter());
 }
 
-int nsw::MMTPInputPhase::configure_tp(const nsw::TPConfig & tp, int phase, int offset) const {
+int nsw::MMTPInputPhase::configure_tp(const nsw::TPConfig & tp, uint32_t phase, uint32_t offset) const {
     ERS_INFO("Configuring " << tp.getAddress()
            << " with phase=" << phase
            << " and offset=" << offset);
-    constexpr uint8_t phreg     = 0x0B;
-    constexpr uint8_t offsetreg = 0x0C;
-    auto ip   = tp.getOpcServerIp();
-    auto addr = tp.getAddress();
-    auto cs   = std::make_unique<nsw::ConfigSender>();
+    auto cs = std::make_unique<nsw::ConfigSender>();
     if (!simulation()) {
-      cs->sendI2cAtAddress(ip, addr, {0x00, 0x00, 0x00, phreg},
-                           nsw::intToByteVector(phase, 4, true));
-      cs->sendI2cAtAddress(ip, addr, {0x00, 0x00, 0x00, offsetreg},
-                           nsw::intToByteVector(offset, 4, true));
+      cs->sendTpConfigRegister(tp, nsw::mmtp::REG_INPUT_PHASE,       phase);
+      cs->sendTpConfigRegister(tp, nsw::mmtp::REG_INPUT_PHASEOFFSET, offset);
     }
     return 0;
 }
 
-int nsw::MMTPInputPhase::read_tp(const nsw::TPConfig & tp, int phase, int offset) {
+int nsw::MMTPInputPhase::read_tp(const nsw::TPConfig & tp, uint32_t phase, uint32_t offset) {
   ERS_INFO("Reading " << tp.getAddress()
            << " with phase=" << phase
            << " and offset=" << offset);
@@ -124,21 +118,19 @@ int nsw::MMTPInputPhase::read_tp(const nsw::TPConfig & tp, int phase, int offset
   m_bcid ->clear();
   m_fiber->clear();
 
-  auto fiber_alignment                  = nsw::hexStringToByteVector("0x02", 4, true);
-  const std::vector<std::string> bxlsb  = {"0x04", "0x05", "0x06", "0x07"};
-  std::vector<uint8_t> data_align       = {0x11, 0x11, 0x11, 0x11};
-  std::vector<uint8_t> data_bcids       = {0x55, 0x55, 0x55, 0x55};
+  // for acquiring data
+  std::vector<uint8_t> data_align = {nsw::mmtp::DUMMY_VAL, nsw::mmtp::DUMMY_VAL, nsw::mmtp::DUMMY_VAL, nsw::mmtp::DUMMY_VAL};
+  std::vector<uint8_t> data_bcids = {nsw::mmtp::DUMMY_VAL, nsw::mmtp::DUMMY_VAL, nsw::mmtp::DUMMY_VAL, nsw::mmtp::DUMMY_VAL};
   std::vector<uint8_t> data_bcids_total = {};
 
   // read the 32-bit word of fiber alignment
   if (!simulation())
-    data_align = cs->readI2cAtAddress(ip, addr, fiber_alignment.data(), fiber_alignment.size(), 4);
+    data_align = cs->readTpConfigRegister(tp, nsw::mmtp::REG_FIBER_ALIGNMENT);
 
   // read the 4 32-bit words of fiber BCIDs (4 LSB per fiber)
-  for (auto reg : bxlsb) {
-    auto bxdata = nsw::hexStringToByteVector(reg, 4, true);
+  for (auto reg : nsw::mmtp::REG_FIBER_BCIDS) {
     if (!simulation())
-      data_bcids = cs->readI2cAtAddress(ip, addr, bxdata.data(), bxdata.size(), 4);
+      data_bcids = cs->readTpConfigRegister(tp, reg);
     for (auto byte : data_bcids)
       data_bcids_total.push_back(byte);
   }
@@ -157,18 +149,18 @@ int nsw::MMTPInputPhase::read_tp(const nsw::TPConfig & tp, int phase, int offset
 
   // write the bcids
   for (auto byte : data_bcids_total)
-    m_myfile << std::hex << std::setfill('0') << std::setw(2) << unsigned(byte) << std::dec;
+    m_myfile << std::hex << std::setfill('0') << std::setw(2) << static_cast<unsigned>(byte) << std::dec;
   m_myfile << std::endl;
 
   // write the alignment and bcids
-  for (size_t fiber = 0; fiber < 8*data_align.size(); fiber++) {
-    m_fiber->push_back((int)(fiber));
+  for (size_t fiber = 0; fiber < nsw::mmtp::NUM_FIBERS; fiber++) {
+    m_fiber->push_back(static_cast<int>(fiber));
 
     // alignment
-    auto byte   = data_align.at(fiber / 8);
-    auto bitpos = fiber % 8;
-    auto align  = (byte >> bitpos) & 1;
-    m_align->push_back((int)(align));
+    auto byte   = data_align.at(fiber / nsw::NUM_BITS_IN_BYTE);
+    auto bitpos = fiber % nsw::NUM_BITS_IN_BYTE;
+    auto align  = (byte >> bitpos) & 0x1;
+    m_align->push_back(static_cast<int>(align));
 
     // bcid
     // TODO(AT): char ordering

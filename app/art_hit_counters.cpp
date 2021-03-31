@@ -183,26 +183,22 @@ std::vector<int> addc_read_register(const nsw::ADDCConfig& addc, int art, bool s
   uint8_t art_data[] = {0x0, 0x0};
   auto opc_ip    = addc.getOpcServerIp();
   auto sca_addr  = addc.getAddress() + "." + addc.getART(art).getNameCore();
-  int reg_start  = 128;
-  int reg_end    = 256;
-  int reg_len    = 4;
-  int regs_simul = 16;
-  int reg_local  = 0;
-  int word       = 0;
-  int index      = 0;
+  size_t reg_local  = 0;
+  size_t word32     = 0;
+  size_t index      = 0;
   std::vector<uint8_t> readback = {};
-  std::vector<int> results = {};
+  std::vector<int> results      = {};
 
   //
   // query registers
   //
-  for (int reg = reg_start; reg < reg_end; reg++) {
+  for (size_t reg = nsw::art::REG_COUNTERS_START; reg < nsw::art::REG_COUNTERS_END; reg++) {
 
     //
     // read N registers per transaction
     //
-    reg_local = reg - reg_start;
-    if ((reg_local % regs_simul) > 0)
+    reg_local = reg - nsw::art::REG_COUNTERS_START;
+    if ((reg_local % nsw::art::REG_COUNTERS_SIMULT) > 0)
       continue;
 
     //
@@ -214,25 +210,25 @@ std::vector<int> addc_read_register(const nsw::ADDCConfig& addc, int art, bool s
     // read the register
     //
     if (!simulation) {
-      readback = cs->readI2cAtAddress(opc_ip, sca_addr, art_data, 1, regs_simul);
+      readback = cs->readI2cAtAddress(opc_ip, sca_addr, art_data, nsw::art::ADDRESS_SIZE, nsw::art::REG_COUNTERS_SIMULT);
     } else {
       readback.clear();
-      for (int it = 0; it < regs_simul; it++)
-        readback.push_back(static_cast<uint8_t>(it % 4));
+      for (size_t it = 0; it < nsw::art::REG_COUNTERS_SIMULT; it++)
+        readback.push_back(static_cast<uint8_t>(it));
     }
-    if (readback.size() != static_cast<size_t>(regs_simul))
+    if (readback.size() != static_cast<size_t>(nsw::art::REG_COUNTERS_SIMULT))
       throw std::runtime_error("Problem reading ART register: " + addc.getAddress());
 
     //
     // convert N 1-byte registers into N/4 32-bit word
     //
-    for (int it = 0; it < regs_simul; it++) {
-      index = it % reg_len;
+    for (size_t it = 0; it < nsw::art::REG_COUNTERS_SIMULT; it++) {
+      index = it % nsw::art::REG_COUNTERS_SIZE;
       if (index == 0)
-        word = 0;
-      word += (readback.at(it) << index*8);
-      if (index == reg_len - 1)
-        results.push_back(word);
+        word32 = 0;
+      word32 += (readback.at(it) << index*nsw::NUM_BITS_IN_BYTE);
+      if (index == nsw::art::REG_COUNTERS_SIZE - 1)
+        results.push_back(static_cast<int>(word32));
     }
 
   }

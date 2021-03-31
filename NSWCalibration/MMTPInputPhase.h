@@ -35,8 +35,8 @@ namespace nsw {
     void unconfigure() override;
 
   public:
-    int configure_tp(const nsw::TPConfig & tp, int phase, int offset) const;
-    int read_tp     (const nsw::TPConfig & tp, int phase, int offset);
+    int configure_tp(const nsw::TPConfig & tp, uint32_t phase, uint32_t offset) const;
+    int read_tp     (const nsw::TPConfig & tp, uint32_t phase, uint32_t offset);
 
   private:
     /// output text file of TP SCAX reads

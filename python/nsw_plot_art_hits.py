@@ -187,14 +187,14 @@ def plot_last(ttree, names, ofile):
     #
     # draw once with z-max as decided by ROOT
     #
-    name_vmm = "vmm_vs_layer_zmaxauto"
+    name_vmm = f"vmm_vs_layer_zmaxauto_{NOW}"
     canv_vmm = ROOT.TCanvas(name_vmm, name_vmm, 800, 800)
     hist_vmm.Draw("colzsame")
     zlab_vmm.Draw()
     metadata.Draw()
     canv_vmm.Write()
 
-    name_feb = "feb_vs_layer_zmaxauto"
+    name_feb = f"feb_vs_layer_zmaxauto_{NOW}"
     canv_feb = ROOT.TCanvas(name_feb, name_feb, 800, 800)
     hist_feb.Draw("colzsame")
     zlab_feb.Draw()
@@ -208,7 +208,7 @@ def plot_last(ttree, names, ofile):
     hist_vmm.SetMaximum(1.05 * median(hist_vmm))
     hist_feb.SetMaximum(1.05 * median(hist_feb))
 
-    name_vmm = "vmm_vs_layer_zmaxmedian"
+    name_vmm = f"vmm_vs_layer_zmaxmedian_{NOW}"
     canv_vmm = ROOT.TCanvas(name_vmm, name_vmm, 800, 800)
     texs_vmm = overflow_tex(hist_vmm)
     hist_vmm.Draw("colzsame")
@@ -218,7 +218,7 @@ def plot_last(ttree, names, ofile):
     metadata.Draw()
     canv_vmm.Write()
 
-    name_feb = "feb_vs_layer_zmaxmedian"
+    name_feb = f"feb_vs_layer_zmaxmedian_{NOW}"
     canv_feb = ROOT.TCanvas(name_feb, name_feb, 800, 800)
     texs_feb = overflow_tex(hist_feb)
     hist_feb.Draw("colzsame")
