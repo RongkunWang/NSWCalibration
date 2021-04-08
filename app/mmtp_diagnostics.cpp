@@ -29,7 +29,6 @@ std::atomic<bool> interrupt(false);
 
 int main(int argc, const char *argv[])
 {
-    gInterpreter->GenerateDictionary("vector<vector<uint32_t> >", "vector");
     std::string config_files = "/afs/cern.ch/user/n/nswdaq/public/sw/config-ttc/config-files";
     std::string config_filename;
     std::string board_name;
@@ -68,6 +67,13 @@ int main(int argc, const char *argv[])
     if (vm.count("help")) {
         std::cout << desc << "\n";
         return 1;
+    }
+
+    // ROOT black magic
+    if (channel_rates) {
+      std::cout << "ROOT: Generating dict for vector<vector<int32>>..." << std::endl;
+      gInterpreter->GenerateDictionary("vector<vector<uint32_t> >", "vector");
+      std::cout << "ROOT: Done." << std::endl;
     }
 
     // TP objects
