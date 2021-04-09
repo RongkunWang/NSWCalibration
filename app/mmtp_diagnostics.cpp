@@ -21,7 +21,7 @@
 #include "boost/program_options.hpp"
 namespace po = boost::program_options;
 
-int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool channel_rates, bool sim, bool debug);
+int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool debug);
 uint32_t wordify(const std::vector<uint8_t> & vec);
 std::string strf_time();
 std::atomic<bool> end(false);
@@ -29,14 +29,12 @@ std::atomic<bool> interrupt(false);
 
 int main(int argc, const char *argv[])
 {
-    gInterpreter->GenerateDictionary("vector<vector<uint32_t> >", "vector");
     std::string config_files = "/afs/cern.ch/user/n/nswdaq/public/sw/config-ttc/config-files";
     std::string config_filename;
     std::string board_name;
     int sleep_time;
     bool sim;
     bool reset_l1a;
-    bool channel_rates;
     bool debug;
 
     // command line args
@@ -50,8 +48,6 @@ int main(int argc, const char *argv[])
          default_value(false), "Option to disable all I/O with the hardware")
         ("reset_l1a,r", po::bool_switch()->
          default_value(false), "Option to reset L1A packet builder on each iteration")
-        ("channel_rates", po::bool_switch()->
-         default_value(false), "Option to read channel rates for every channel")
         ("debug,d", po::bool_switch()->
          default_value(false), "Option to print info to the screen")
         ("sleep", po::value<int>(&sleep_time)->
@@ -61,10 +57,9 @@ int main(int argc, const char *argv[])
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
     po::notify(vm);
-    sim           = vm.at("sim")           .as<bool>();
-    reset_l1a     = vm.at("reset_l1a")     .as<bool>();
-    channel_rates = vm.at("channel_rates") .as<bool>();
-    debug         = vm.at("debug")         .as<bool>();
+    sim       = vm.at("sim")       .as<bool>();
+    reset_l1a = vm.at("reset_l1a") .as<bool>();
+    debug     = vm.at("debug")     .as<bool>();
     if (vm.count("help")) {
         std::cout << desc << "\n";
         return 1;
@@ -81,7 +76,7 @@ int main(int argc, const char *argv[])
     // launch monitoring thread
     auto tp = tps.at(0);
     auto watchdog = std::async(std::launch::async, tp_watchdog,
-                               tp, sleep_time, reset_l1a, channel_rates, sim, debug);
+                               tp, sleep_time, reset_l1a, sim, debug);
 
     // wait for user to end
     std::cout << "Press [Enter] to end" << std::endl;
@@ -98,7 +93,7 @@ static void sig_handler(int sig) {
   interrupt = 1;
 }
 
-int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool channel_rates, bool sim, bool debug) {
+int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool debug) {
 
   //
   // output
@@ -106,20 +101,17 @@ int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool channel_r
   bool quiet = !debug;
   auto now = strf_time();
   std::string rname = "mmtp_diagnostics." + now + ".root";
-  auto rfile        = std::make_unique< TFile >(rname.c_str(), "recreate");
-  auto rtree        = std::make_shared< TTree >("nsw", "nsw");
+  auto rfile = std::make_unique< TFile >(rname.c_str(), "recreate");
+  auto rtree = std::make_shared< TTree >("nsw", "nsw");
   std::string opc_ip     = tp.getOpcServerIp();
   std::string tp_address = tp.getAddress();
   uint32_t event            = -1;
   uint32_t overflow_word    = -1;
   uint32_t fiber_align_word = -1;
-  uint32_t feb_id_word      = -1;
-  auto fiber_index       = std::make_unique< std::vector<uint32_t> >();
-  auto fiber_align       = std::make_unique< std::vector<uint32_t> >();
-  auto fiber_masks       = std::make_unique< std::vector<uint32_t> >();
-  auto fiber_hots        = std::make_unique< std::vector<uint32_t> >();
-  auto feb_id            = std::make_unique< std::vector<uint32_t> >();
-  auto feb_channel_rates = std::make_unique< std::vector< std::vector<uint32_t> > >();
+  auto fiber_index = std::make_unique< std::vector<uint32_t> >();
+  auto fiber_align = std::make_unique< std::vector<uint32_t> >();
+  auto fiber_masks = std::make_unique< std::vector<uint32_t> >();
+  auto fiber_hots  = std::make_unique< std::vector<uint32_t> >();
   rtree->Branch("time",          &now);
   rtree->Branch("event",         &event);
   rtree->Branch("opc_ip",        &opc_ip);
@@ -131,10 +123,6 @@ int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool channel_r
   rtree->Branch("fiber_align",   fiber_align.get());
   rtree->Branch("fiber_masks",   fiber_masks.get());
   rtree->Branch("fiber_hots",    fiber_hots.get());
-  if (channel_rates) {
-    rtree->Branch("feb_id",            feb_id.get());
-    rtree->Branch("feb_channel_rates", feb_channel_rates.get());
-  }
 
   //
   // TP I/O
@@ -154,17 +142,25 @@ int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool channel_r
 
     while (true) {
 
+      // enable channel rate reporting
+      if (event == 0) {
+        try {
+          std::cout << "Writing 0x01 to nsw::mmtp::REG_CHAN_RATE_ENABLE" << std::endl;
+          cs->sendTpConfigRegister(tp, nsw::mmtp::REG_CHAN_RATE_ENABLE, 0x01, quiet);
+        } catch (std::exception & ex) {
+          std::cout << "Failed to write 0x01 to nsw::mmtp::REG_CHAN_RATE_ENABLE: " << ex.what() << std::endl;
+        }
+      }
+
       //
       // loop init
       //
       event = event + 1;
       now = strf_time();
-      fiber_index       ->clear();
-      fiber_align       ->clear();
-      fiber_masks       ->clear();
-      fiber_hots        ->clear();
-      feb_id            ->clear();
-      feb_channel_rates ->clear();
+      fiber_index->clear();
+      fiber_align->clear();
+      fiber_masks->clear();
+      fiber_hots ->clear();
 
       //
       // write the fiber for easier navigating
@@ -266,35 +262,6 @@ int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool channel_r
       }
 
       //
-      // channel rates
-      // loop over fibers and febs
-      //
-      if (channel_rates) {
-        uint32_t channel_rate = 0xffff;
-        for (uint32_t fiber = 0; fiber < nsw::mmtp::NUM_FIBERS; fiber++) {
-          for (uint32_t mmfe8 = 0; mmfe8 < nsw::mmtp::NUM_MMFE8_PER_FIBER; mmfe8++) {
-            feb_id_word = mmfe8 + (fiber << static_cast<uint32_t>(log2(nsw::mmtp::NUM_MMFE8_PER_FIBER)));
-            feb_id->push_back(feb_id_word);
-            if (!sim) {
-              cs->sendTpConfigRegister(tp, nsw::mmtp::REG_CHAN_RATE_FIBER, fiber, quiet);
-              cs->sendTpConfigRegister(tp, nsw::mmtp::REG_CHAN_RATE_MMFE8, mmfe8, quiet);
-              usleep(nsw::mmtp::CHAN_RATE_USLEEP);
-            }
-            feb_channel_rates->push_back(std::vector<uint32_t>());
-            for (uint32_t chan = 0; chan < nsw::mmfe8::NUM_CH_PER_MMFE8; chan++) {
-              if (!sim) {
-                readback = cs->readTpConfigRegister(tp, nsw::mmtp::REG_CHAN_RATE_CHAN);
-              } else {
-                readback = std::vector<uint8_t>(nsw::NUM_BYTES_IN_WORD32);
-              }
-              channel_rate = wordify(readback);
-              feb_channel_rates->back().push_back(channel_rate);
-            }
-          }
-        }
-      }
-
-      //
       // fill
       //
       rtree->Fill();
@@ -321,6 +288,14 @@ int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool channel_r
     }
   } catch (std::exception & ex) {
     std::cout << "tp_watchdog caught exception: " << ex.what() << std::endl;
+  }
+
+  // disable channel rate reporting
+  try {
+    std::cout << "Writing 0x00 to nsw::mmtp::REG_CHAN_RATE_ENABLE" << std::endl;
+    cs->sendTpConfigRegister(tp, nsw::mmtp::REG_CHAN_RATE_ENABLE, 0x00, quiet);
+  } catch (std::exception & ex) {
+    std::cout << "Failed to write 0x00 to nsw::mmtp::REG_CHAN_RATE_ENABLE: " << ex.what() << std::endl;
   }
 
   //
