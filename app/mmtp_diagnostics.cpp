@@ -22,6 +22,8 @@
 namespace po = boost::program_options;
 
 int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool debug);
+std::string exec(const char* cmd);
+std::string metadata();
 uint32_t wordify(const std::vector<uint8_t> & vec);
 std::string strf_time();
 std::atomic<bool> end(false);
@@ -51,7 +53,7 @@ int main(int argc, const char *argv[])
         ("debug,d", po::bool_switch()->
          default_value(false), "Option to print info to the screen")
         ("sleep", po::value<int>(&sleep_time)->
-         default_value(5), "The amount of time to sleep between each iteration.")
+         default_value(5), "The amount of time to sleep between each iteration")
         ("name,n", po::value<std::string>(&board_name)->
          default_value(""), "The name of frontend to configure (should start with MMTP_).");
     po::variables_map vm;
@@ -100,7 +102,7 @@ int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool
   //
   bool quiet = !debug;
   auto now = strf_time();
-  std::string rname = "mmtp_diagnostics." + now + ".root";
+  std::string rname = "mmtp_diagnostics." + metadata() + "." + now + ".root";
   auto rfile = std::make_unique< TFile >(rname.c_str(), "recreate");
   auto rtree = std::make_shared< TTree >("nsw", "nsw");
   std::string opc_ip     = tp.getOpcServerIp();
@@ -123,6 +125,7 @@ int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool
   rtree->Branch("fiber_align",   fiber_align.get());
   rtree->Branch("fiber_masks",   fiber_masks.get());
   rtree->Branch("fiber_hots",    fiber_hots.get());
+  std::cout << "Writing to " << rname << std::endl;
 
   //
   // TP I/O
@@ -146,7 +149,9 @@ int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool
       if (event == 0) {
         try {
           std::cout << "Writing 0x01 to nsw::mmtp::REG_CHAN_RATE_ENABLE" << std::endl;
-          cs->sendTpConfigRegister(tp, nsw::mmtp::REG_CHAN_RATE_ENABLE, 0x01, quiet);
+          if (!sim) {
+            cs->sendTpConfigRegister(tp, nsw::mmtp::REG_CHAN_RATE_ENABLE, 0x01, quiet);
+          }
         } catch (std::exception & ex) {
           std::cout << "Failed to write 0x01 to nsw::mmtp::REG_CHAN_RATE_ENABLE: " << ex.what() << std::endl;
         }
@@ -293,7 +298,9 @@ int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool
   // disable channel rate reporting
   try {
     std::cout << "Writing 0x00 to nsw::mmtp::REG_CHAN_RATE_ENABLE" << std::endl;
-    cs->sendTpConfigRegister(tp, nsw::mmtp::REG_CHAN_RATE_ENABLE, 0x00, quiet);
+    if (!sim) {
+      cs->sendTpConfigRegister(tp, nsw::mmtp::REG_CHAN_RATE_ENABLE, 0x00, quiet);
+    }
   } catch (std::exception & ex) {
     std::cout << "Failed to write 0x00 to nsw::mmtp::REG_CHAN_RATE_ENABLE: " << ex.what() << std::endl;
   }
@@ -309,6 +316,68 @@ int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool
     std::cout << "Press [Enter] again please." << std::endl;
 
   return 0;
+}
+
+std::string exec(const char* cmd) {
+  //
+  // https://stackoverflow.com/questions/52164723/
+  //
+  constexpr size_t bufsize = 128;
+  std::array<char, bufsize> buffer;
+  std::string result;
+  std::shared_ptr<FILE> pipe(popen(cmd, "r"), pclose);
+  if (!pipe) throw std::runtime_error("popen() failed!");
+  while (!feof(pipe.get())) {
+    if (fgets(buffer.data(), bufsize, pipe.get()) != nullptr)
+      result += buffer.data();
+  }
+  return result;
+}
+
+std::string metadata() {
+  //
+  // If a partition environment is active,
+  //   this will get the run and lab/sector.
+  // Otherwise, it'll give some dummy info.
+  // NB: The only segment in the NSW partition
+  //     with a hyphen is the swROD segment,
+  //     which is named LAB-SECTOR.
+  //     Its evil, I know.
+  //
+  const std::string dummy_run = "0000000000";
+  const std::string dummy_lab = "LAB-SECTOR";
+  const std::string dummy     = dummy_run + "." + dummy_lab;
+  const std::string cmd_partition  = "ipc_ls -P | grep $TDAQ_PARTITION";
+  const std::string cmd_run_number = "rc_getrunnumber";
+  const std::string cmd_lab_sector = "rc_print_tree | grep '-' | tr -d '[:blank:]' ";
+  if (std::getenv("TDAQ_PARTITION") == nullptr) {
+    std::cout << "FYI: failed to find $TDAQ_PARTITION" << std::endl;
+    return dummy;
+  }
+  auto partition_exists = exec(cmd_partition.c_str());
+  if (partition_exists.size() == 0) {
+    std::cout << "FYI: $TDAQ_PARTITION is not active" << std::endl;
+    return dummy;
+  }
+  auto run_number = exec(cmd_run_number.c_str());
+  if (run_number.size() == 0) {
+    std::cout << "FYI: rc_getrunnumber failed" << std::endl;
+    return dummy;
+  }
+  try {
+    std::stoi(run_number);
+  } catch (std::exception & ex) {
+    std::cout << "Cant convert this to int: " << run_number << std::endl;
+    return dummy;
+  }
+  auto lab_and_sector = exec(cmd_lab_sector.c_str());
+  if (lab_and_sector.size() == 0) {
+    std::cout << "FYI: rc_print_tree failed" << std::endl;
+    return dummy;
+  }
+  std::string ret(run_number + "." + lab_and_sector);
+  ret.erase(std::remove(ret.begin(), ret.end(), '\n'), ret.end());
+  return ret;
 }
 
 uint32_t wordify(const std::vector<uint8_t> & vec) {
