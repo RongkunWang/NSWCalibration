@@ -87,6 +87,7 @@
 
  <class name="NSWCalibApplication" description="NSW Calibration Application that configures FE for multiple swROD">
   <superclass name="RunControlApplication"/>
+  <superclass name="ResourceSet"/>
    <attribute name="resetVMM" description="Will reset vmm right before configuring it. A fail-safe mechanism." type="bool" init-value="true" is-not-null="yes"/>
    <attribute name="resetTDS" description="Will reset TDS SER, logic, ePLL after configuring normally." type="bool" init-value="false" is-not-null="yes"/>
    <attribute name="maxThreads" description="Maximum number of threads for parallel FEB configuring." type="u32" init-value="99" is-not-null="yes"/>
