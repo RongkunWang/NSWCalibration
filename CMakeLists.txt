@@ -1,4 +1,7 @@
+cmake_minimum_required(VERSION 3.14.0)
+
 tdaq_package()
+set(TDAQ_DB_PROJECT muons)
 
 find_package(ROOT REQUIRED COMPONENTS Core Tree RIO)
 
