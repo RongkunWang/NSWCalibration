@@ -14,6 +14,8 @@ EOS = "/eos/atlas/atlascerngroupdisk/det-nsw/191/trigger/"
 NPIPELINES     = 4
 NFIBERS        = 32
 NVMM_PER_FIBER = 32
+NVMM_PER_LAYER = 128
+NLAYERS        = 8
 import nsw_trigger_mapping
 
 def main():
@@ -95,6 +97,7 @@ def plot(ttree, ofile):
                                ents, -0.5, ents-0.5, NFIBERS+2, -1.5, NFIBERS+0.5)
     masks = {}
     hots  = {}
+    hots_layer = {}
     for fiber in range(NFIBERS):
         masks[fiber] = ROOT.TH2D(f"fiber_masks_vs_event_{fiber:02d}",
                                  f";Query per {sleep_time} seconds;Fiber masked VMMs;Value",
@@ -102,6 +105,11 @@ def plot(ttree, ofile):
         hots[fiber]  = ROOT.TH2D(f"fiber_hots_vs_event_{fiber:02d}",
                                  f";Query per {sleep_time} seconds;Fiber hot VMMs;Value",
                                  ents, -0.5, ents-0.5, NVMM_PER_FIBER, -0.5, NVMM_PER_FIBER-0.5)
+    for layer in range(NLAYERS):
+        hots_layer[layer]  = ROOT.TH2D(f"layer_hots_vs_event_{layer:02d}",
+                                       f";Query per {sleep_time} seconds;Hot VMMs on Layer {layer};Value",
+                                       ents, -0.5, ents-0.5, NVMM_PER_LAYER, -0.5, NVMM_PER_LAYER-0.5)
+
         
     #
     # fill histograms
@@ -119,8 +127,14 @@ def plot(ttree, ofile):
         for fiber in fiber_index:
             align_vs_event.Fill(ent, fiber, 1 if (fiber_align[fiber]) else 0)
             for vmm in range(NVMM_PER_FIBER):
-                masks[fiber].Fill(ent, vmm, 1 if (fiber_masks[fiber] & pow(2, vmm)) else 0)
-                hots [fiber].Fill(ent, vmm, 1 if (fiber_hots [fiber] & pow(2, vmm)) else 0)
+                masked = fiber_masks[fiber] & pow(2, vmm)
+                hot    = fiber_hots [fiber] & pow(2, vmm)
+                masks[fiber].Fill(ent, vmm, 1 if masked else 0)
+                hots [fiber].Fill(ent, vmm, 1 if hot    else 0)
+
+                layer      = nsw_trigger_mapping.tp2layer(fiber)
+                global_vmm = nsw_trigger_mapping.tp2globalvmm(fiber, vmm)
+                hots_layer[layer].Fill(ent, global_vmm, 1 if hot else 0)
 
 
     #
@@ -133,6 +147,9 @@ def plot(ttree, ofile):
         style(masks[fiber])
         style(hots [fiber])
         hots[fiber].SetMaximum(hots[fiber].GetMaximum()*1.19)
+    for layer in range(NLAYERS):
+        style(hots_layer[layer])
+        hots_layer[layer].SetMaximum(hots_layer[layer].GetMaximum()*1.19)
     overflow_word_vs_event.SetMaximum(overflow_word_vs_event.GetMaximum()*1.19)
     print("Creating plots...")
     ofile.cd()
@@ -172,17 +189,24 @@ def plot(ttree, ofile):
     canv_overflow_word_vs_event.Write()
 
     #
-    # draw per-fiber plots
+    # draw per-fiber and per-layer plots
     #
     ROOT.gStyle.SetPalette(ROOT.kCherry)
     ROOT.TColor.InvertPalette()
-
     dir_hots = ofile.mkdir("fiber_hots")
     dir_hots.cd()
     for fiber in range(NFIBERS):
         name = f"fiber_hots_vs_event_{fiber:02d}_{NOW}"
         canv = ROOT.TCanvas(name, name, 800, 800)
         hots[fiber].Draw("colzsame")
+        metadata.Draw()
+        canv.Write()
+    dir_hots_layer = ofile.mkdir("layer_hots")
+    dir_hots_layer.cd()
+    for layer in range(NLAYERS):
+        name = f"layer_hots_vs_event_{layer:02d}_{NOW}"
+        canv = ROOT.TCanvas(name, name, 800, 800)
+        hots_layer[layer].Draw("colzsame")
         metadata.Draw()
         canv.Write()
 
@@ -282,7 +306,7 @@ def style(hist):
     hist.GetZaxis().SetTitleSize(size)
     hist.GetZaxis().SetLabelSize(size)
     hist.GetXaxis().SetTitleOffset(1.3)
-    hist.GetYaxis().SetTitleOffset(1.2 if isinstance(hist, ROOT.TH2) else 1.6)
+    hist.GetYaxis().SetTitleOffset(1.3 if isinstance(hist, ROOT.TH2) else 1.6)
     hist.GetZaxis().SetTitleOffset(1.3)
     hist.GetZaxis().SetLabelOffset(0.02)
     if not isinstance(hist, ROOT.TH2):
