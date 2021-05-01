@@ -179,6 +179,8 @@ int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool
       //
       if (!sim) {
         cs           ->sendTpConfigRegister(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW, 0x00, quiet);
+        cs           ->sendTpConfigRegister(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW, 0x01, quiet);
+        cs           ->sendTpConfigRegister(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW, 0x00, quiet);
         readback = cs->readTpConfigRegister(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW);
       } else {
         readback = std::vector<uint8_t>(nsw::NUM_BYTES_IN_WORD32);
@@ -212,7 +214,6 @@ int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool
         //
         if (!sim) {
           cs->sendTpConfigRegister(tp, nsw::mmtp::REG_FIBER_HOT_MUX,  fiber, quiet);
-          cs->sendTpConfigRegister(tp, nsw::mmtp::REG_FIBER_MASK_MUX, fiber, quiet);
         }
         if (debug)
           std::cout << "Fiber " << fiber << std::endl;
@@ -235,8 +236,8 @@ int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool
         //
         uint32_t fiber_mask = 0xffff;
         if (!sim) {
-          readback = cs->readTpConfigRegister(tp, nsw::mmtp::REG_FIBER_MASK_WRITE);
-          fiber_mask = wordify(readback);
+          // NB: fiber_mask removed from current fw
+          fiber_mask = 0xffffffff;
         } else {
           readback   = std::vector<uint8_t>(nsw::NUM_BYTES_IN_WORD32);
           fiber_mask = std::pow(2, fiber);

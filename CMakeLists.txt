@@ -32,6 +32,7 @@ tdaq_add_library(nswcalib
     src/sTGCRouterToTP.cpp
     src/sTGCPadTriggerToSFEB.cpp
     src/NSWCalibRc.cpp
+    src/MMTPFeedback.cpp
   LINK_LIBRARIES nswconfig NSWConfig nswcalibdal
     nswopcclient
     Boost::boost
@@ -82,6 +83,10 @@ tdaq_add_executable(nsw_art_hit_counters app/art_hit_counters.cpp
 )
 
 tdaq_add_executable(nsw_mmtp_diagnostics app/mmtp_diagnostics.cpp
+  LINK_LIBRARIES nswcalib tdaq-common::ers Boost::program_options
+)
+
+tdaq_add_executable(nsw_mmtp_feedback app/mmtp_feedback.cpp
   LINK_LIBRARIES nswcalib tdaq-common::ers Boost::program_options
 )
 
