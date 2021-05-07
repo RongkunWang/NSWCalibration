@@ -120,8 +120,22 @@ int nsw::sTGCSFEBToRouter::configure_tds(const nsw::FEBConfig & feb, bool enable
 }
 
 void nsw::sTGCSFEBToRouter::gather_sfebs() {
-  std::string partition(std::getenv("TDAQ_PARTITION"));
-  ERS_INFO("Gather SFEBs: found partition " << partition);
+  //
+  // get the partition environment
+  //
+  auto part = std::getenv("TDAQ_PARTITION");
+  if (part == nullptr)
+    throw std::runtime_error("Error: TDAQ_PARTITION not defined");
+  std::string partition(part);
+  std::string sector_name(nsw::guessSector(partition));
+  bool is_large = nsw::isLargeSector(sector_name);
+  ERS_INFO("Gather SFEBs: found partition "  << partition);
+  ERS_INFO("Gather SFEBs: found sector "     << sector_name);
+  ERS_INFO("Gather SFEBs: sector is large: " << is_large);
+
+  //
+  // order the FEBs accordingly
+  //
   if (partition.find("VS") != std::string::npos) {
     // VS
     ERS_INFO("Gather sfebs: VS sfebs");
