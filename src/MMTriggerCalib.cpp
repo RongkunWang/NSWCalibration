@@ -613,6 +613,8 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
 
   if (m_addcs.size() == 0)
     return 0;
+  if (m_tps.size() == 0)
+    return 0;
 
   nsw::ConfigSender cs;
 
