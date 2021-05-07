@@ -123,12 +123,12 @@ void nsw::sTGCSFEBToRouter::gather_sfebs() {
   //
   // get the partition environment
   //
-  auto part = std::getenv("TDAQ_PARTITION");
+  const auto part = std::getenv("TDAQ_PARTITION");
   if (part == nullptr)
     throw std::runtime_error("Error: TDAQ_PARTITION not defined");
-  std::string partition(part);
-  std::string sector_name(nsw::guessSector(partition));
-  bool is_large = nsw::isLargeSector(sector_name);
+  const std::string partition(part);
+  const std::string sector_name(nsw::guessSector(partition));
+  const bool is_large = nsw::isLargeSector(sector_name);
   ERS_INFO("Gather SFEBs: found partition "  << partition);
   ERS_INFO("Gather SFEBs: found sector "     << sector_name);
   ERS_INFO("Gather SFEBs: sector is large: " << is_large);
