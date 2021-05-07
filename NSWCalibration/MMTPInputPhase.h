@@ -53,7 +53,7 @@ namespace nsw {
     std::unique_ptr< std::vector<int> > m_fiber;
 
     /// number of times to read the TP SCAX registers
-    static constexpr int m_nreads = 20;
+    static constexpr int m_nreads = 10;
 
     /// number of input phases available (register 0x0B)
     static constexpr int m_nphases = 8;
