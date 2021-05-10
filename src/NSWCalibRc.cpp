@@ -86,6 +86,7 @@ void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd& cmd) {
 
 void nsw::NSWCalibRc::prepareForRun(const daq::rc::TransitionCmd& cmd) {
     ERS_LOG("Start");
+    m_NSWConfig->startRc();
     end_of_run = false;
     handler_thread = std::async(std::launch::async, &nsw::NSWCalibRc::handler, this);
     ERS_LOG("End");
@@ -105,11 +106,15 @@ void nsw::NSWCalibRc::unconfigure(const daq::rc::TransitionCmd& cmd) {
 void nsw::NSWCalibRc::stopRecording(const daq::rc::TransitionCmd& cmd) {
     ERS_LOG("Start");
     end_of_run = true;
+    m_NSWConfig->stopRc();
     ERS_LOG("End");
 }
 
 void nsw::NSWCalibRc::user(const daq::rc::UserCmd& usrCmd) {
   ERS_LOG("User command received: " << usrCmd.commandName());
+  if (usrCmd.commandName() == "enableVmmCaptureInputs") {
+    m_NSWConfig->enableVmmCaptureInputs();
+  }
 }
 
 void nsw::NSWCalibRc::subTransition(const daq::rc::SubTransitionCmd& cmd) {
