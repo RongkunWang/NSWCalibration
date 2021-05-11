@@ -7,6 +7,7 @@
 #include <thread>
 #include <future>
 #include <cmath>
+#include <unistd.h>
 #include <signal.h>
 
 #include "NSWConfiguration/ConfigReader.h"
@@ -14,23 +15,41 @@
 #include "NSWConfiguration/TPConfig.h"
 #include "NSWConfiguration/Utility.h"
 #include "NSWConfiguration/Constants.h"
+#include "NSWConfigurationDal/NSWConfigApplication.h"
+#include "NSWCalibration/Utility.h"
+#include "NSWCalibration/MMTPFeedback.h"
 #include "TFile.h"
 #include "TTree.h"
 #include "TInterpreter.h"
+
+#include "ipc/core.h"
+#include "RunControl/RunControl.h"
+#include "RunControl/Common/OnlineServices.h"
+#include "is/infodictionary.h"
+#include "is/infoiterator.h"
+#include "is/infodynany.h"
+#include "is/criteria.h"
 
 #include "boost/program_options.hpp"
 namespace po = boost::program_options;
 
 int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool debug);
+int tp_feedback(const std::string& data_file, const std::string& json_file,
+                size_t noisy_channel, size_t nsleep,
+                bool sim, bool debug);
 std::string exec(const char* cmd);
 std::string metadata();
+std::string swrod_current_file();
+std::string nswconfig_dbconn();
 uint32_t wordify(const std::vector<uint8_t> & vec);
-std::string strf_time();
 std::atomic<bool> end(false);
 std::atomic<bool> interrupt(false);
 
 int main(int argc, const char *argv[])
 {
+    //
+    // options for reading status registers
+    //
     std::string config_files = "/afs/cern.ch/user/n/nswdaq/public/sw/config-ttc/config-files";
     std::string config_filename;
     std::string board_name;
@@ -39,13 +58,22 @@ int main(int argc, const char *argv[])
     bool reset_l1a;
     bool debug;
 
+    //
+    // options for masking noisy channels via MM TP feedback
+    //
+    bool   feedback                = false;
+    size_t feedback_sleep          = 140;
+    size_t feedback_noisy_channel  = 1e3;
+    std::string feedback_data_file = "";
+
+    //
     // command line args
+    //
     po::options_description desc(std::string("TP diagnostics reader"));
     desc.add_options()
         ("help,h", "produce help message")
         ("config_file,c", po::value<std::string>(&config_filename)->
-         default_value(config_files+"/config_json/BB5/A10/full_small_sector_a10_bb5_ADDC_TP.json"),
-         "Configuration file path")
+         default_value(""), "Configuration file path")
         ("sim", po::bool_switch()->
          default_value(false), "Option to disable all I/O with the hardware")
         ("reset_l1a,r", po::bool_switch()->
@@ -55,32 +83,76 @@ int main(int argc, const char *argv[])
         ("sleep", po::value<int>(&sleep_time)->
          default_value(5), "The amount of time to sleep between each iteration")
         ("name,n", po::value<std::string>(&board_name)->
-         default_value(""), "The name of frontend to configure (should start with MMTP_).");
+         default_value(""), "The name of frontend to configure (should start with MMTP_).")
+        ("feedback_data_file", po::value<std::string>(&feedback_data_file)->
+         default_value(feedback_data_file), "Name of channel rates data file")
+        ("feedback_sleep", po::value<size_t>(&feedback_sleep)->
+         default_value(feedback_sleep), "Time to sleep before reading channel rates")
+        ("feedback_noisy_channel", po::value<size_t>(&feedback_noisy_channel)->
+         default_value(feedback_noisy_channel), "Rate to consider a channel noisy")
+        ("feedback", po::bool_switch()->
+         default_value(feedback), "Option to mask channels based on MM TP feedback")
+      ;
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
     po::notify(vm);
     sim       = vm.at("sim")       .as<bool>();
     reset_l1a = vm.at("reset_l1a") .as<bool>();
     debug     = vm.at("debug")     .as<bool>();
+    feedback  = vm.at("feedback")  .as<bool>();
     if (vm.count("help")) {
         std::cout << desc << "\n";
         return 1;
     }
 
+    //
+    // option to guess configuration from active partition
+    //
+    if (config_filename == "") {
+      std::cout << std::endl;
+      std::cout << "Attempting to get json from partition..." << std::endl;
+      config_filename = nswconfig_dbconn();
+      std::cout << "Guessed: " << config_filename << std::endl;
+      std::cout << std::endl;
+    }
+
+    //
     // TP objects
+    //
     auto cfg = "json://" + config_filename;
     auto tps = nsw::ConfigReader::makeObjects<nsw::TPConfig>(cfg, "TP", board_name);
     if (tps.size() > 1) {
       std::cout << "Can only analyze 1 TP for now." << std::endl;
       return 1;
     }
-
-    // launch monitoring thread
     auto tp = tps.at(0);
+
+    //
+    // launch monitoring thread
+    //
     auto watchdog = std::async(std::launch::async, tp_watchdog,
                                tp, sleep_time, reset_l1a, sim, debug);
 
+    //
+    // launch channel rate feedback thread
+    //
+    if (feedback) {
+      const auto data_file = (feedback_data_file == "") ? swrod_current_file() : feedback_data_file;
+      std::cout << std::endl;
+      std::cout << "Data file for MM TP channel rates:" << std::endl;
+      std::cout << data_file << std::endl;
+      std::cout << std::endl;
+      auto feedback = std::async(std::launch::async, tp_feedback,
+                                 data_file, config_filename,
+                                 feedback_noisy_channel, feedback_sleep,
+                                 sim, debug);
+    } else {
+      std::cout << "Will not consider MM TP feedback for noisy channels" << std::endl;
+    }
+
+    //
     // wait for user to end
+    //
     std::cout << "Press [Enter] to end" << std::endl;
     std::cin.get();
     end = 1;
@@ -95,13 +167,17 @@ static void sig_handler(int sig) {
   interrupt = 1;
 }
 
+//
+// A thread for reading MM TP status registers periodically
+//   and writing them to a ROOT file
+//
 int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool debug) {
 
   //
   // output
   //
   bool quiet = !debug;
-  auto now = strf_time();
+  auto now = nsw::calib::utils::strf_time();
   std::string rname = "mmtp_diagnostics." + metadata() + "." + now + ".root";
   auto rfile = std::make_unique< TFile >(rname.c_str(), "recreate");
   auto rtree = std::make_shared< TTree >("nsw", "nsw");
@@ -153,7 +229,8 @@ int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool
             cs->sendTpConfigRegister(tp, nsw::mmtp::REG_CHAN_RATE_ENABLE, 0x01, quiet);
           }
         } catch (std::exception & ex) {
-          std::cout << "Failed to write 0x01 to nsw::mmtp::REG_CHAN_RATE_ENABLE: " << ex.what() << std::endl;
+          std::cout << "Failed to write 0x01 to nsw::mmtp::REG_CHAN_RATE_ENABLE: " << ex.what()
+                    << std::endl;
         }
       }
 
@@ -161,7 +238,7 @@ int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool
       // loop init
       //
       event = event + 1;
-      now = strf_time();
+      now = nsw::calib::utils::strf_time();
       fiber_index->clear();
       fiber_align->clear();
       fiber_masks->clear();
@@ -187,7 +264,8 @@ int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool
       }
       overflow_word = static_cast<uint32_t>(readback.at(0));
       if (debug)
-        std::cout << "Overflow word: 0b" << std::bitset<nsw::NUM_BITS_IN_BYTE>(overflow_word) << std::endl;
+        std::cout << "Overflow word: 0b" << std::bitset<nsw::NUM_BITS_IN_BYTE>(overflow_word)
+                  << std::endl;
 
       //
       // read fiber alignment
@@ -199,7 +277,8 @@ int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool
       }
       fiber_align_word = wordify(readback);
       if (debug)
-        std::cout << "Fiber align word: 0b" << std::bitset<nsw::mmtp::NUM_FIBERS>(fiber_align_word) << std::endl;
+        std::cout << "Fiber align word: 0b" << std::bitset<nsw::mmtp::NUM_FIBERS>(fiber_align_word)
+                  << std::endl;
       for (uint32_t fiber = 0; fiber < nsw::mmtp::NUM_FIBERS; fiber++) {
         fiber_align->push_back(fiber_align_word & static_cast<uint32_t>(pow(2, fiber)));
       }
@@ -296,25 +375,110 @@ int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool
     std::cout << "tp_watchdog caught exception: " << ex.what() << std::endl;
   }
 
+  //
   // disable channel rate reporting
+  //
   try {
     std::cout << "Writing 0x00 to nsw::mmtp::REG_CHAN_RATE_ENABLE" << std::endl;
     if (!sim) {
       cs->sendTpConfigRegister(tp, nsw::mmtp::REG_CHAN_RATE_ENABLE, 0x00, quiet);
     }
   } catch (std::exception & ex) {
-    std::cout << "Failed to write 0x00 to nsw::mmtp::REG_CHAN_RATE_ENABLE: " << ex.what() << std::endl;
+    std::cout << "Failed to write 0x00 to nsw::mmtp::REG_CHAN_RATE_ENABLE: "
+              << ex.what() << std::endl;
   }
 
   //
   // close
   //
   std::cout << "Closing " << rname << std::endl;
+  rfile->cd();
   rtree->Write();
   rfile->Close();
   std::cout << "Closed." << std::endl;
   if (interrupt)
     std::cout << "Press [Enter] again please." << std::endl;
+
+  return 0;
+}
+
+//
+// A thread for reading MM TP channel rates
+//   and masking noisy channels according to the user
+//
+int tp_feedback(const std::string& data_file, const std::string& json_file,
+                size_t noisy_channel, size_t nsleep,
+                bool sim, bool debug) {
+
+  try {
+    
+    //
+    // check args
+    //
+    if (data_file == "") {
+      std::cout << "No data file was given to tp_feedback. Exiting." << std::endl;
+      return 1;
+    }
+    if (json_file == "") {
+      std::cout << "No json file was given to tp_feedback. Exiting." << std::endl;
+      return 1;
+    }
+
+    //
+    // configure outputs
+    // disable VMM threshold manipulation for now
+    //
+    std::string root_file = data_file + "." + nsw::calib::utils::strf_time() + ".root";
+    std::string outj_file = json_file + "." + nsw::calib::utils::strf_time() + ".json";
+    size_t noisy_vmm = 1e9;
+
+    //
+    // feedback class
+    //
+    auto feedback = std::make_unique<nsw::MMTPFeedback>();
+
+    //
+    // configuration
+    //
+    feedback->SetDebug(debug);
+    feedback->SetSimulation(sim);
+    feedback->SetChannelRateDataFile(data_file);
+    feedback->SetChannelRateRootFile(root_file);
+    feedback->SetNoisyChannelFactor(noisy_channel);
+    feedback->SetNoisyVMMFactor(noisy_vmm);
+    feedback->SetInputJsonFile(json_file);
+    feedback->SetOutputJsonFile(outj_file);
+    feedback->SetLoop(0);
+
+    //
+    // wait for rates to be collected
+    //
+    std::cout << "" << std::endl;
+    std::cout << "Waiting for " << nsleep
+              << " seconds for MM TP feedback"
+              << std::endl;
+    std::cout << "" << std::endl;
+    while (nsleep > 0) {
+      if (end) {
+        std::cout << std::endl;
+        std::cout << "Breaking feedback" << std::endl;
+        return 0;
+      }
+      nsleep--;
+      sleep(1);
+    }
+
+    //
+    // run
+    //
+    feedback->AnalyzeNoise();
+
+  } catch (std::exception & ex) {
+
+    std::cout << "Caught exception: " << ex.what() << std::endl;
+    return -1;
+
+  }
 
   return 0;
 }
@@ -392,12 +556,100 @@ uint32_t wordify(const std::vector<uint8_t> & vec) {
   return ret;
 }
 
-std::string strf_time() {
-    std::stringstream ss;
-    std::string out;
-    std::time_t result = std::time(nullptr);
-    std::tm tm = *std::localtime(&result);
-    ss << std::put_time(&tm, "%Y_%m_%d_%Hh%Mm%Ss");
-    ss >> out;
-    return out;
+std::string swrod_current_file() {
+
+  try {
+
+    //
+    // get partition environment
+    //
+    const auto part = std::getenv("TDAQ_PARTITION");
+    if (part == nullptr)
+      throw std::runtime_error("Error: TDAQ_PARTITION not defined");
+    const std::string part_name(part);
+
+    //
+    // setup
+    //
+    int argc = 0;
+    char* argv[1];
+    IPCCore::init(argc, argv);
+    IPCPartition partition(part_name);
+
+    //
+    // query IS
+    //
+    const std::string server  = "DF";
+    const std::string writer  = "FileWriter";
+    const std::string rates   = "ChannelRates";
+    const std::string current = "currentFile";
+    ISInfoIterator ii(partition, server, ISCriteria(".*" + writer + ".*"));
+    while( ii() ) {
+
+      if (ii.name().find(rates) != std::string::npos) {
+        continue;
+      }
+
+      ISInfoDynAny isa;
+      ii.value(isa);
+
+      const auto currentfile = isa.getAttributeValue<std::string>("currentFile");
+      return currentfile;
+
+    }
+
+  } catch (std::exception & ex) {
+
+    std::cout << "Caught exception: " << ex.what() << std::endl;
+    return "";
+
+  }
+
+  return "";
 }
+
+std::string nswconfig_dbconn() {
+
+  try {
+
+    //
+    // I tried my best to retrieve this in a proper way
+    // Just know, reader, than you cannot hate this solution more than I do
+    //
+    std::string cmd = "";
+    cmd = cmd + " oks_dump ${TDAQ_DB/oksconfig:/} -c NSWConfigApplication";
+    cmd = cmd + " | grep dbConnection ";
+    cmd = cmd + " | grep -v name ";
+    auto return_value = exec(cmd.c_str());
+
+    //
+    // beautify
+    //
+    std::vector<std::string> remove_me = {};
+    remove_me.push_back("dbConnection:");
+    remove_me.push_back("json://");
+    remove_me.push_back(" ");
+    remove_me.push_back("\"");
+    remove_me.push_back("\n");
+    remove_me.push_back("\r");
+    for (const auto& remove: remove_me) {
+      while (return_value.find(remove) != std::string::npos) {
+        return_value.erase(return_value.find(remove), remove.size());
+      }
+    }
+
+    //
+    // fin
+    //
+    return return_value;
+
+  } catch (std::exception & ex) {
+
+    std::cout << "Caught exception: " << ex.what() << std::endl;
+    return "";
+
+  }
+
+  return "";
+}
+
