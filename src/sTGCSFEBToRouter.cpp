@@ -127,11 +127,11 @@ void nsw::sTGCSFEBToRouter::gather_sfebs() {
   if (part == nullptr)
     throw std::runtime_error("Error: TDAQ_PARTITION not defined");
   const std::string partition(part);
-  const std::string sector_name(nsw::guessSector(partition));
-  const bool is_large = nsw::isLargeSector(sector_name);
+  const std::string sector_name = nsw::guessSector(applicationName());
   ERS_INFO("Gather SFEBs: found partition "  << partition);
-  ERS_INFO("Gather SFEBs: found sector "     << sector_name);
-  ERS_INFO("Gather SFEBs: sector is large: " << is_large);
+  ERS_INFO("Gather SFEBs: application "      << applicationName());
+  ERS_INFO("Gather SFEBs: sector name "      << sector_name);
+  ERS_INFO("Gather SFEBs: sector is large: " << nsw::isLargeSector(sector_name));
 
   //
   // order the FEBs accordingly
@@ -197,7 +197,7 @@ int nsw::sTGCSFEBToRouter::router_watchdog() const {
   std::string fname = "router_ClkReady_" + nsw::calib::utils::strf_time() + ".txt";
   std::ofstream myfile;
   myfile.open(fname);
-  ERS_INFO("Router ClkReady watchdog. Output: " << fname << ". Sleep: " << slp << "s");
+  ERS_INFO("Router ClkReady watchdog. Output: " << fname << ". Sleep: " << slp << "us");
 
   // monitor
   auto threads = std::make_unique<std::vector< std::future<bool> > >();
