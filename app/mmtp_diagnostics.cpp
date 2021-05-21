@@ -18,6 +18,7 @@
 #include "NSWConfigurationDal/NSWConfigApplication.h"
 #include "NSWCalibration/Utility.h"
 #include "NSWCalibration/MMTPFeedback.h"
+#include "NSWCalibration/MMTPStatusRegisters.h"
 #include "TFile.h"
 #include "TTree.h"
 #include "TInterpreter.h"
@@ -33,7 +34,7 @@
 #include "boost/program_options.hpp"
 namespace po = boost::program_options;
 
-int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool debug);
+int tp_watchdog(std::string config, int sleep_time, bool reset_l1a, bool sim, bool debug);
 int tp_feedback(const std::string& data_file, const std::string& json_file,
                 size_t noisy_channel, size_t nsleep,
                 bool sim, bool debug);
@@ -50,7 +51,6 @@ int main(int argc, const char *argv[])
     //
     // options for reading status registers
     //
-    std::string config_files = "/afs/cern.ch/user/n/nswdaq/public/sw/config-ttc/config-files";
     std::string config_filename;
     std::string board_name;
     int sleep_time;
@@ -81,7 +81,7 @@ int main(int argc, const char *argv[])
         ("debug,d", po::bool_switch()->
          default_value(false), "Option to print info to the screen")
         ("sleep", po::value<int>(&sleep_time)->
-         default_value(5), "The amount of time to sleep between each iteration")
+         default_value(1), "The amount of time to sleep between each iteration")
         ("name,n", po::value<std::string>(&board_name)->
          default_value(""), "The name of frontend to configure (should start with MMTP_).")
         ("feedback_data_file", po::value<std::string>(&feedback_data_file)->
@@ -128,10 +128,10 @@ int main(int argc, const char *argv[])
     auto tp = tps.at(0);
 
     //
-    // launch monitoring thread
+    // launch monitoring thread (class-based)
     //
     auto watchdog = std::async(std::launch::async, tp_watchdog,
-                               tp, sleep_time, reset_l1a, sim, debug);
+                               config_filename, sleep_time, reset_l1a, sim, debug);
 
     //
     // launch channel rate feedback thread
@@ -158,6 +158,11 @@ int main(int argc, const char *argv[])
     end = 1;
     usleep(1e6);
 
+    //
+    // wait for threads to end
+    //
+    watchdog.get();
+
     return 0;
 }
 
@@ -171,43 +176,7 @@ static void sig_handler(int sig) {
 // A thread for reading MM TP status registers periodically
 //   and writing them to a ROOT file
 //
-int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool debug) {
-
-  //
-  // output
-  //
-  bool quiet = !debug;
-  auto now = nsw::calib::utils::strf_time();
-  std::string rname = "mmtp_diagnostics." + metadata() + "." + now + ".root";
-  auto rfile = std::make_unique< TFile >(rname.c_str(), "recreate");
-  auto rtree = std::make_shared< TTree >("nsw", "nsw");
-  std::string opc_ip     = tp.getOpcServerIp();
-  std::string tp_address = tp.getAddress();
-  uint32_t event            = -1;
-  uint32_t overflow_word    = -1;
-  uint32_t fiber_align_word = -1;
-  auto fiber_index = std::make_unique< std::vector<uint32_t> >();
-  auto fiber_align = std::make_unique< std::vector<uint32_t> >();
-  auto fiber_masks = std::make_unique< std::vector<uint32_t> >();
-  auto fiber_hots  = std::make_unique< std::vector<uint32_t> >();
-  rtree->Branch("time",          &now);
-  rtree->Branch("event",         &event);
-  rtree->Branch("opc_ip",        &opc_ip);
-  rtree->Branch("tp_address",    &tp_address);
-  rtree->Branch("overflow_word", &overflow_word);
-  rtree->Branch("sleep_time",    &sleep_time);
-  rtree->Branch("reset_l1a",     &reset_l1a);
-  rtree->Branch("fiber_index",   fiber_index.get());
-  rtree->Branch("fiber_align",   fiber_align.get());
-  rtree->Branch("fiber_masks",   fiber_masks.get());
-  rtree->Branch("fiber_hots",    fiber_hots.get());
-  std::cout << "Writing to " << rname << std::endl;
-
-  //
-  // TP I/O
-  //
-  auto cs = std::make_unique<nsw::ConfigSender>();
-  std::vector<uint8_t> readback;
+int tp_watchdog(std::string config, int sleep_time, bool reset_l1a, bool sim, bool debug) {
 
   //
   // protect against Ctrl+C
@@ -215,189 +184,42 @@ int tp_watchdog(nsw::TPConfig tp, int sleep_time, bool reset_l1a, bool sim, bool
   signal(SIGINT, sig_handler);
 
   //
-  // polling
+  // create and setup
   //
-  try {
+  auto statusregs = std::make_unique<nsw::MMTPStatusRegisters>();
+  statusregs->SetDebug     (debug);
+  statusregs->SetSimulation(sim);
+  statusregs->SetConfig    (config);
+  statusregs->SetResetL1A  (reset_l1a);
+  statusregs->SetSleepTime (sleep_time);
+  statusregs->SetMetadata  (metadata());
 
-    while (true) {
+  //
+  // initialize
+  //
+  statusregs->Initialize();
 
-      // enable channel rate reporting
-      if (event == 0) {
-        try {
-          std::cout << "Writing 0x01 to nsw::mmtp::REG_CHAN_RATE_ENABLE" << std::endl;
-          if (!sim) {
-            cs->sendTpConfigRegister(tp, nsw::mmtp::REG_CHAN_RATE_ENABLE, 0x01, quiet);
-          }
-        } catch (std::exception & ex) {
-          std::cout << "Failed to write 0x01 to nsw::mmtp::REG_CHAN_RATE_ENABLE: " << ex.what()
-                    << std::endl;
-        }
-      }
-
-      //
-      // loop init
-      //
-      event = event + 1;
-      now = nsw::calib::utils::strf_time();
-      fiber_index->clear();
-      fiber_align->clear();
-      fiber_masks->clear();
-      fiber_hots ->clear();
-
-      //
-      // write the fiber for easier navigating
-      //
-      for (uint32_t fiber = 0; fiber < nsw::mmtp::NUM_FIBERS; fiber++) {
-        fiber_index->push_back(fiber);
-      }
-
-      //
-      // read buffer overflow
-      //
-      if (!sim) {
-        cs           ->sendTpConfigRegister(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW, 0x00, quiet);
-        cs           ->sendTpConfigRegister(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW, 0x01, quiet);
-        cs           ->sendTpConfigRegister(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW, 0x00, quiet);
-        readback = cs->readTpConfigRegister(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW);
-      } else {
-        readback = std::vector<uint8_t>(nsw::NUM_BYTES_IN_WORD32);
-      }
-      overflow_word = static_cast<uint32_t>(readback.at(0));
-      if (debug)
-        std::cout << "Overflow word: 0b" << std::bitset<nsw::NUM_BITS_IN_BYTE>(overflow_word)
-                  << std::endl;
-
-      //
-      // read fiber alignment
-      //
-      if (!sim) {
-        readback = cs->readTpConfigRegister(tp, nsw::mmtp::REG_FIBER_ALIGNMENT);
-      } else {
-        readback = std::vector<uint8_t>(nsw::NUM_BYTES_IN_WORD32);
-      }
-      fiber_align_word = wordify(readback);
-      if (debug)
-        std::cout << "Fiber align word: 0b" << std::bitset<nsw::mmtp::NUM_FIBERS>(fiber_align_word)
-                  << std::endl;
-      for (uint32_t fiber = 0; fiber < nsw::mmtp::NUM_FIBERS; fiber++) {
-        fiber_align->push_back(fiber_align_word & static_cast<uint32_t>(pow(2, fiber)));
-      }
-
-      //
-      // loop over fibers
-      //
-      for (uint32_t fiber = 0; fiber < nsw::mmtp::NUM_FIBERS; fiber++) {
-
-        //
-        // setting the fiber of interest
-        //
-        if (!sim) {
-          cs->sendTpConfigRegister(tp, nsw::mmtp::REG_FIBER_HOT_MUX,  fiber, quiet);
-        }
-        if (debug)
-          std::cout << "Fiber " << fiber << std::endl;
-
-        //
-        // read hot fibers
-        //
-        uint32_t fiber_hot = 0xffff;
-        if (!sim) {
-          readback = cs->readTpConfigRegister(tp, nsw::mmtp::REG_FIBER_HOT_READ);
-          fiber_hot = wordify(readback);
-        } else {
-          readback  = std::vector<uint8_t>(nsw::NUM_BYTES_IN_WORD32);
-          fiber_hot = std::pow(2, fiber);
-        }
-        fiber_hots->push_back(fiber_hot);
-
-        //
-        // read masked fibers
-        //
-        uint32_t fiber_mask = 0xffff;
-        if (!sim) {
-          // NB: fiber_mask removed from current fw
-          fiber_mask = 0xffffffff;
-        } else {
-          readback   = std::vector<uint8_t>(nsw::NUM_BYTES_IN_WORD32);
-          fiber_mask = std::pow(2, fiber);
-        }
-        fiber_masks->push_back(fiber_mask);
-
-      }
-
-      //
-      // debug
-      //
-      for (auto val: *(fiber_hots.get()))
-        if (debug)
-          std::cout << "Hot VMM : " << std::bitset<nsw::mmtp::NUM_VMMS_PER_FIBER>(val) << std::endl;
-      for (auto val: *(fiber_masks.get()))
-        if (debug)
-          std::cout << "Mask VMM: " << std::bitset<nsw::mmtp::NUM_VMMS_PER_FIBER>(val) << std::endl;
-
-      //
-      // reset L1A packet builder
-      //
-      if (reset_l1a) {
-        if (debug)
-          std::cout << "Sending TP config to reset L1A builder" << std::endl;
-        bool quiet = true;
-        if (!sim)
-          cs->sendTpConfig(tp, quiet);
-      }
-
-      //
-      // fill
-      //
-      rtree->Fill();
-
-      //
-      // pause
-      //
-      if (debug) {
-        std::cout << "Finished iteration " << event << " at " << now << std::endl;
-        std::cout << "Press [Enter] to end" << std::endl;
-      } else {
-        std::cout << "." << std::flush;
-      }
-      sleep(sleep_time);
-
-      //
-      // end
-      //
-      if (end) {
-        std::cout << std::endl;
-        std::cout << "Breaking" << std::endl;
-        break;
-      }
+  //
+  // execute
+  //
+  while (!end) {
+    try {
+      statusregs->Execute();
+    } catch (std::exception & ex) {
+      std::cout << "Exception: " << ex.what() << std::endl;
+      break;
     }
-  } catch (std::exception & ex) {
-    std::cout << "tp_watchdog caught exception: " << ex.what() << std::endl;
+    sleep(statusregs->SleepTime());
   }
 
   //
-  // disable channel rate reporting
+  // finalize
   //
-  try {
-    std::cout << "Writing 0x00 to nsw::mmtp::REG_CHAN_RATE_ENABLE" << std::endl;
-    if (!sim) {
-      cs->sendTpConfigRegister(tp, nsw::mmtp::REG_CHAN_RATE_ENABLE, 0x00, quiet);
-    }
-  } catch (std::exception & ex) {
-    std::cout << "Failed to write 0x00 to nsw::mmtp::REG_CHAN_RATE_ENABLE: "
-              << ex.what() << std::endl;
-  }
-
-  //
-  // close
-  //
-  std::cout << "Closing " << rname << std::endl;
-  rfile->cd();
-  rtree->Write();
-  rfile->Close();
-  std::cout << "Closed." << std::endl;
+  std::cout << "Finalizing..." << std::endl;
+  statusregs->Finalize();
   if (interrupt)
-    std::cout << "Press [Enter] again please." << std::endl;
+    std::cout << std::endl << "Press [Enter] again please." << std::endl << std::endl;
+
 
   return 0;
 }
@@ -586,7 +408,7 @@ std::string swrod_current_file() {
     ISInfoIterator ii(partition, server, ISCriteria(".*" + writer + ".*"));
     while( ii() ) {
 
-      if (ii.name().find(rates) != std::string::npos) {
+      if (ii.name().find(rates) == std::string::npos) {
         continue;
       }
 

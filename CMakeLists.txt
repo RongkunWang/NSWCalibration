@@ -33,6 +33,7 @@ tdaq_add_library(nswcalib
     src/sTGCPadTriggerToSFEB.cpp
     src/NSWCalibRc.cpp
     src/MMTPFeedback.cpp
+    src/MMTPStatusRegisters.cpp
   LINK_LIBRARIES nswconfig NSWConfig nswcalibdal
     nswopcclient
     Boost::boost
