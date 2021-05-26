@@ -31,6 +31,7 @@
 #include "is/infodynany.h"
 #include "is/criteria.h"
 
+// Generated (open62541-compat) file
 // #include "logit_logger.h"
 
 #include "boost/program_options.hpp"
