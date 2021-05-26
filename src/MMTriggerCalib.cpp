@@ -300,19 +300,29 @@ int nsw::MMTriggerCalib::configure_art_input_phase(nsw::ADDCConfig addc, uint ph
   auto cs = std::make_unique<nsw::ConfigSender>();
   if (m_staircase) {
     ERS_LOG("Writing ADDC config: " << addc.getAddress());
-    if (!m_dry_run)
-      cs->sendAddcConfig(addc);
+    for (auto art : addc.getARTs()) {
+      try {
+        if (!m_dry_run)
+          cs->sendAddcConfig(addc, art.index());
+      } catch (std::exception & ex) {
+        if (art.MustConfigure()) {
+          throw;
+        } else {
+          ERS_INFO("Allowed to fail: " << ex.what());
+        }
+      }
+    }
     return 0;
   }
-  if (phase > std::pow(2, 4))
+
+  if (phase > nsw::art::NUM_PHASE_INPUT)
     throw std::runtime_error("Gave bad phase to configure_art_input_phase: " + std::to_string(phase));
+
   constexpr size_t art_size = 2;
   uint8_t art_data[] = {0x0, 0x0};
   auto opc_ip   = addc.getOpcServerIp();
   auto sca_addr = addc.getAddress();
   uint8_t this_phase = phase + (phase << 4);
-  // std::cout << "Setting input phase of " << sca_addr << " to be 0x"
-  //           << std::hex << static_cast<uint>(this_phase) << std::dec << std::endl;
   for (auto art : addc.getARTs()) {
     auto name = sca_addr + "." + art.getName() + "Ps" + "." + art.getName() + "Ps";
     ERS_LOG("Writing ART phase " << name << ": 0x" << std::hex << phase);
@@ -817,7 +827,20 @@ std::vector<int> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConfig& a
 
     // read the register
     if (!simulation()) {
-      readback = cs->readI2cAtAddress(opc_ip, sca_addr, art_data, nsw::art::ADDRESS_SIZE, nsw::art::REG_COUNTERS_SIMULT);
+      try {
+        readback = cs->readI2cAtAddress(opc_ip, sca_addr, art_data,
+                                        nsw::art::ADDRESS_SIZE,
+                                        nsw::art::REG_COUNTERS_SIMULT);
+      } catch (std::exception & ex) {
+        if (addc.getART(art).MustConfigure()) {
+          throw;
+        } else {
+          ERS_INFO("Allowed to fail: " << ex.what());
+          readback.clear();
+          for (size_t it = 0; it < nsw::art::REG_COUNTERS_SIMULT; it++)
+            readback.push_back(0);
+        }
+      }
     } else {
       readback.clear();
       for (size_t it = 0; it < nsw::art::REG_COUNTERS_SIMULT; it++)
