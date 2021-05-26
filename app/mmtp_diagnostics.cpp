@@ -31,6 +31,8 @@
 #include "is/infodynany.h"
 #include "is/criteria.h"
 
+// #include "logit_logger.h"
+
 #include "boost/program_options.hpp"
 namespace po = boost::program_options;
 
@@ -48,6 +50,12 @@ std::atomic<bool> interrupt(false);
 
 int main(int argc, const char *argv[])
 {
+    //
+    // logging
+    //
+    // Log::initializeLogging();
+    // initializeOpen62541LogIt(Log::ERR);
+
     //
     // options for reading status registers
     //
