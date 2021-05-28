@@ -129,7 +129,7 @@ void nsw::MMTriggerCalib::configure() {
     configure_tps(tr);
 
     // record some data?
-    if (m_latency || m_staircase)
+    if (m_latency)
       sleep(5);
   }
 
@@ -300,12 +300,13 @@ int nsw::MMTriggerCalib::configure_art_input_phase(nsw::ADDCConfig addc, uint ph
   auto cs = std::make_unique<nsw::ConfigSender>();
   if (m_staircase) {
     ERS_LOG("Writing ADDC config: " << addc.getAddress());
-    for (auto art : addc.getARTs()) {
+    for (size_t it = nsw::NUM_ART_PER_ADDC; it > 0; it--) {
+      size_t iart = it - 1;
       try {
         if (!m_dry_run)
-          cs->sendAddcConfig(addc, art.index());
+          cs->sendAddcConfig(addc, iart);
       } catch (std::exception & ex) {
-        if (art.MustConfigure()) {
+        if (addc.getART(iart).MustConfigure()) {
           throw;
         } else {
           ERS_INFO("Allowed to fail: " << ex.what());
@@ -379,7 +380,7 @@ ptree nsw::MMTriggerCalib::patterns() const {
       "ADDC_L1P3_HOR",
       "ADDC_L1P6_HOL",
     };
-    for (auto & addc: ordered_addcs) {
+    for (auto & addc: nsw::mmtp::ORDERED_ADDCS) {
       ptree feb_patt;
       ptree top_patt;
       top_patt.put("addc", addc);
