@@ -362,28 +362,10 @@ ptree nsw::MMTriggerCalib::patterns() const {
     // staircase loop: reconfigure ADDCs in the order expected by TP.
     //                 checks for fiber- and bundle-swapping.
     //
-    std::vector<std::string> ordered_addcs = {
-      "ADDC_L1P6_IPR",
-      "ADDC_L1P3_IPL",
-      "ADDC_L1P3_IPR",
-      "ADDC_L1P6_IPL",
-      "ADDC_L4P6_IPR",
-      "ADDC_L4P3_IPL",
-      "ADDC_L4P3_IPR",
-      "ADDC_L4P6_IPL",
-      "ADDC_L4P6_HOR",
-      "ADDC_L4P3_HOL",
-      "ADDC_L4P3_HOR",
-      "ADDC_L4P6_HOL",
-      "ADDC_L1P6_HOR",
-      "ADDC_L1P3_HOL",
-      "ADDC_L1P3_HOR",
-      "ADDC_L1P6_HOL",
-    };
     for (auto & addc: nsw::mmtp::ORDERED_ADDCS) {
       ptree feb_patt;
       ptree top_patt;
-      top_patt.put("addc", addc);
+      top_patt.put("addc", std::string(addc));
       top_patt.put("tp_latency", -1);
       top_patt.put("art_input_phase", 0xf);
       top_patt.add_child("febpattern_" + std::to_string(ifebpatt), feb_patt);
