@@ -3,6 +3,15 @@ cmake_minimum_required(VERSION 3.14.0)
 tdaq_package()
 set(TDAQ_DB_PROJECT muons)
 
+install (DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/${BINARY_TAG}/bin/)
+tdaq_add_scripts(bin/nsw_art_input_phase.py             python/nsw_art_input_phase.py)
+tdaq_add_scripts(bin/nsw_increase_threshold_in_json.py  python/nsw_increase_threshold_in_json.py)
+tdaq_add_scripts(bin/nsw_mmtp_channelrates.py           python/nsw_mmtp_channelrates.py)
+tdaq_add_scripts(bin/nsw_mmtp_diagnostics.py            python/nsw_mmtp_diagnostics.py)
+tdaq_add_scripts(bin/nsw_mmtp_event_display.py          python/nsw_mmtp_event_display.py)
+tdaq_add_scripts(bin/nsw_plot_art_hits.py               python/nsw_plot_art_hits.py)
+tdaq_add_scripts(bin/nsw_trigger_mapping.py             python/nsw_trigger_mapping.py)
+
 find_package(ROOT REQUIRED COMPONENTS Core Tree RIO)
 
 tdaq_generate_dal(schema/NSWCalib.schema.xml
