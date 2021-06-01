@@ -129,7 +129,7 @@ void nsw::MMTriggerCalib::configure() {
     configure_tps(tr);
 
     // record some data?
-    if (m_latency || m_staircase)
+    if (m_latency)
       sleep(5);
   }
 
@@ -300,19 +300,30 @@ int nsw::MMTriggerCalib::configure_art_input_phase(nsw::ADDCConfig addc, uint ph
   auto cs = std::make_unique<nsw::ConfigSender>();
   if (m_staircase) {
     ERS_LOG("Writing ADDC config: " << addc.getAddress());
-    if (!m_dry_run)
-      cs->sendAddcConfig(addc);
+    for (size_t it = nsw::NUM_ART_PER_ADDC; it > 0; it--) {
+      size_t iart = it - 1;
+      try {
+        if (!m_dry_run)
+          cs->sendAddcConfig(addc, iart);
+      } catch (std::exception & ex) {
+        if (addc.getART(iart).MustConfigure()) {
+          throw;
+        } else {
+          ERS_INFO("Allowed to fail: " << ex.what());
+        }
+      }
+    }
     return 0;
   }
-  if (phase > std::pow(2, 4))
+
+  if (phase > nsw::art::NUM_PHASE_INPUT)
     throw std::runtime_error("Gave bad phase to configure_art_input_phase: " + std::to_string(phase));
+
   constexpr size_t art_size = 2;
   uint8_t art_data[] = {0x0, 0x0};
   auto opc_ip   = addc.getOpcServerIp();
   auto sca_addr = addc.getAddress();
   uint8_t this_phase = phase + (phase << 4);
-  // std::cout << "Setting input phase of " << sca_addr << " to be 0x"
-  //           << std::hex << static_cast<uint>(this_phase) << std::dec << std::endl;
   for (auto art : addc.getARTs()) {
     auto name = sca_addr + "." + art.getName() + "Ps" + "." + art.getName() + "Ps";
     ERS_LOG("Writing ART phase " << name << ": 0x" << std::hex << phase);
@@ -351,28 +362,10 @@ ptree nsw::MMTriggerCalib::patterns() const {
     // staircase loop: reconfigure ADDCs in the order expected by TP.
     //                 checks for fiber- and bundle-swapping.
     //
-    std::vector<std::string> ordered_addcs = {
-      "ADDC_L1P6_IPR",
-      "ADDC_L1P3_IPL",
-      "ADDC_L1P3_IPR",
-      "ADDC_L1P6_IPL",
-      "ADDC_L4P6_IPR",
-      "ADDC_L4P3_IPL",
-      "ADDC_L4P3_IPR",
-      "ADDC_L4P6_IPL",
-      "ADDC_L4P6_HOR",
-      "ADDC_L4P3_HOL",
-      "ADDC_L4P3_HOR",
-      "ADDC_L4P6_HOL",
-      "ADDC_L1P6_HOR",
-      "ADDC_L1P3_HOL",
-      "ADDC_L1P3_HOR",
-      "ADDC_L1P6_HOL",
-    };
-    for (auto & addc: ordered_addcs) {
+    for (auto & addc: nsw::mmtp::ORDERED_ADDCS) {
       ptree feb_patt;
       ptree top_patt;
-      top_patt.put("addc", addc);
+      top_patt.put("addc", std::string(addc));
       top_patt.put("tp_latency", -1);
       top_patt.put("art_input_phase", 0xf);
       top_patt.add_child("febpattern_" + std::to_string(ifebpatt), feb_patt);
@@ -817,7 +810,20 @@ std::vector<int> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConfig& a
 
     // read the register
     if (!simulation()) {
-      readback = cs->readI2cAtAddress(opc_ip, sca_addr, art_data, nsw::art::ADDRESS_SIZE, nsw::art::REG_COUNTERS_SIMULT);
+      try {
+        readback = cs->readI2cAtAddress(opc_ip, sca_addr, art_data,
+                                        nsw::art::ADDRESS_SIZE,
+                                        nsw::art::REG_COUNTERS_SIMULT);
+      } catch (std::exception & ex) {
+        if (addc.getART(art).MustConfigure()) {
+          throw;
+        } else {
+          ERS_INFO("Allowed to fail: " << ex.what());
+          readback.clear();
+          for (size_t it = 0; it < nsw::art::REG_COUNTERS_SIMULT; it++)
+            readback.push_back(0);
+        }
+      }
     } else {
       readback.clear();
       for (size_t it = 0; it < nsw::art::REG_COUNTERS_SIMULT; it++)
