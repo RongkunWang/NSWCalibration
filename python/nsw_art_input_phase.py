@@ -1,3 +1,4 @@
+#!/usr/bin/env tdaq_python
 """
 And lo, if death is for us, who can be against us?
 

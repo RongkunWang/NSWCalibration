@@ -1,3 +1,4 @@
+#!/usr/bin/env tdaq_python
 """
 A script for converting a MMTP L1A ROOT file into event displays.
 
