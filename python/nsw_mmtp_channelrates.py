@@ -371,7 +371,7 @@ def root2html(fname):
         lname = os.path.join(dname, f"mmtp_channelrates_{lab}_{sector}_Run_{run}_Layer_{layer}_{NOW}.gif")
         cmd = f"convert -delay 20 -loop 0 {dname}/Layer_{layer}/*.png {lname}"
         os.system(cmd)
-        print(f"Layer {layer} @ {webpath}/{os.path.basename(dname)}/{os.path.basename(lname)}")
+        print(f"- Layer {layer} @ {webpath}/{os.path.basename(dname)}/{os.path.basename(lname)}")
     print("Bonus: GIFs! Done ^.^")
     print("To save space, consider running:")
     print(f" rm -f {dname}/Layer_*/*.pdf")
