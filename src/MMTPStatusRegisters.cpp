@@ -86,7 +86,8 @@ void nsw::MMTPStatusRegisters::ExecuteBufferOverflow() {
     cs->sendTpConfigRegister(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW, 0x01, quiet);
     cs->sendTpConfigRegister(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW, 0x00, quiet);
     m_overflow_word = nsw::byteVectorToWord32(
-      cs->readTpConfigRegister(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW)
+      cs->readTpConfigRegister(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW),
+      nsw::mmtp::SCAX_LITTLE_ENDIAN
     );
   } else {
     m_overflow_word = 0;
@@ -105,7 +106,8 @@ void nsw::MMTPStatusRegisters::ExecuteFiberAlignment() {
   //
   if (!Sim()) {
     fiber_align_word = nsw::byteVectorToWord32(
-      cs->readTpConfigRegister(tp, nsw::mmtp::REG_FIBER_ALIGNMENT)
+      cs->readTpConfigRegister(tp, nsw::mmtp::REG_FIBER_ALIGNMENT),
+      nsw::mmtp::SCAX_LITTLE_ENDIAN
     );
   } else {
     fiber_align_word = 0;
@@ -144,7 +146,8 @@ void nsw::MMTPStatusRegisters::ExecuteHotVMMs() {
     uint32_t fiber_hot = 0xffff;
     if (!Sim()) {
       fiber_hot = nsw::byteVectorToWord32(
-        cs->readTpConfigRegister(tp, nsw::mmtp::REG_FIBER_HOT_READ)
+        cs->readTpConfigRegister(tp, nsw::mmtp::REG_FIBER_HOT_READ),
+        nsw::mmtp::SCAX_LITTLE_ENDIAN
       );
     } else {
       fiber_hot = std::pow(2, fiber);
