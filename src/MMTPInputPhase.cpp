@@ -95,8 +95,8 @@ int nsw::MMTPInputPhase::configure_tp(const nsw::TPConfig & tp, uint32_t phase, 
            << " and offset=" << offset);
     auto cs = std::make_unique<nsw::ConfigSender>();
     if (!simulation()) {
-      cs->sendTpConfigRegister(tp, nsw::mmtp::REG_INPUT_PHASE,       phase);
-      cs->sendTpConfigRegister(tp, nsw::mmtp::REG_INPUT_PHASEOFFSET, offset);
+      cs->sendSCAXRegister(tp, nsw::mmtp::REG_INPUT_PHASE,       phase);
+      cs->sendSCAXRegister(tp, nsw::mmtp::REG_INPUT_PHASEOFFSET, offset);
     }
     return 0;
 }
@@ -125,12 +125,12 @@ int nsw::MMTPInputPhase::read_tp(const nsw::TPConfig & tp, uint32_t phase, uint3
 
   // read the 32-bit word of fiber alignment
   if (!simulation())
-    data_align = cs->readTpConfigRegister(tp, nsw::mmtp::REG_FIBER_ALIGNMENT);
+    data_align = cs->readSCAXRegister(tp, nsw::mmtp::REG_FIBER_ALIGNMENT);
 
   // read the 4 32-bit words of fiber BCIDs (4 LSB per fiber)
   for (auto reg : nsw::mmtp::REG_FIBER_BCIDS) {
     if (!simulation())
-      data_bcids = cs->readTpConfigRegister(tp, reg);
+      data_bcids = cs->readSCAXRegister(tp, reg);
     for (auto byte : data_bcids)
       data_bcids_total.push_back(byte);
   }
