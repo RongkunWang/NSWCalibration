@@ -82,13 +82,10 @@ void nsw::MMTPStatusRegisters::ExecuteBufferOverflow() {
   //
   if (!Sim()) {
     bool quiet = true;
-    cs->sendTpConfigRegister(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW, 0x00, quiet);
-    cs->sendTpConfigRegister(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW, 0x01, quiet);
-    cs->sendTpConfigRegister(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW, 0x00, quiet);
-    m_overflow_word = nsw::byteVectorToWord32(
-      cs->readTpConfigRegister(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW),
-      nsw::mmtp::SCAX_LITTLE_ENDIAN
-    );
+    cs->sendSCAXRegister(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW, 0x00, quiet);
+    cs->sendSCAXRegister(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW, 0x01, quiet);
+    cs->sendSCAXRegister(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW, 0x00, quiet);
+    m_overflow_word = cs->readSCAXRegisterWord(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW);
   } else {
     m_overflow_word = 0;
   }
@@ -105,10 +102,7 @@ void nsw::MMTPStatusRegisters::ExecuteFiberAlignment() {
   // read fiber alignment
   //
   if (!Sim()) {
-    fiber_align_word = nsw::byteVectorToWord32(
-      cs->readTpConfigRegister(tp, nsw::mmtp::REG_FIBER_ALIGNMENT),
-      nsw::mmtp::SCAX_LITTLE_ENDIAN
-    );
+    fiber_align_word = cs->readSCAXRegisterWord(tp, nsw::mmtp::REG_FIBER_ALIGNMENT);
   } else {
     fiber_align_word = 0;
   }
@@ -137,7 +131,7 @@ void nsw::MMTPStatusRegisters::ExecuteHotVMMs() {
     // set the fiber of interest
     //
     if (!Sim()) {
-      cs->sendTpConfigRegister(tp, nsw::mmtp::REG_FIBER_HOT_MUX, fiber, quiet);
+      cs->sendSCAXRegister(tp, nsw::mmtp::REG_FIBER_HOT_MUX, fiber, quiet);
     }
 
     //
@@ -145,10 +139,7 @@ void nsw::MMTPStatusRegisters::ExecuteHotVMMs() {
     //
     uint32_t fiber_hot = 0xffff;
     if (!Sim()) {
-      fiber_hot = nsw::byteVectorToWord32(
-        cs->readTpConfigRegister(tp, nsw::mmtp::REG_FIBER_HOT_READ),
-        nsw::mmtp::SCAX_LITTLE_ENDIAN
-      );
+      fiber_hot = cs->readSCAXRegisterWord(tp, nsw::mmtp::REG_FIBER_HOT_READ);
     } else {
       fiber_hot = std::pow(2, fiber);
     }
@@ -183,7 +174,7 @@ void nsw::MMTPStatusRegisters::ExecuteResetL1A() {
     }
     bool quiet = true;
     if (!Sim()) {
-      cs->sendTpConfig(tp, quiet);
+      cs->sendTPConfig(tp, quiet);
     }
   }
 

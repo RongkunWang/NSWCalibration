@@ -234,7 +234,7 @@ int nsw::MMTriggerCalib::configure_tps(const ptree& tr) {
       usleep(1e5);
     m_tpscax_busy = true;
     if (!m_dry_run)
-      cs->sendTpConfig(tp);
+      cs->sendTPConfig(tp);
     m_tpscax_busy = false;
   }
   return 0;
@@ -663,7 +663,7 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
           cs.readI2cAtAddress(tp.first, tp.second, regAddrVec.data(), regAddrVec.size(), nsw::NUM_BYTES_IN_WORD32);
         data_bcids_total.clear();
         for (auto reg : nsw::mmtp::REG_FIBER_BCIDS) {
-          auto bxdata = nsw::intToByteVector(reg, nsw::NUM_BYTES_IN_WORD32, nsw::mmtp::SCAX_LITTLE_ENDIAN);
+          auto bxdata = nsw::intToByteVector(reg, nsw::NUM_BYTES_IN_WORD32, nsw::scax::SCAX_LITTLE_ENDIAN);
           if (!m_dry_run)
             data_bcids = cs.readI2cAtAddress(tp.first, tp.second, bxdata.data(), bxdata.size(), nsw::NUM_BYTES_IN_WORD32);
           for (auto byte : data_bcids)
