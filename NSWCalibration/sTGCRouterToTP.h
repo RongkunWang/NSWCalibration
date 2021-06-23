@@ -32,7 +32,8 @@ namespace nsw {
     void unconfigure() override;
 
   public:
-    int configure_router(const nsw::RouterConfig & router, int hold_reset) const;
+    int configure_router(const nsw::RouterConfig & router,
+                         std::chrono::seconds hold_reset) const;
 
   private:
     bool m_dry_run = false;

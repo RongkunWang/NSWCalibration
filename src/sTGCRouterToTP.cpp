@@ -43,7 +43,7 @@ void nsw::sTGCRouterToTP::setup(const std::string& db) {
 
 void nsw::sTGCRouterToTP::configure() {
   ERS_INFO("sTGCRouterToTP::configure " << counter());
-  constexpr int wait = 10;
+  constexpr std::chrono::seconds wait{10};
   bool success = false;
   for (auto & router : m_routers) {
       auto name  = router.getAddress();
@@ -56,16 +56,17 @@ void nsw::sTGCRouterToTP::configure() {
   }
   if (!success) {
       ERS_INFO("Warning: no Router for Layer " << counter());
-      usleep(wait * 1e6);
+      std::this_thread::sleep_for(wait);
   }
-  usleep(wait * 1e6);
+  std::this_thread::sleep_for(wait);
 }
 
 void nsw::sTGCRouterToTP::unconfigure() {
   ERS_INFO("sTGCRouterToTP::unconfigure " << counter());
 }
 
-int nsw::sTGCRouterToTP::configure_router(const nsw::RouterConfig & router, int hold_reset) const {
+int nsw::sTGCRouterToTP::configure_router(const nsw::RouterConfig & router,
+                                          std::chrono::seconds hold_reset) const {
     ERS_INFO("Configuring " << router.getAddress());
     auto cs = std::make_unique<nsw::ConfigSender>();
     if (!m_dry_run) {
