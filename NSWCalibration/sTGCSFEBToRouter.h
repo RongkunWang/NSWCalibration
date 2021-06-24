@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <future>
+#include <fstream>
 
 #include "NSWCalibration/CalibAlg.h"
 
@@ -43,18 +44,23 @@ namespace nsw {
     int configure_routers() const;
     int configure_router(const nsw::RouterConfig & router) const;
     void gather_sfebs();
-    int pattern_number(const std::string& name) const;
-    int router_watchdog() const;
+    int router_watchdog(bool open, bool close);
+    void wait_for_routers(size_t expectation) const;
+    size_t count_ready_routers() const;
     bool router_ClkReady(const nsw::RouterConfig & router) const;
 
   private:
-    bool m_dry_run = false;
     boost::property_tree::ptree m_patterns;
     std::string m_calibType = "";
     std::vector<std::string> m_sfebs_ordered = {};
     std::vector<nsw::FEBConfig> m_sfebs = {};
     std::vector<nsw::RouterConfig> m_routers = {};
     std::future<int> m_watchdog;
+
+  private:
+    std::string m_fname;
+    std::ofstream m_myfile;
+    size_t m_routers_at_start;
 
   };
 

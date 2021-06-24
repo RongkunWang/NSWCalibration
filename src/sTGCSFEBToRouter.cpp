@@ -22,8 +22,6 @@ nsw::sTGCSFEBToRouter::sTGCSFEBToRouter(const std::string& calibType) {
 void nsw::sTGCSFEBToRouter::setup(const std::string& db) {
   ERS_INFO("setup " << db);
 
-  m_dry_run = false;
-
   // parse calib type
   if (m_calibType=="sTGCSFEBToRouter"   ||
       m_calibType=="sTGCSFEBToRouterQ1" ||
@@ -32,7 +30,8 @@ void nsw::sTGCSFEBToRouter::setup(const std::string& db) {
     ERS_INFO("Calib type: " << m_calibType);
   } else {
     std::stringstream msg;
-    msg << "Unknown calibration request for sTGCSFEBToRouter: " << m_calibType << ". Crashing.";
+    msg << "Unknown calibration request for sTGCSFEBToRouter: "
+        << m_calibType << ". Crashing.";
     ERS_INFO(msg.str());
     throw std::runtime_error(msg.str());
   }
@@ -49,35 +48,46 @@ void nsw::sTGCSFEBToRouter::setup(const std::string& db) {
   ERS_INFO("Found " << m_routers.size() << " Routers");
   ERS_INFO("Found " << m_sfebs.size()   << " SFEBs");
 
-  // start dog
-  m_watchdog = std::async(std::launch::async, &nsw::sTGCSFEBToRouter::router_watchdog, this);
-
   // set number of iterations
   gather_sfebs();
   setTotal((int)(m_sfebs_ordered.size()));
   setToggle(false);
   setWait4swROD(false);
-  usleep(1e6);
+  std::this_thread::sleep_for(std::chrono::seconds{1});
+
+  // count the number of routers
+  //   at start of run
+  m_routers_at_start = count_ready_routers();
+  ERS_INFO("At start of run, found " << m_routers_at_start
+           << " Routers which have ClkReady = true");
 }
 
 void nsw::sTGCSFEBToRouter::configure() {
   ERS_INFO("sTGCSFEBToRouter::configure " << counter());
-  auto name = m_sfebs_ordered.at(counter());
-  for (auto & sfeb: m_sfebs)
+  const bool prbs  = true;
+  const bool open  = counter() == 0;
+  const bool close = false;
+  const auto name = m_sfebs_ordered.at(counter());
+  for (const auto & sfeb: m_sfebs)
     if (sfeb.getAddress().find(name) != std::string::npos)
-      configure_tds(sfeb, true);
+      configure_tds(sfeb, prbs);
   configure_routers();
-  usleep(15e6);
+  wait_for_routers(m_routers_at_start - 1);
+  router_watchdog(open, close);
 }
 
 void nsw::sTGCSFEBToRouter::unconfigure() {
   ERS_INFO("sTGCSFEBToRouter::unconfigure " << counter());
-  auto name = m_sfebs_ordered.at(counter());
-  for (auto & sfeb: m_sfebs)
+  const bool prbs  = false;
+  const bool open  = false;
+  const bool close = counter() == total() - 1;
+  const auto name = m_sfebs_ordered.at(counter());
+  for (const auto & sfeb: m_sfebs)
     if (sfeb.getAddress().find(name) != std::string::npos)
-      configure_tds(sfeb, false);
+      configure_tds(sfeb, prbs);
   configure_routers();
-  usleep(15e6);
+  wait_for_routers(m_routers_at_start);
+  router_watchdog(open, close);
 }
 
 int nsw::sTGCSFEBToRouter::configure_routers() const {
@@ -94,9 +104,11 @@ int nsw::sTGCSFEBToRouter::configure_routers() const {
 
 int nsw::sTGCSFEBToRouter::configure_router(const nsw::RouterConfig & router) const {
     ERS_INFO("Configuring " << router.getAddress());
+    constexpr std::chrono::seconds reset_hold{0};
+    constexpr std::chrono::seconds reset_sleep{1};
     auto cs = std::make_unique<nsw::ConfigSender>();
-    if (!m_dry_run)
-        cs->sendRouterConfig(router);
+    if (!simulation())
+      cs->sendRouterSoftReset(router, reset_hold, reset_sleep);
     return 0;
 }
 
@@ -113,7 +125,7 @@ int nsw::sTGCSFEBToRouter::configure_tds(const nsw::FEBConfig & feb, bool enable
              << " -> " << (enable ? "enable PRBS" : "disable PRBS")
              );
     tds.setRegisterValue(reg, subreg, enable ? 1 : 0);
-    if (!m_dry_run)
+    if (!simulation())
       cs->sendI2cMasterSingle(opc_ip, sca_address, tds, reg);
   }
   return 0;
@@ -175,61 +187,93 @@ void nsw::sTGCSFEBToRouter::gather_sfebs() {
       m_sfebs_ordered.push_back("L4Q3_HO");
     } else {
       std::stringstream msg;
-      msg << "Unknown m_calib for sTGCSFEBToRouter::gather_sfebs: " << m_calibType << ". Crashing.";
+      msg << "Unknown m_calib for sTGCSFEBToRouter::gather_sfebs: "
+          << m_calibType << ". Crashing.";
       ERS_INFO(msg.str());
       throw std::runtime_error(msg.str());
     }
   }
 }
 
-int nsw::sTGCSFEBToRouter::router_watchdog() const {
-    //
-    // Be forewarned: this function reads Router SCA registers.
-    // Dont race elsewhere.
-    //
+int nsw::sTGCSFEBToRouter::router_watchdog(bool open, bool close) {
+  //
+  // Be forewarned: this function reads Router SCA registers.
+  // Dont race elsewhere.
+  //
   if (m_routers.size() == 0)
     return 0;
 
-  // sleep time
-  size_t slp = 1e5;
-
   // output file and announce
-  std::string fname = "router_ClkReady_" + nsw::calib::utils::strf_time() + ".txt";
-  std::ofstream myfile;
-  myfile.open(fname);
-  ERS_INFO("Router ClkReady watchdog. Output: " << fname << ". Sleep: " << slp << "us");
-
-  // monitor
-  auto threads = std::make_unique<std::vector< std::future<bool> > >();
-  while (counter() < total()) {
-    myfile << "Time " << nsw::calib::utils::strf_time() << std::endl;
-    for (auto & router : m_routers)
-      threads->push_back( std::async(std::launch::async,
-                                     &nsw::sTGCSFEBToRouter::router_ClkReady,
-                                     this,
-                                     router) );
-    for (size_t ir = 0; ir < m_routers.size(); ir++) {
-      auto name = m_routers.at(ir).getAddress();
-      auto val  = threads ->at(ir).get();
-      myfile << name << " " << val << std::endl;
-    }
-    threads->clear();
-    usleep(slp);
+  if (open) {
+    m_fname = "router_ClkReady_" + nsw::calib::utils::strf_time() + ".txt";
+    m_myfile.open(m_fname);
+    ERS_INFO("Router ClkReady watchdog. Output: " << m_fname);
   }
 
+  // read once
+  auto threads = std::make_unique<std::vector< std::future<bool> > >();
+  m_myfile << "Time " << nsw::calib::utils::strf_time() << std::endl;
+  for (const auto & router : m_routers)
+    threads->push_back( std::async(std::launch::async,
+                                   &nsw::sTGCSFEBToRouter::router_ClkReady,
+                                   this,
+                                   router) );
+  for (size_t ir = 0; ir < m_routers.size(); ir++) {
+    auto name = m_routers.at(ir).getAddress();
+    auto val  = threads ->at(ir).get();
+    m_myfile << name << " " << val << std::endl;
+  }
+  threads->clear();
+
   // close
-  ERS_INFO("Closing " << fname);
-  myfile.close();
+  if (close) {
+    ERS_INFO("Closing " << m_fname);
+    m_myfile.close();
+  }
+
   return 0;
 }
 
+void nsw::sTGCSFEBToRouter::wait_for_routers(size_t expectation) const {
+  size_t count = 0;
+  while (count < expectation) {
+    ERS_INFO("Waiting for Routers to be ready...");
+    count = count_ready_routers();
+    std::this_thread::sleep_for(std::chrono::seconds{1});
+  }
+}
+
+size_t nsw::sTGCSFEBToRouter::count_ready_routers() const {
+  size_t count = 0;
+
+  // read the router GPIO
+  auto threads = std::vector< std::future<bool> >();
+  for (const auto & router : m_routers) {
+    threads.push_back( std::async(std::launch::async,
+                                  &nsw::sTGCSFEBToRouter::router_ClkReady,
+                                  this,
+                                  router) );
+  }
+
+  // count the number of ready routers
+  for (auto& thr : threads) {
+    if (thr.get()) {
+      count++;
+    }
+  }
+  threads.clear();
+
+  // return
+  return count;
+}
+
 bool nsw::sTGCSFEBToRouter::router_ClkReady(const nsw::RouterConfig & router) const {
-  auto cs = std::make_unique<nsw::ConfigSender>();
-  auto opc_ip   = router.getOpcServerIp();
-  auto sca_addr = router.getAddress();
-  auto rx_addr  = sca_addr + ".gpio." + "rxClkReady";
-  auto tx_addr  = sca_addr + ".gpio." + "txClkReady";
-  auto rx_val   = m_dry_run ? false : cs->readGPIO(opc_ip, rx_addr);
-  auto tx_val   = m_dry_run ? false : cs->readGPIO(opc_ip, tx_addr);
+  const auto cs = std::make_unique<nsw::ConfigSender>();
+  const auto opc_ip   = router.getOpcServerIp();
+  const auto sca_addr = router.getAddress();
+  const auto rx_addr  = sca_addr + ".gpio." + "rxClkReady";
+  const auto tx_addr  = sca_addr + ".gpio." + "txClkReady";
+  const auto rx_val   = simulation() ? true : cs->readGPIO(opc_ip, rx_addr);
+  const auto tx_val   = simulation() ? true : cs->readGPIO(opc_ip, tx_addr);
   return rx_val && tx_val;
 }
