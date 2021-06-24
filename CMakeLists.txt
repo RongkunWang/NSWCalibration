@@ -49,6 +49,7 @@ tdaq_add_library(nswcalib
     rt
     Protobuf
     tdaq::AltiModule
+    Open62541Compat::LogIt
     ROOT::Core
     ROOT::Tree
     ROOT::RIO

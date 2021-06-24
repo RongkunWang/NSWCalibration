@@ -1,5 +1,4 @@
 #include "NSWCalibration/NSWCalibRc.h"
-
 #include "NSWCalibrationDal/NSWCalibApplication.h"
 #include "NSWCalibration/MMTriggerCalib.h"
 #include "NSWCalibration/MMTPInputPhase.h"
@@ -8,13 +7,11 @@
 #include "NSWCalibration/sTGCSFEBToRouter.h"
 #include "NSWCalibration/sTGCRouterToTP.h"
 #include "NSWCalibration/sTGCPadTriggerToSFEB.h"
-
 #include "NSWConfiguration/NSWConfig.h"
 
-// Header to the RC online services
 #include "RunControl/Common/OnlineServices.h"
-
 #include "ers/ers.h"
+#include <logit_logger.h>
 
 using boost::property_tree::ptree;
 
@@ -24,6 +21,8 @@ nsw::NSWCalibRc::NSWCalibRc(bool simulation):m_simulation {simulation} {
         ERS_INFO("Running in simulation mode, no configuration will be sent");
         m_simulation_lock = true;
     }
+    Log::initializeLogging();
+    initializeOpen62541LogIt(Log::ERR);
 }
 
 void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
