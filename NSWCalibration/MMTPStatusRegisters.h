@@ -52,6 +52,7 @@ namespace nsw {
     void FinalizeTTree();
     void ExecuteStartOfLoop();
     void ExecuteFiberIndex();
+    void ExecuteBasicReads();
     void ExecuteBufferOverflow();
     void ExecuteFiberAlignment();
     void ExecuteHotVMMs();
@@ -86,6 +87,8 @@ namespace nsw {
     std::string m_rname;
     uint32_t m_event;
     uint32_t m_overflow_word;
+    uint32_t m_date_code;
+    uint32_t m_git_hash;
     uint32_t m_fiber_align_word;
     uint32_t m_sleep_time;
     bool m_reset_l1a;

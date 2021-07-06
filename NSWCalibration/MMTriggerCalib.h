@@ -61,7 +61,7 @@ namespace nsw {
     //
     // https://espace.cern.ch/ATLAS-NSW-ELX/Shared%20Documents/ART/art2_registers_v.xlsx
     //
-    std::vector<int> read_art_counters(const nsw::ADDCConfig& addc, int art) const;
+    std::vector<uint32_t> read_art_counters(const nsw::ADDCConfig& addc, int art) const;
     int wait_until_done();
     int announce(const std::string& name, const boost::property_tree::ptree& tr, bool unmask) const;
 
@@ -92,7 +92,7 @@ namespace nsw {
     std::string m_art_now;
     int m_art_event;
     int m_art_index;
-    std::unique_ptr<std::vector<int> > m_art_hits;
+    std::unique_ptr<std::vector<uint32_t> > m_art_hits;
 
   };
 

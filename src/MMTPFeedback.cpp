@@ -16,7 +16,8 @@ nsw::MMTPFeedback::MMTPFeedback() {
   m_sim            = false;
   m_debug          = false;
   m_fname_data     = "";
-  m_fname_root     = "";
+  m_fname_root_i   = "";
+  m_fname_root_o   = "";
   m_fname_json_i   = "";
   m_fname_json_o   = "";
   m_factor_channel = 10;
@@ -32,6 +33,7 @@ void nsw::MMTPFeedback::AnalyzeNoise() {
   LoadChannelRateRootFile();
   AnalyzeTTree();
   SendConfigurations();
+  WriteOutputRootFile();
   Summarize();
 }
 
@@ -536,6 +538,69 @@ void nsw::MMTPFeedback::WriteOutputJsonFile() {
   file.open(OutputJsonFile());
   file << oss.str();
   file.close();
+}
+
+void nsw::MMTPFeedback::WriteOutputRootFile() {
+
+  //
+  // output
+  //
+  std::cout << std::endl;
+  std::cout << "Writing output ROOT file: " << std::endl;
+  std::cout << OutputRootFile() << std::endl;
+  std::cout << std::endl;
+  auto rfile = std::make_unique< TFile >(OutputRootFile().c_str(), "recreate");
+  auto rtree = std::make_shared< TTree >("nsw", "nsw");
+
+  //
+  // declarations for TTree
+  //
+  std::string now = "";
+  uint32_t noisy_channel_factor = -1;
+  uint32_t noisy_channel_n      = -1;
+  auto noisy_channel_mmfe8 = std::make_unique< std::vector<std::string> >();
+  auto noisy_channel_vmm   = std::make_unique< std::vector<uint32_t> >();
+  auto noisy_channel_ch    = std::make_unique< std::vector<uint32_t> >();
+  auto noisy_channel_rate  = std::make_unique< std::vector<uint32_t> >();
+  auto noisy_channel_layer = std::make_unique< std::vector<uint32_t> >();
+  auto noisy_channel_pos   = std::make_unique< std::vector<uint32_t> >();
+
+  //
+  // define TTree branches
+  //
+  rtree->Branch("time",                 &now);
+  rtree->Branch("noisy_channel_factor", &noisy_channel_factor);
+  rtree->Branch("noisy_channel_n",      &noisy_channel_n);
+  rtree->Branch("noisy_channel_mmfe8",   noisy_channel_mmfe8.get());
+  rtree->Branch("noisy_channel_vmm",     noisy_channel_vmm.get());
+  rtree->Branch("noisy_channel_ch",      noisy_channel_ch.get());
+  rtree->Branch("noisy_channel_rate",    noisy_channel_rate.get());
+  rtree->Branch("noisy_channel_layer",   noisy_channel_layer.get());
+  rtree->Branch("noisy_channel_pos",     noisy_channel_pos.get());
+
+  //
+  // fill branches
+  //
+  now = nsw::calib::utils::strf_time();
+  noisy_channel_factor = NoisyChannelFactor();
+  noisy_channel_n      = m_noisy_channels.size();
+  for (const auto& meas: m_noisy_channels) {
+    noisy_channel_mmfe8->push_back(meas.mmfe8);
+    noisy_channel_vmm  ->push_back(meas.vmm);
+    noisy_channel_ch   ->push_back(meas.ch);
+    noisy_channel_rate ->push_back(meas.rate);
+    noisy_channel_layer->push_back(meas.layer);
+    noisy_channel_pos  ->push_back(meas.pos);
+  }
+
+  //
+  // fill TTree and close
+  //
+  rtree->Fill();
+  rfile->cd();
+  rtree->Write();
+  rfile->Close();
+
 }
 
 void nsw::MMTPFeedback::Summarize() {
