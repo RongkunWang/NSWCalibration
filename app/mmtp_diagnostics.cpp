@@ -38,7 +38,9 @@
 namespace po = boost::program_options;
 
 int tp_watchdog(std::string config, int sleep_time, bool reset_l1a, bool sim, bool debug);
-int tp_feedback(const std::string& data_file, const std::string& json_file,
+int tp_feedback(const std::string& data_file,
+                const std::string& json_file,
+                const std::string& outr_name,
                 size_t noisy_channel, size_t nsleep,
                 bool sim, bool debug);
 std::string exec(const char* cmd);
@@ -147,12 +149,13 @@ int main(int argc, const char *argv[])
     //
     if (feedback) {
       const auto data_file = (feedback_data_file == "") ? swrod_current_file() : feedback_data_file;
+      const auto outr_name  = "mmtpfeedback." + metadata();
       std::cout << std::endl;
       std::cout << "Data file for MM TP channel rates:" << std::endl;
       std::cout << data_file << std::endl;
       std::cout << std::endl;
       auto feedback = std::async(std::launch::async, tp_feedback,
-                                 data_file, config_filename,
+                                 data_file, config_filename, outr_name,
                                  feedback_noisy_channel, feedback_sleep,
                                  sim, debug);
     } else {
@@ -237,7 +240,9 @@ int tp_watchdog(std::string config, int sleep_time, bool reset_l1a, bool sim, bo
 // A thread for reading MM TP channel rates
 //   and masking noisy channels according to the user
 //
-int tp_feedback(const std::string& data_file, const std::string& json_file,
+int tp_feedback(const std::string& data_file,
+                const std::string& json_file,
+                const std::string& outr_name,
                 size_t noisy_channel, size_t nsleep,
                 bool sim, bool debug) {
 
@@ -259,8 +264,10 @@ int tp_feedback(const std::string& data_file, const std::string& json_file,
     // configure outputs
     // disable VMM threshold manipulation for now
     //
-    std::string root_file = data_file + "." + nsw::calib::utils::strf_time() + ".root";
-    std::string outj_file = json_file + "." + nsw::calib::utils::strf_time() + ".json";
+    const auto now = nsw::calib::utils::strf_time();
+    std::string root_file = data_file + "." + now + ".root";
+    std::string outj_file = json_file + "." + now + ".json";
+    std::string outr_file = outr_name + "." + now + ".root";
     size_t noisy_vmm = 1e9;
 
     //
@@ -279,6 +286,7 @@ int tp_feedback(const std::string& data_file, const std::string& json_file,
     feedback->SetNoisyVMMFactor(noisy_vmm);
     feedback->SetInputJsonFile(json_file);
     feedback->SetOutputJsonFile(outj_file);
+    feedback->SetOutputRootFile(outr_file);
     feedback->SetLoop(0);
 
     //

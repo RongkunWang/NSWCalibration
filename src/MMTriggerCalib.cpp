@@ -233,8 +233,10 @@ int nsw::MMTriggerCalib::configure_tps(const ptree& tr) {
     while (m_tpscax_busy)
       usleep(1e5);
     m_tpscax_busy = true;
-    if (!m_dry_run)
+    if (!m_dry_run) {
+      ERS_INFO("MMTP overflow word: " << cs->readSCAXRegisterWord(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW));
       cs->sendTPConfig(tp);
+    }
     m_tpscax_busy = false;
   }
   return 0;
@@ -718,7 +720,7 @@ int nsw::MMTriggerCalib::read_arts_counters() {
       m_addc_address = "";
       m_art_name     = "";
       m_art_index    = -1;
-      m_art_hits     = std::make_unique< std::vector<int> >();
+      m_art_hits     = std::make_unique< std::vector<uint32_t> >();
       m_art_rtree->Branch("time",         &m_art_now);
       m_art_rtree->Branch("event",        &m_art_event);
       m_art_rtree->Branch("addc_address", &m_addc_address);
@@ -736,7 +738,7 @@ int nsw::MMTriggerCalib::read_arts_counters() {
 
     // init
     auto threads = std::make_unique<
-      std::vector< std::future< std::vector<int> > >
+      std::vector< std::future< std::vector<uint32_t> > >
       >();
     m_art_event = counter();
     m_art_now   = nsw::calib::utils::strf_time();
@@ -784,7 +786,7 @@ int nsw::MMTriggerCalib::read_arts_counters() {
   return 0;
 }
 
-std::vector<int> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConfig& addc, int art) const {
+std::vector<uint32_t> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConfig& addc, int art) const {
 
   // setup
   auto cs = std::make_unique<nsw::ConfigSender>();
@@ -792,10 +794,10 @@ std::vector<int> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConfig& a
   auto opc_ip    = addc.getOpcServerIp();
   auto sca_addr  = addc.getAddress() + "." + addc.getART(art).getNameCore();
   size_t reg_local  = 0;
-  size_t word32     = 0;
   size_t index      = 0;
-  std::vector<uint8_t> readback = {};
-  std::vector<int> results      = {};
+  uint32_t word32   = 0;
+  std::vector<uint8_t>  readback = {};
+  std::vector<uint32_t> results  = {};
 
   // query registers
   for (size_t reg = nsw::art::REG_COUNTERS_START; reg < nsw::art::REG_COUNTERS_END; reg++) {
@@ -846,7 +848,7 @@ std::vector<int> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConfig& a
         word32 = 0;
       word32 += (readback.at(it) << index*nsw::NUM_BITS_IN_BYTE);
       if (index == nsw::art::REG_COUNTERS_SIZE - 1)
-        results.push_back(static_cast<int>(word32));
+        results.push_back(word32);
     }
 
   }

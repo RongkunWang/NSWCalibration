@@ -36,6 +36,7 @@ void nsw::MMTPStatusRegisters::Initialize() {
 void nsw::MMTPStatusRegisters::Execute() {
   ExecuteStartOfLoop();
   ExecuteFiberIndex();
+  ExecuteBasicReads();
   ExecuteBufferOverflow();
   ExecuteFiberAlignment();
   ExecuteHotVMMs();
@@ -69,6 +70,21 @@ void nsw::MMTPStatusRegisters::ExecuteFiberIndex() {
   for (uint32_t fiber = 0; fiber < nsw::mmtp::NUM_FIBERS; fiber++) {
     m_fiber_index->push_back(fiber);
   }
+
+}
+
+void nsw::MMTPStatusRegisters::ExecuteBasicReads() {
+
+  auto cs = std::make_unique<nsw::ConfigSender>();
+  const auto& tp = m_tps.at(0);
+
+  //
+  // basic register reading
+  //
+  m_date_code = Sim() ? 0 :
+    cs->readSCAXRegisterWord(tp, nsw::mmtp::REG_DATE_CODE);
+  m_git_hash  = Sim() ? 0 :
+    cs->readSCAXRegisterWord(tp, nsw::mmtp::REG_GIT_HASH);
 
 }
 
@@ -229,6 +245,8 @@ void nsw::MMTPStatusRegisters::InitializeTTree() {
   m_rtree = std::make_shared< TTree >("nsw", "nsw");
   m_event            = -1;
   m_overflow_word    = -1;
+  m_date_code        = -1;
+  m_git_hash         = -1;
   m_fiber_align_word = -1;
   m_fiber_index = std::make_unique< std::vector<uint32_t> >();
   m_fiber_align = std::make_unique< std::vector<uint32_t> >();
@@ -239,6 +257,8 @@ void nsw::MMTPStatusRegisters::InitializeTTree() {
   m_rtree->Branch("opc_ip",        &m_opc_ip);
   m_rtree->Branch("tp_address",    &m_tp_address);
   m_rtree->Branch("overflow_word", &m_overflow_word);
+  m_rtree->Branch("date_code",     &m_date_code);
+  m_rtree->Branch("git_hash",      &m_git_hash);
   m_rtree->Branch("sleep_time",    &m_sleep_time);
   m_rtree->Branch("reset_l1a",     &m_reset_l1a);
   m_rtree->Branch("fiber_index",   m_fiber_index.get());

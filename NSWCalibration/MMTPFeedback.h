@@ -43,7 +43,8 @@ namespace nsw {
 
     void SetDebug(bool val) {m_debug = val;}
     void SetChannelRateDataFile(const std::string& val) {m_fname_data     = val;}
-    void SetChannelRateRootFile(const std::string& val) {m_fname_root     = val;}
+    void SetChannelRateRootFile(const std::string& val) {m_fname_root_i   = val;}
+    void SetOutputRootFile     (const std::string& val) {m_fname_root_o   = val;}
     void SetChannelRateTreeName(const std::string& val) {m_tree_name      = val;}
     void SetInputJsonFile      (const std::string& val) {m_fname_json_i   = val;}
     void SetOutputJsonFile     (const std::string& val) {m_fname_json_o   = val;}
@@ -71,21 +72,23 @@ namespace nsw {
     void UpdatePtreeVmmThreshold();
     void UpdatePtreeChannelMask();
     void WriteOutputJsonFile();
+    void WriteOutputRootFile();
     void Summarize();
 
-    bool Debug()      {return m_debug;}
-    bool Simulation() {return m_sim;}
-    std::string ChannelRateDataFile() {return m_fname_data;}
-    std::string ChannelRateRootFile() {return m_fname_root;}
-    std::string ChannelRateTreeName() {return m_tree_name;}
-    std::string InputJsonFile()       {return m_fname_json_i;}
-    std::string OutputJsonFile()      {return m_fname_json_o;}
+    bool Debug()      const {return m_debug;}
+    bool Simulation() const {return m_sim;}
+    std::string ChannelRateDataFile() const {return m_fname_data;}
+    std::string ChannelRateRootFile() const {return m_fname_root_i;}
+    std::string OutputRootFile()      const {return m_fname_root_o;}
+    std::string ChannelRateTreeName() const {return m_tree_name;}
+    std::string InputJsonFile()       const {return m_fname_json_i;}
+    std::string OutputJsonFile()      const {return m_fname_json_o;}
     std::string MakeMMFE8Name();
-    int NoisyChannelFactor()          {return m_factor_channel;}
-    int NoisyVMMFactor()              {return m_factor_vmm;}
-    int ThresholdIncrease()           {return m_threshold_incr;}
-    int MaxThreads()                  {return m_max_threads;}
-    int Loop()                        {return m_loop;}
+    int NoisyChannelFactor()          const {return m_factor_channel;}
+    int NoisyVMMFactor()              const {return m_factor_vmm;}
+    int ThresholdIncrease()           const {return m_threshold_incr;}
+    int MaxThreads()                  const {return m_max_threads;}
+    int Loop()                        const {return m_loop;}
     int GetMedian(std::vector<int>& v);
     bool TooManyThreads();
     size_t ActiveThreads();
@@ -95,7 +98,8 @@ namespace nsw {
     bool m_sim;
     bool m_debug;
     std::string m_fname_data;
-    std::string m_fname_root;
+    std::string m_fname_root_i;
+    std::string m_fname_root_o;
     std::string m_fname_json_i;
     std::string m_fname_json_o;
     int m_factor_channel;
