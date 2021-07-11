@@ -45,11 +45,11 @@ tdaq_add_library(nswcalib
     src/MMTPStatusRegisters.cpp
   LINK_LIBRARIES nswconfig NSWConfig nswcalibdal
     nswopcclient
+    LogIt
     Boost::boost
     rt
     Protobuf
     tdaq::AltiModule
-    Open62541Compat::LogIt
     ROOT::Core
     ROOT::Tree
     ROOT::RIO
