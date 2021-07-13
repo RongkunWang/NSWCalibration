@@ -63,7 +63,7 @@ void nsw::sTGCPadTriggerToSFEB::configure() {
   ERS_INFO("sTGCPadTriggerToSFEB::configure " << counter());
   constexpr int seconds = 600;
   for (int second = 0; second < seconds; second++) {
-    usleep(1e6);
+    nsw::snooze(std::chrono::milliseconds(100));
     ERS_INFO("sTGCPadTriggerToSFEB::sleeping " << second+1 << " / " << seconds);
 
     // check on the watchdog
@@ -97,13 +97,13 @@ int nsw::sTGCPadTriggerToSFEB::sfeb_watchdog() const {
   }
 
   // sleep time
-  constexpr size_t slp = 1e6;
+  constexpr auto slp = std::chrono::milliseconds(200);
 
   // output file and announce
   std::string fname = "sfeb_register15_" + nsw::calib::utils::strf_time() + ".txt";
   std::ofstream myfile;
   myfile.open(fname);
-  ERS_INFO("SFEB watchdog. Output: " << fname << ". Sleep: " << slp/1e3 << "ms");
+  ERS_INFO("SFEB watchdog. Output: " << fname);
 
   // monitor
   // pointer < sfebs < threads < tds < register15 > > > >
@@ -127,7 +127,7 @@ int nsw::sTGCPadTriggerToSFEB::sfeb_watchdog() const {
       }
     }
     threads->clear();
-    usleep(slp);
+    nsw::snooze(slp);
   }
 
   // close
