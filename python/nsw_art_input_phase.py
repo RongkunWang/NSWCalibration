@@ -36,7 +36,8 @@ def options():
     connec_data = "/afs/cern.ch/work/n/nswdaq/public/nswmmartconnectivitytest/data/"
     config_json = "/afs/cern.ch/user/n/nswdaq/public/sw/config-ttc/config-files/config_json/"
     parser = argparse.ArgumentParser(usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("-t", help="Input ROOT TTree name", default="decodedData")
+    parser.add_argument("-d", help="Required string in input", default="MMARTPhase")
+    parser.add_argument("-t", help="Input ROOT TTree name",    default="decodedData")
     parser.add_argument("-i", help="Input ROOT file",       default=os.path.join(connec_data, "dummy.root"))
     parser.add_argument("-c", help="Config JSON file",      default=os.path.join(config_json, "BB5/A16/full_small_sector_a16_bb5_internalPulser_ADDC_TP.json"))
     parser.add_argument("-j", help="Pattern JSON file",     default=os.path.join(EOS, "nsw_art_input_phase.json"))
@@ -44,8 +45,11 @@ def options():
     parser.add_argument("-l", help="Lab name",              default=None)
     parser.add_argument("-o", help="Output ROOT file",      default=None)
     parser.add_argument("-n", help="Make a new JSON file",     action="store_true")
+    parser.add_argument("-f", help="Go fast: skip VMM plots",  action="store_true")
     parser.add_argument("-r", help="Make plots w/root2html",   action="store_true")
     parser.add_argument("--debug", help="Enable debug output", action="store_true")
+    parser.add_argument("--rebinx", help="Rebin x-axis of VMM plots", default=1)
+    parser.add_argument("--rebiny", help="Rebin y-axis of VMM plots", default=1)
     return parser.parse_args()
 
 def main():
@@ -72,6 +76,7 @@ def announce():
     print("")
     print("User input:")
     print(" Input ROOT file:      %s" % (ops.i))
+    print(" Input file substring: %s" % (ops.d))
     print(" Input JSON config:    %s" % (ops.c))
     print(" Input JSON patterns:  %s" % (ops.j))
     print(" Output ROOT file:     %s" % (output()))
@@ -110,6 +115,8 @@ def load_data():
     ops = options()
     if not os.path.isfile(ops.i):
         fatal("Cannot find input file: %s" % (ops.i))
+    if not ops.d in os.path.basename(ops.i):
+        fatal("Cannot find required substring (%s) in %s" % (ops.d, ops.i))
     rfile   = ROOT.TFile(ops.i)
     ttree   = rfile.Get(ops.t)
     patts   = Patterns(ops.j)
@@ -170,6 +177,7 @@ def load_data():
 
 def measure_efficiency(dataman, outrfile):
 
+    ops = options()
     print("Analyzing observed hits vs expected hits per VMM...")
     rootlogon("2d")
 
@@ -188,13 +196,14 @@ def measure_efficiency(dataman, outrfile):
     # plot: ch_exp vs ch_obs. one plot per VMM.
     xmin, xmax   = -0.5, len(phases)*64-0.5
     ymin, ymax   = -64.5, 63.5
-    xbins, ybins = int(xmax-xmin), int(ymax-ymin)
+    xbins, ybins = int((xmax-xmin)/int(ops.rebinx)), int((ymax-ymin)/int(ops.rebiny))
     start = time.time()
     for ilv, lv in enumerate(layer_vmm):
         if ilv % 10 == 0:
             progress(time.time()-start, ilv, len(layer_vmm))
         name = "hits_Layer%i_VMM%04i" % (lv)
-        hist = ROOT.TH2F(name, ";Expected channel + 64*ART phase;Observed #minus expected channel", xbins, xmin, xmax, ybins, ymin, ymax)
+        hist = ROOT.TH2F(name, ";Expected channel + 64*ART phase;Observed #minus expected channel",
+                         xbins, xmin, xmax, ybins, ymin, ymax)
         for tup in dataman.hits.keys():
             (layer, vmm, ch_exp, ph) = tup
             if (layer, vmm) != lv:
@@ -234,6 +243,8 @@ def measure_efficiency(dataman, outrfile):
             line.Draw()
 
         # save
+        if ops.f:
+            continue
         (layer, vmm) = lv
         outrfile.cd()
         pos = int(int(vmm) / 8)
@@ -247,8 +258,6 @@ def measure_efficiency(dataman, outrfile):
             posdir = laydir.mkdir(str_pos)
         posdir.cd()
         canv.Write()
-        # canv.SaveAs(canv.GetName()+".pdf")
-        # print(lv)
 
     print("")
     dataman.calculate_efficiency()
