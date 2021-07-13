@@ -10,6 +10,7 @@ tdaq_add_scripts(bin/nsw_mmtp_channelrates.py           python/nsw_mmtp_channelr
 tdaq_add_scripts(bin/nsw_mmtp_diagnostics.py            python/nsw_mmtp_diagnostics.py)
 tdaq_add_scripts(bin/nsw_mmtp_event_display.py          python/nsw_mmtp_event_display.py)
 tdaq_add_scripts(bin/nsw_plot_art_hits.py               python/nsw_plot_art_hits.py)
+tdaq_add_scripts(bin/nsw_padtrigger_inputdelays.py      python/nsw_padtrigger_inputdelays.py)
 tdaq_add_scripts(bin/nsw_trigger_mapping.py             python/nsw_trigger_mapping.py)
 
 find_package(ROOT REQUIRED COMPONENTS Core Tree RIO)
@@ -40,6 +41,7 @@ tdaq_add_library(nswcalib
     src/sTGCSFEBToRouter.cpp
     src/sTGCRouterToTP.cpp
     src/sTGCPadTriggerToSFEB.cpp
+    src/sTGCPadTriggerInputDelays.cpp
     src/NSWCalibRc.cpp
     src/MMTPFeedback.cpp
     src/MMTPStatusRegisters.cpp

@@ -7,6 +7,7 @@
 #include "NSWCalibration/sTGCSFEBToRouter.h"
 #include "NSWCalibration/sTGCRouterToTP.h"
 #include "NSWCalibration/sTGCPadTriggerToSFEB.h"
+#include "NSWCalibration/sTGCPadTriggerInputDelays.h"
 #include "NSWConfiguration/NSWConfig.h"
 
 #include "RunControl/Common/OnlineServices.h"
@@ -164,6 +165,8 @@ void nsw::NSWCalibRc::handler() {
     calib = std::make_unique<sTGCRouterToTP>(m_calibType);
   } else if (m_calibType=="sTGCPadTriggerToSFEB") {
     calib = std::make_unique<sTGCPadTriggerToSFEB>(m_calibType);
+  } else if (m_calibType=="sTGCPadTriggerInputDelays") {
+    calib = std::make_unique<sTGCPadTriggerInputDelays>(m_calibType);
   } else if (m_calibType=="sTGCStripConnectivity") {
     calib = std::make_unique<sTGCStripsTriggerCalib>(m_calibType);
   } else {
