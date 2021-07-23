@@ -3,6 +3,7 @@
 #include "NSWCalibration/MMTriggerCalib.h"
 #include "NSWCalibration/MMTPInputPhase.h"
 #include "NSWCalibration/sTGCTriggerCalib.h"
+#include "NSWCalibration/sTGCPadVMMTDSChannels.h"
 #include "NSWCalibration/sTGCStripsTriggerCalib.h"
 #include "NSWCalibration/sTGCSFEBToRouter.h"
 #include "NSWCalibration/sTGCRouterToTP.h"
@@ -156,6 +157,8 @@ void nsw::NSWCalibRc::handler() {
   } else if (m_calibType=="sTGCPadConnectivity" ||
              m_calibType=="sTGCPadLatency") {
     calib = std::make_unique<sTGCTriggerCalib>(m_calibType);
+  } else if (m_calibType=="sTGCPadVMMTDSChannels") {
+    calib = std::make_unique<sTGCPadVMMTDSChannels>();
   } else if (m_calibType=="sTGCSFEBToRouter"   ||
              m_calibType=="sTGCSFEBToRouterQ1" ||
              m_calibType=="sTGCSFEBToRouterQ2" ||
