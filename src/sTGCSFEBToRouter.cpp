@@ -237,7 +237,8 @@ int nsw::sTGCSFEBToRouter::router_watchdog(bool open, bool close) {
 void nsw::sTGCSFEBToRouter::wait_for_routers(size_t expectation) const {
   size_t count = 0;
   while (count < expectation) {
-    ERS_INFO("Waiting for Routers to be ready...");
+    ERS_INFO("Waiting for Routers to be ready. Currently: "
+             << count << " of " << expectation << " ok");
     count = count_ready_routers();
     std::this_thread::sleep_for(std::chrono::seconds{1});
   }
@@ -275,5 +276,9 @@ bool nsw::sTGCSFEBToRouter::router_ClkReady(const nsw::RouterConfig & router) co
   const auto tx_addr  = sca_addr + ".gpio." + "txClkReady";
   const auto rx_val   = simulation() ? true : cs->readGPIO(opc_ip, rx_addr);
   const auto tx_val   = simulation() ? true : cs->readGPIO(opc_ip, tx_addr);
-  return rx_val && tx_val;
+  bool ok = rx_val && tx_val;
+  if (!ok) {
+    ERS_INFO("ClkReady=0 for " << opc_ip << "." << sca_addr);
+  }
+  return ok;
 }
