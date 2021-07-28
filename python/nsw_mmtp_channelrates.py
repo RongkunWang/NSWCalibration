@@ -368,10 +368,23 @@ def root2html(fname):
     dname = fname.strip('.canv.root')
     (lab, sector, run) = lab_and_sector_and_run()
     for layer in list(range(NLAYERS)) + ["all"]:
+
+        # create gifs
         lname = os.path.join(dname, f"mmtp_channelrates_{lab}_{sector}_Run_{run}_Layer_{layer}_{NOW}.gif")
         cmd = f"convert -delay 20 -loop 0 {dname}/Layer_{layer}/*.png {lname}"
         os.system(cmd)
-        print(f"- Layer {layer} @ {webpath}/{os.path.basename(dname)}/{os.path.basename(lname)}")
+
+        # print link
+        gif_link = f"{webpath}/{os.path.basename(dname)}/{os.path.basename(lname)}"
+        print(f"- Layer {layer} @ {gif_link}")
+
+        # append link to root2html index.html
+        index = os.path.join(dname, "index.html")
+        ind   = open(index, "a")
+        ind.write(f"\n <p> <a href='{gif_link}'> Layer {layer} GIF </a> </p> \n")
+        ind.close()
+
+    # announce
     print("Bonus: GIFs! Done ^.^")
     print("To save space, consider running:")
     print(f" rm -f {dname}/Layer_*/*.pdf")
