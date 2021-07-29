@@ -2,7 +2,7 @@
 #include "NSWCalibration/Utility.h"
 
 #include "NSWConfiguration/ConfigReader.h"
-#include "NSWConfiguration/ConfigSender.h"
+#include "NSWConfiguration/TPConfig.h"
 
 #include <unistd.h>
 #include <stdexcept>
@@ -30,7 +30,9 @@ void nsw::MMTPInputPhase::setup(const std::string& db) {
 
   // make NSWConfig objects from input db
   ERS_INFO("Finding MMTPs");
-  m_tps = nsw::ConfigReader::makeObjects<nsw::TPConfig> (db, "TP");
+  for (const auto& config : nsw::ConfigReader::makeObjects<nsw::TPConfig> (db, "TP")) {
+    m_tps.emplace_back(config);
+  }
   ERS_INFO("Found " << m_tps.size() << " MMTPs");
 
   // make output
@@ -89,27 +91,23 @@ void nsw::MMTPInputPhase::unconfigure() {
   ERS_INFO("MMTPInputPhase::unconfigure " << counter());
 }
 
-int nsw::MMTPInputPhase::configure_tp(const nsw::TPConfig & tp, uint32_t phase, uint32_t offset) const {
-    ERS_INFO("Configuring " << tp.getAddress()
+int nsw::MMTPInputPhase::configure_tp(const nsw::hw::TP & tp, uint32_t phase, uint32_t offset) const {
+    ERS_INFO("Configuring " << tp.getConfig().getAddress()
            << " with phase=" << phase
            << " and offset=" << offset);
-    auto cs = std::make_unique<nsw::ConfigSender>();
     if (!simulation()) {
-      cs->sendSCAXRegister(tp, nsw::mmtp::REG_INPUT_PHASE,       phase);
-      cs->sendSCAXRegister(tp, nsw::mmtp::REG_INPUT_PHASEOFFSET, offset);
+      tp.writeRegister(nsw::mmtp::REG_INPUT_PHASE,       phase);
+      tp.writeRegister(nsw::mmtp::REG_INPUT_PHASEOFFSET, offset);
     }
     return 0;
 }
 
-int nsw::MMTPInputPhase::read_tp(const nsw::TPConfig & tp, uint32_t phase, uint32_t offset) {
-  ERS_INFO("Reading " << tp.getAddress()
+int nsw::MMTPInputPhase::read_tp(const nsw::hw::TP & tp, uint32_t phase, uint32_t offset) {
+  ERS_INFO("Reading " << tp.getConfig().getAddress()
            << " with phase=" << phase
            << " and offset=" << offset);
   // open output file
   // on first iteration
-  auto cs   = std::make_unique<nsw::ConfigSender>();
-  auto ip   = tp.getOpcServerIp();
-  auto addr = tp.getAddress();
   if (counter() == 0)
     m_myfile.open("tpscax." + std::to_string(runNumber()) + "." + applicationName() + "." + m_now + ".txt");
 
@@ -125,12 +123,12 @@ int nsw::MMTPInputPhase::read_tp(const nsw::TPConfig & tp, uint32_t phase, uint3
 
   // read the 32-bit word of fiber alignment
   if (!simulation())
-    data_align = cs->readSCAXRegister(tp, nsw::mmtp::REG_FIBER_ALIGNMENT);
+    data_align = tp.readRegister(nsw::mmtp::REG_FIBER_ALIGNMENT);
 
   // read the 4 32-bit words of fiber BCIDs (4 LSB per fiber)
   for (auto reg : nsw::mmtp::REG_FIBER_BCIDS) {
     if (!simulation())
-      data_bcids = cs->readSCAXRegister(tp, reg);
+      data_bcids = tp.readRegister(reg);
     for (auto byte : data_bcids)
       data_bcids_total.push_back(byte);
   }

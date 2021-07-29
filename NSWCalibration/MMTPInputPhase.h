@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "NSWCalibration/CalibAlg.h"
-#include "NSWConfiguration/TPConfig.h"
+#include "NSWConfiguration/TPInterface.h"
 
 #include "ers/Issue.h"
 
@@ -35,8 +35,8 @@ namespace nsw {
     void unconfigure() override;
 
   public:
-    int configure_tp(const nsw::TPConfig & tp, uint32_t phase, uint32_t offset) const;
-    int read_tp     (const nsw::TPConfig & tp, uint32_t phase, uint32_t offset);
+    int configure_tp(const nsw::hw::TP & tp, uint32_t phase, uint32_t offset) const;
+    int read_tp     (const nsw::hw::TP & tp, uint32_t phase, uint32_t offset);
 
   private:
     /// output text file of TP SCAX reads
@@ -62,7 +62,7 @@ namespace nsw {
     static constexpr int m_noffsets = 8;
 
     std::string m_calibType;
-    std::vector<nsw::TPConfig> m_tps;
+    std::vector<nsw::hw::TP> m_tps;
   };
 
 }
