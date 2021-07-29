@@ -2,6 +2,7 @@
 
 #include "NSWConfiguration/ConfigReader.h"
 #include "NSWConfiguration/ConfigSender.h"
+#include "NSWConfiguration/Constants.h"
 
 #include <cstdlib>
 #include <unistd.h>
@@ -171,14 +172,21 @@ int nsw::sTGCTriggerCalib::configure_pad_trigger() {
 }
 
 void nsw::sTGCTriggerCalib::gather_pfebs() {
-  if (std::getenv("TDAQ_PARTITION") == nullptr) {
-    ERS_INFO("Failed to find TDAQ_PARTITION");
-    return;
+  //
+  // get the partition environment
+  //
+  const auto part = std::getenv("TDAQ_PARTITION");
+  if (part == nullptr) {
+    throw std::runtime_error("Error: TDAQ_PARTITION not defined");
   }
-  std::string partition(std::getenv("TDAQ_PARTITION"));
-  ERS_INFO("Gather pFEBs: found partition " << partition);
+  const std::string partition(part);
+  const std::string sector_name = nsw::guessSector(applicationName());
+  ERS_INFO("Gather PFEBs: found partition "  << partition);
+  ERS_INFO("Gather PFEBs: application "      << applicationName());
+  ERS_INFO("Gather PFEBs: sector name "      << sector_name);
+  ERS_INFO("Gather PFEBs: sector is large: " << nsw::isLargeSector(sector_name));
   std::string firmware;
-  for (auto & pt: m_pts) {
+  for (const auto & pt: m_pts) {
     firmware = pt.firmware();
     break;
   }
@@ -243,35 +251,12 @@ void nsw::sTGCTriggerCalib::gather_pfebs() {
       m_pfebs_ordered.push_back("PFEB_L3Q3_HO");
       m_pfebs_ordered.push_back("PFEB_L4Q3_HO");
     } else {
-      m_pfebs_ordered.push_back("PFEB_L4Q2_IP");
-      m_pfebs_ordered.push_back("PFEB_L2Q2_IP");
-      m_pfebs_ordered.push_back("PFEB_L4Q1_IP");
-      m_pfebs_ordered.push_back("PFEB_L2Q1_IP");
-      //
-      m_pfebs_ordered.push_back("PFEB_L2Q2_HO");
-      m_pfebs_ordered.push_back("PFEB_L4Q2_HO");
-      m_pfebs_ordered.push_back("PFEB_L2Q1_HO");
-      m_pfebs_ordered.push_back("PFEB_L4Q1_HO");
-      //
-      m_pfebs_ordered.push_back("PFEB_L2Q3_HO");
-      m_pfebs_ordered.push_back("PFEB_L1Q3_HO");
-      m_pfebs_ordered.push_back("PFEB_L4Q3_HO");
-      m_pfebs_ordered.push_back("PFEB_L3Q3_HO");
-      //
-      m_pfebs_ordered.push_back("PFEB_L1Q3_IP");
-      m_pfebs_ordered.push_back("PFEB_L2Q3_IP");
-      m_pfebs_ordered.push_back("PFEB_L3Q3_IP");
-      m_pfebs_ordered.push_back("PFEB_L4Q3_IP");
-      //
-      m_pfebs_ordered.push_back("PFEB_L3Q2_HO");
-      m_pfebs_ordered.push_back("PFEB_L1Q2_HO");
-      m_pfebs_ordered.push_back("PFEB_L3Q1_HO");
-      m_pfebs_ordered.push_back("PFEB_L1Q1_HO");
-      //
-      m_pfebs_ordered.push_back("PFEB_L1Q2_IP");
-      m_pfebs_ordered.push_back("PFEB_L3Q2_IP");
-      m_pfebs_ordered.push_back("PFEB_L1Q1_IP");
-      m_pfebs_ordered.push_back("PFEB_L3Q1_IP");
+      const auto& pfebs = (nsw::isLargeSector(sector_name)) ?
+        nsw::padtrigger::ORDERED_PFEBS_OLDFW_LS :
+        nsw::padtrigger::ORDERED_PFEBS_OLDFW_SS;
+      for (const auto& pfeb: pfebs) {
+        m_pfebs_ordered.push_back(std::string(pfeb));
+      }
     }
   }
 }
