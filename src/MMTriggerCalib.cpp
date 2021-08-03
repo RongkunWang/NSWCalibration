@@ -777,10 +777,18 @@ int nsw::MMTriggerCalib::read_arts_counters() {
 
   // close
   if (counter() == total() - 1) {
-    ERS_INFO("Closing " << m_art_rfile->GetName());
-    m_art_rfile->cd();
-    m_art_rtree->Write();
-    m_art_rfile->Close();
+    if (m_art_rfile == nullptr || m_art_rtree == nullptr) {
+      ERS_INFO("Cannot close art_rfile or art_rtree!"
+               << " Something wasnt initialized. Skipping.");
+      ERS_INFO("The pointers of interest:"
+               << " m_art_rfile = " << m_art_rfile.get()
+               << " m_art_rtree = " << m_art_rtree.get());
+    } else {
+      ERS_INFO("Closing " << m_art_rfile->GetName());
+      m_art_rfile->cd();
+      m_art_rtree->Write();
+      m_art_rfile->Close();
+    }
   }
 
   return 0;
