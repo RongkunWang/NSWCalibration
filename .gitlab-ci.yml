@@ -5,7 +5,7 @@ variables:
     GIT_STRATEGY: fetch
     GIT_SUBMODULE_STRATEGY: recursive
     GIT_SSL_NO_VERIFY: "true"
-    TDAQ_RELEASE: tdaq-09-02-01
+    TDAQ_RELEASE: tdaq-09-03-00
     COMPILER_PROFILE: x86_64-centos7-gcc8-opt
     MAKE_OPTIONS: -j4
     CMAKE_JOB_OPTIONS: -DBUILD_NSW_STANDALONE=OFF
