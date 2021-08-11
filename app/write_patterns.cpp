@@ -2,6 +2,6 @@
 
 int main(int argc, char **argv) {
   auto calib = new nsw::MMTriggerCalib("MMTrackPulserTest");
-  calib->setup("xjia@lxplus.cern.ch:/afs/cern.ch/user/x/xjia/public/*.json");
+  calib->setup("json:///afs/cern.ch/user/x/xjia/public/test.json");
   return 0;
 }
