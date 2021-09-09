@@ -27,7 +27,7 @@ nsw::NSWCalibRc::NSWCalibRc(bool simulation):m_simulation {simulation} {
     initializeOpen62541LogIt(Log::ERR);
 }
 
-void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
+void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd&) {
     ERS_INFO("Start");
 
     // Retrieving the configuration db
@@ -66,7 +66,7 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd& cmd) {
     ERS_LOG("End");
 }
 
-void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd& cmd) {
+void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd&) {
     ERS_INFO("Start");
 
     // Announce the current calibType (again)
@@ -85,7 +85,7 @@ void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd& cmd) {
     ERS_LOG("End");
 }
 
-void nsw::NSWCalibRc::prepareForRun(const daq::rc::TransitionCmd& cmd) {
+void nsw::NSWCalibRc::prepareForRun(const daq::rc::TransitionCmd&) {
     ERS_LOG("Start");
     m_NSWConfig->startRc();
     end_of_run = false;
@@ -93,18 +93,18 @@ void nsw::NSWCalibRc::prepareForRun(const daq::rc::TransitionCmd& cmd) {
     ERS_LOG("End");
 }
 
-void nsw::NSWCalibRc::disconnect(const daq::rc::TransitionCmd& cmd) {
+void nsw::NSWCalibRc::disconnect(const daq::rc::TransitionCmd&) {
     ERS_INFO("Start");
     m_NSWConfig->unconfigureRc();
     ERS_INFO("End");
 }
 
-void nsw::NSWCalibRc::unconfigure(const daq::rc::TransitionCmd& cmd) {
+void nsw::NSWCalibRc::unconfigure(const daq::rc::TransitionCmd&) {
     ERS_INFO("Start");
     ERS_INFO("End");
 }
 
-void nsw::NSWCalibRc::stopRecording(const daq::rc::TransitionCmd& cmd) {
+void nsw::NSWCalibRc::stopRecording(const daq::rc::TransitionCmd&) {
     ERS_LOG("Start");
     end_of_run = true;
     m_NSWConfig->stopRc();
