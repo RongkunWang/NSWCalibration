@@ -56,7 +56,7 @@ class NSWCalibRc: public daq::rc::Controllable {
 
     void unconfigure(const daq::rc::TransitionCmd& cmd) override;
 
-    void user(const daq::rc::UserCmd& cmd) override;
+    void user(const daq::rc::UserCmd& usrCmd) override;
 
     // void onExit(daq::rc::FSM_STATE) noexcept override;
 
