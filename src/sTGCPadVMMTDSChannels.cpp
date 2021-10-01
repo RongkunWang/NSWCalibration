@@ -2,7 +2,7 @@
 #include "NSWConfiguration/ConfigReader.h"
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/Utility.h"
-#include "ers/ers.h"
+#include <ers/ers.h>
 #include <future>
 
 nsw::sTGCPadVMMTDSChannels::sTGCPadVMMTDSChannels() {

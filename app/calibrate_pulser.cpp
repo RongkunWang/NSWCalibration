@@ -22,7 +22,7 @@
 #include "NSWConfiguration/FEBConfig.h"
 
 #include "boost/foreach.hpp"
-#include "boost/program_options.hpp"
+#include <boost/program_options.hpp>
 #include "boost/property_tree/json_parser.hpp"
 
 #include "NSWCalibration/CalibrationMath.h"

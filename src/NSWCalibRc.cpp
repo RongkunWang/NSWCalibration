@@ -12,7 +12,7 @@
 #include "NSWConfiguration/NSWConfig.h"
 
 #include "RunControl/Common/OnlineServices.h"
-#include "ers/ers.h"
+#include <ers/ers.h>
 #include <logit_logger.h>
 
 using boost::property_tree::ptree;

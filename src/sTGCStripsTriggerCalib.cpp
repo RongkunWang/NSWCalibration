@@ -24,7 +24,7 @@
 #include <regex>
 #include <stdexcept>
 
-#include "ers/ers.h"
+#include <ers/ers.h>
 
 nsw::sTGCStripsTriggerCalib::sTGCStripsTriggerCalib(const std::string& calibType) {
   setCounter(-1);

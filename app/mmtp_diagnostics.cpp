@@ -19,22 +19,22 @@
 #include "NSWCalibration/Utility.h"
 #include "NSWCalibration/MMTPFeedback.h"
 #include "NSWCalibration/MMTPStatusRegisters.h"
-#include "TFile.h"
-#include "TTree.h"
-#include "TInterpreter.h"
+#include <TFile.h>
+#include <TTree.h>
+#include <TInterpreter.h>
 
-#include "ipc/core.h"
-#include "RunControl/RunControl.h"
-#include "RunControl/Common/OnlineServices.h"
-#include "is/infodictionary.h"
-#include "is/infoiterator.h"
-#include "is/infodynany.h"
-#include "is/criteria.h"
+#include <ipc/core.h>
+#include <RunControl/RunControl.h>
+#include <RunControl/Common/OnlineServices.h>
+#include <is/infodictionary.h>
+#include <is/infoiterator.h>
+#include <is/infodynany.h>
+#include <is/criteria.h>
 
 // Generated (open62541-compat) file
 #include <logit_logger.h>
 
-#include "boost/program_options.hpp"
+#include <boost/program_options.hpp>
 namespace po = boost::program_options;
 
 int tp_watchdog(std::string config, int sleep_time, bool reset_l1a, bool sim, bool debug);

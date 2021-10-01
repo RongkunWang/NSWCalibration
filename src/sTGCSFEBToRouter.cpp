@@ -11,7 +11,7 @@
 #include <fstream>
 #include <stdexcept>
 
-#include "ers/ers.h"
+#include <ers/ers.h>
 
 nsw::sTGCSFEBToRouter::sTGCSFEBToRouter(const std::string& calibType) {
   setCounter(-1);

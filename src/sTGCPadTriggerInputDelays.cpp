@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <stdexcept>
 
-#include "ers/ers.h"
+#include <ers/ers.h>
 nsw::sTGCPadTriggerInputDelays::sTGCPadTriggerInputDelays(const std::string& calibType) : 
   m_calibType(calibType) {
   setCounter(-1);

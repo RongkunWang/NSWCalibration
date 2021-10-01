@@ -7,22 +7,22 @@
 #include <map>
 #include <future>
 
-#include "ipc/partition.h"
-#include "ipc/core.h"
-#include "is/info.h"
-#include "is/infoT.h"
-#include "is/infostream.h"
-#include "is/infodynany.h"
-#include "is/infodictionary.h"
-#include "is/inforeceiver.h"
+#include <ipc/partition.h>
+#include <ipc/core.h>
+#include <is/info.h>
+#include <is/infoT.h>
+#include <is/infostream.h>
+#include <is/infodynany.h>
+#include <is/infodictionary.h>
+#include <is/inforeceiver.h>
 
-#include "RunControl/RunControl.h"
-#include "RunControl/Common/RunControlCommands.h"
+#include <RunControl/RunControl.h>
+#include <RunControl/Common/RunControlCommands.h>
 
 #include "NSWConfiguration/NSWConfig.h"
 #include "NSWCalibration/CalibAlg.h"
 
-#include "ers/Issue.h"
+#include <ers/Issue.h>
 
 ERS_DECLARE_ISSUE(nsw,
                   NSWCalibIssue,

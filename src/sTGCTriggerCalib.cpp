@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <stdexcept>
 
-#include "ers/ers.h"
+#include <ers/ers.h>
 
 nsw::sTGCTriggerCalib::sTGCTriggerCalib(const std::string& calibType) {
   setCounter(-1);

@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <stdexcept>
 
-#include "ers/ers.h"
+#include <ers/ers.h>
 
 nsw::sTGCPadTriggerToSFEB::sTGCPadTriggerToSFEB(const std::string& calibType) {
   setCounter(-1);

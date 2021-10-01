@@ -7,7 +7,7 @@
 #include <istream>
 #include <stdexcept>
 
-#include "ers/ers.h"
+#include <ers/ers.h>
 
 nsw::sTGCRouterToTP::sTGCRouterToTP(const std::string& calibType) {
   setCounter(-1);
