@@ -11,8 +11,8 @@
 #include "NSWCalibration/sTGCPadTriggerInputDelays.h"
 #include "NSWConfiguration/NSWConfig.h"
 
-#include "RunControl/Common/OnlineServices.h"
-#include "ers/ers.h"
+#include <RunControl/Common/OnlineServices.h>
+#include <ers/ers.h>
 #include <logit_logger.h>
 
 using boost::property_tree::ptree;
@@ -38,6 +38,7 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd&) {
     m_dbcon    = nswApp->get_dbConnection();
     m_resetVMM = nswApp->get_resetVMM();
     m_resetTDS = nswApp->get_resetTDS();
+    m_is_db_name = nswApp->get_dbISName();
     ERS_INFO("App name: "  << m_appname);
     ERS_INFO("DB Config: " << m_dbcon);
     ERS_INFO("reset VMM: " << m_resetVMM);
@@ -115,6 +116,18 @@ void nsw::NSWCalibRc::user(const daq::rc::UserCmd& usrCmd) {
   ERS_LOG("User command received: " << usrCmd.commandName());
   if (usrCmd.commandName() == "enableVmmCaptureInputs") {
     m_NSWConfig->enableVmmCaptureInputs();
+  } else if (usrCmd.commandName() == "NextIteration") {
+    calib->unconfigure();
+    loop_content();
+  } else if (usrCmd.commandName() == "BroadcastOrchestratorName") {
+    if (usrCmd.commandParameters ().size () != 1)
+    {
+      std::string msg = "BroadcastOrchestratorName must take one argument: the Orchestrator's name. Please check your sender part.";
+      nsw::NSWCalibIssue issue(ERS_HERE, msg);
+      ers::error(issue);
+      throw std::runtime_error(msg);
+    }
+    m_orchestrator_name = usrCmd.commandParameters ()[0];
   }
 }
 
@@ -192,41 +205,46 @@ void nsw::NSWCalibRc::handler() {
   ERS_INFO("calib simulation: " << calib->simulation());
   ERS_INFO("calib run number: " << calib->runNumber());
 
-  // calib loop
-  while (calib->next()) {
+  loop_content();
+
+}
+
+void nsw::NSWCalibRc::loop_content() {
+  bool IsNext;
+  while ( (IsNext = calib->next()) ) {
     if (end_of_run)
       break;
     publish4swrod();
     calib->progressbar();
     calib->configure();
-    if (calib->toggle())
-      alti_toggle_pattern();
+    if (calib->toggle()) {
+      orchestrator_operation("StartPatternGenerator");
+      ERS_INFO("NSWCalibRc::handler::Waiting for the next iteration");
+      break;
+    }
     calib->unconfigure();
   }
 
   // fin
-  alti_count();
-  ERS_INFO("NSWCalibRc::handler::End of handler");
+  if (end_of_run || !IsNext) {
+    alti_count();
+    ERS_INFO("NSWCalibRc::handler::End of handler");
+    orchestrator_operation("StopTransition");
+  }
 }
 
-void nsw::NSWCalibRc::alti_toggle_pattern() {
+void nsw::NSWCalibRc::orchestrator_operation(const std::string& cmd_name) {
     //
     // NB: the StartPatternGenerator logic is:
     //   if pg enabled
     //     stop it
     //   start it
     //
-    ERS_LOG("alti_toggle_pattern()");
-    std::string app_name = "Alti_RCD";
-    std::string cmd_name = "StartPatternGenerator";
+    const std::string app_name = m_orchestrator_name;
     daq::rc::UserCmd cmd(cmd_name, std::vector<std::string>());
     daq::rc::CommandSender sendr(m_ipcpartition.name(), "NSWCalibRcSender");
     if (!m_simulation)
       sendr.sendCommand(app_name, cmd);
-
-    // sleep until the pattern should be finished
-    // safety factor of 2x
-    usleep(2 * alti_pg_duration());
 }
 
 void nsw::NSWCalibRc::alti_setup() {
@@ -414,9 +432,9 @@ std::string nsw::NSWCalibRc::calibTypeFromIS() {
   // > is_ls -p part-BB5-Calib -R ".*NSW.cali.*" -v
   // Currently supported options are written in the `handler` function.
   std::string calibType;
-  if(is_dictionary->contains("Setup.NSW.calibType") ){
+  if(is_dictionary->contains(m_is_db_name) ){
     ISInfoDynAny calibTypeFromIS;
-    is_dictionary->getValue("Setup.NSW.calibType", calibTypeFromIS);
+    is_dictionary->getValue(m_is_db_name, calibTypeFromIS);
     calibType = calibTypeFromIS.getAttributeValue<std::string>(0);
     ERS_INFO("Calibration type from IS: " << calibType);
     if (m_calibType != "" && calibType != m_calibType) {
