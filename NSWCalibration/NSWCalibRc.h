@@ -70,7 +70,8 @@ class NSWCalibRc: public daq::rc::Controllable {
     bool simulationFromIS();
     uint32_t runNumberFromIS();
     void handler();
-    void alti_toggle_pattern();
+    void loop_content();
+    void orchestrator_operation(const std::string& cmd_name);
     void alti_setup();
     void alti_count();
     void publish4swrod();
@@ -97,8 +98,10 @@ class NSWCalibRc: public daq::rc::Controllable {
     bool                        m_simulation_lock = 0;
     std::unique_ptr<NSWConfig>  m_NSWConfig;
     std::string                 m_dbcon;
+    std::string                 m_orchestrator_name;
     bool                        m_resetVMM;
     bool                        m_resetTDS;
+    std::string                 m_is_db_name;
     IPCPartition                m_ipcpartition;
     ISInfoDictionary*           is_dictionary;
     ISInfoReceiver*             m_rec;
