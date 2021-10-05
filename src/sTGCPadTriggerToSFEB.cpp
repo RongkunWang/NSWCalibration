@@ -100,7 +100,8 @@ int nsw::sTGCPadTriggerToSFEB::sfeb_watchdog() const {
   constexpr auto slp = std::chrono::milliseconds(200);
 
   // output file and announce
-  std::string fname = "sfeb_register15_" + nsw::calib::utils::strf_time() + ".txt";
+  const auto now = nsw::calib::utils::strf_time();
+  std::string fname = "sfeb_register15." + std::to_string(runNumber()) + "." + applicationName() + "." + now + ".txt";
   std::ofstream myfile;
   myfile.open(fname);
   ERS_INFO("SFEB watchdog. Output: " << fname);
