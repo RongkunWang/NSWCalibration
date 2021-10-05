@@ -205,7 +205,8 @@ int nsw::sTGCSFEBToRouter::router_watchdog(bool open, bool close) {
 
   // output file and announce
   if (open) {
-    m_fname = "router_ClkReady_" + nsw::calib::utils::strf_time() + ".txt";
+    const auto now = nsw::calib::utils::strf_time();
+    m_fname = "router_ClkReady." + std::to_string(runNumber()) + "." + applicationName() + "." + now + ".txt";
     m_myfile.open(m_fname);
     ERS_INFO("Router ClkReady watchdog. Output: " << m_fname);
   }
