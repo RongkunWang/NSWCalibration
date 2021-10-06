@@ -432,9 +432,9 @@ std::string nsw::NSWCalibRc::calibTypeFromIS() {
   // > is_ls -p part-BB5-Calib -R ".*NSW.cali.*" -v
   // Currently supported options are written in the `handler` function.
   std::string calibType;
-  if(is_dictionary->contains(m_is_db_name) ){
+  if(is_dictionary->contains(m_is_db_name + ".calibType") ){
     ISInfoDynAny calibTypeFromIS;
-    is_dictionary->getValue(m_is_db_name, calibTypeFromIS);
+    is_dictionary->getValue(m_is_db_name + ".calibType", calibTypeFromIS);
     calibType = calibTypeFromIS.getAttributeValue<std::string>(0);
     ERS_INFO("Calibration type from IS: " << calibType);
     if (m_calibType != "" && calibType != m_calibType) {
