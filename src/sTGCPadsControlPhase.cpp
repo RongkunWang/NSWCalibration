@@ -10,12 +10,6 @@
 #include <stdexcept>
 #include <future>
 
-nsw::sTGCPadsControlPhase::sTGCPadsControlPhase(const std::string& calibType) : 
-  m_calibType(calibType) {
-  setCounter(-1);
-  setTotal(0);
-}
-
 void nsw::sTGCPadsControlPhase::setup(const std::string& db) {
   ERS_INFO("setup " << db);
 
@@ -34,8 +28,7 @@ void nsw::sTGCPadsControlPhase::setup(const std::string& db) {
   //
   // other settings
   //
-  setToggle(false);
-  setWait4swROD(false);
+
   nsw::snooze();
 }
 

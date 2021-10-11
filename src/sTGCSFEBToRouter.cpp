@@ -13,12 +13,6 @@
 
 #include "ers/ers.h"
 
-nsw::sTGCSFEBToRouter::sTGCSFEBToRouter(const std::string& calibType) {
-  setCounter(-1);
-  setTotal(0);
-  m_calibType = calibType;
-}
-
 void nsw::sTGCSFEBToRouter::setup(const std::string& db) {
   ERS_INFO("setup " << db);
 
@@ -50,10 +44,9 @@ void nsw::sTGCSFEBToRouter::setup(const std::string& db) {
 
   // set number of iterations
   gather_sfebs();
-  setTotal((int)(m_sfebs_ordered.size()));
-  setToggle(false);
-  setWait4swROD(false);
-  std::this_thread::sleep_for(std::chrono::seconds{1});
+  setTotal(m_sfebs_ordered.size());
+
+  nsw::snooze();
 
   // count the number of routers
   //   at start of run

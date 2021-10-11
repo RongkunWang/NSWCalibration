@@ -10,12 +10,6 @@
 
 #include "ers/ers.h"
 
-nsw::sTGCTriggerCalib::sTGCTriggerCalib(const std::string& calibType) {
-  setCounter(-1);
-  setTotal(0);
-  m_calibType = calibType;
-}
-
 void nsw::sTGCTriggerCalib::setup(const std::string& db) {
   ERS_INFO("setup " << db);
 
@@ -63,9 +57,8 @@ void nsw::sTGCTriggerCalib::setup(const std::string& db) {
     ERS_INFO("Latency scan start: " << latencyscan_offset());
     ERS_INFO("Latency scan steps: " << latencyscan_nbc());
   }
-  setToggle(false);
-  setWait4swROD(false);
-  usleep(1e6);
+
+  nsw::snooze();
 }
 
 void nsw::sTGCTriggerCalib::configure() {

@@ -27,8 +27,8 @@ namespace nsw {
   class sTGCPadTriggerToSFEB: public CalibAlg {
 
   public:
-    sTGCPadTriggerToSFEB(const std::string& calibType);
-    virtual ~sTGCPadTriggerToSFEB() = default;
+    explicit sTGCPadTriggerToSFEB(std::string calibType) : CalibAlg(std::move(calibType)) {};
+
     void setup(const std::string& db) override;
     void configure() override;
     void unconfigure() override;
@@ -39,7 +39,6 @@ namespace nsw {
 
   private:
     bool m_dry_run = false;
-    std::string m_calibType = "";
     std::vector<nsw::FEBConfig> m_sfebs = {};
     std::future<int> m_watchdog;
 

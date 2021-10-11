@@ -9,12 +9,6 @@
 
 #include "ers/ers.h"
 
-nsw::sTGCRouterToTP::sTGCRouterToTP(const std::string& calibType) {
-  setCounter(-1);
-  setTotal(0);
-  m_calibType = calibType;
-}
-
 void nsw::sTGCRouterToTP::setup(const std::string& db) {
   ERS_INFO("setup " << db);
 
@@ -35,10 +29,9 @@ void nsw::sTGCRouterToTP::setup(const std::string& db) {
   ERS_INFO("Found " << m_routers.size() << " Routers");
 
   // set number of iterations
-  setTotal(static_cast<int>(m_routers.size()));
-  setToggle(false);
-  setWait4swROD(false);
-  usleep(1e6);
+  setTotal(m_routers.size());
+
+  nsw::snooze();
 }
 
 void nsw::sTGCRouterToTP::configure() {

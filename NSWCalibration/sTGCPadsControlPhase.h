@@ -36,7 +36,8 @@ namespace nsw {
   class sTGCPadsControlPhase: public CalibAlg {
 
   public:
-    explicit sTGCPadsControlPhase(const std::string& calibType);
+    explicit sTGCPadsControlPhase(std::string calibType) : CalibAlg(std::move(calibType)) {};
+
     void setup(const std::string& db) override;
     void configure() override;
     void unconfigure() override;
@@ -77,7 +78,6 @@ namespace nsw {
     std::shared_ptr<TTree> m_rtree{nullptr};
 
   private:
-    std::string m_calibType{""};
     std::vector<nsw::hw::PadTrigger> m_pts{};
     std::vector<nsw::FEBConfig> m_pfebs{};
   };

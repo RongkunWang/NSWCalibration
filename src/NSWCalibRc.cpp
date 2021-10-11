@@ -1,4 +1,6 @@
 #include "NSWCalibration/NSWCalibRc.h"
+#include "NSWCalibration/Commands.h"
+#include "NSWCalibration/Utility.h"
 #include "NSWCalibrationDal/NSWCalibApplication.h"
 #include "NSWCalibration/MMTriggerCalib.h"
 #include "NSWCalibration/MMTPInputPhase.h"
@@ -16,10 +18,13 @@
 #include <RunControl/Common/OnlineServices.h>
 #include <ers/ers.h>
 #include <logit_logger.h>
+#include <thread>
 
 #include <fmt/core.h>
 
 using boost::property_tree::ptree;
+
+using namespace std::chrono_literals;
 
 nsw::NSWCalibRc::NSWCalibRc(bool simulation):m_simulation {simulation} {
     ERS_LOG("Constructing NSWCalibRc instance");
@@ -29,24 +34,28 @@ nsw::NSWCalibRc::NSWCalibRc(bool simulation):m_simulation {simulation} {
     }
     Log::initializeLogging();
     initializeOpen62541LogIt(Log::ERR);
+
 }
 
 void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd&) {
     ERS_INFO("Start");
 
-    // Retrieving the configuration db
     daq::rc::OnlineServices& rcSvc = daq::rc::OnlineServices::instance();
     const daq::core::RunControlApplicationBase& rcBase = rcSvc.getApplication();
-    const nsw::dal::NSWCalibApplication* nswApp = rcBase.cast<nsw::dal::NSWCalibApplication>();
+    m_nswApp = rcBase.cast<nsw::dal::NSWCalibApplication>();
     m_appname  = rcSvc.applicationName();
-    m_dbcon    = nswApp->get_dbConnection();
-    m_resetVMM = nswApp->get_resetVMM();
-    m_resetTDS = nswApp->get_resetTDS();
-    m_is_db_name = nswApp->get_dbISName();
+    m_is_db_name = m_nswApp->get_dbISName();
+
+    // Retrieving the configuration db
+    m_dbcon    = m_nswApp->get_dbConnection();
+    m_resetVMM = m_nswApp->get_resetVMM();
+    m_resetTDS = m_nswApp->get_resetTDS();
+
     ERS_INFO("App name: "  << m_appname);
     ERS_INFO("DB Config: " << m_dbcon);
     ERS_INFO("reset VMM: " << m_resetVMM);
     ERS_INFO("reset TDS: " << m_resetTDS);
+
     // Retrieve the ipc partition
     m_ipcpartition = rcSvc.getIPCPartition();
 
@@ -66,7 +75,7 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd&) {
     publish4swrod();
 
     m_NSWConfig = std::make_unique<NSWConfig>(m_simulation);
-    m_NSWConfig->readConf(nswApp);
+    m_NSWConfig->readConf(m_nswApp);
 
     ERS_LOG("End");
 }
@@ -86,6 +95,8 @@ void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd&) {
     // Sending the configuration to the HW
     m_NSWConfig->configureRc();
 
+    handler();
+
     // End
     ERS_LOG("End");
 }
@@ -93,8 +104,6 @@ void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd&) {
 void nsw::NSWCalibRc::prepareForRun(const daq::rc::TransitionCmd&) {
     ERS_LOG("Start");
     m_NSWConfig->startRc();
-    end_of_run = false;
-    handler_thread = std::async(std::launch::async, &nsw::NSWCalibRc::handler, this);
     ERS_LOG("End");
 }
 
@@ -111,7 +120,6 @@ void nsw::NSWCalibRc::unconfigure(const daq::rc::TransitionCmd&) {
 
 void nsw::NSWCalibRc::stopRecording(const daq::rc::TransitionCmd&) {
     ERS_LOG("Start");
-    end_of_run = true;
     m_NSWConfig->stopRc();
     ERS_LOG("End");
 }
@@ -120,18 +128,20 @@ void nsw::NSWCalibRc::user(const daq::rc::UserCmd& usrCmd) {
   ERS_LOG("User command received: " << usrCmd.commandName());
   if (usrCmd.commandName() == "enableVmmCaptureInputs") {
     m_NSWConfig->enableVmmCaptureInputs();
-  } else if (usrCmd.commandName() == "NextIteration") {
+  } else if (usrCmd.commandName() == "configure") {
+    publish4swrod();
+    calib->progressbar();
+    calib->configure();
+  } else if (usrCmd.commandName() == "acquire") {
+    calib->acquire();
+  } else if (usrCmd.commandName() == "unconfigure") {
     calib->unconfigure();
-    loop_content();
-  } else if (usrCmd.commandName() == "BroadcastOrchestratorName") {
-    if (usrCmd.commandParameters ().size () != 1)
-    {
-      std::string msg = "BroadcastOrchestratorName must take one argument: the Orchestrator's name. Please check your sender part.";
-      nsw::NSWCalibIssue issue(ERS_HERE, msg);
-      ers::error(issue);
-      throw std::runtime_error(msg);
-    }
-    m_orchestrator_name = usrCmd.commandParameters ()[0];
+    calib->next();
+  } else if (usrCmd.commandName() == "reset") {
+    calib->setCounter(0);
+  } else {
+    nsw::NSWCalibIssue issue(ERS_HERE, fmt::format("Unrecognized UserCmd specified {}", usrCmd.commandName()));
+    ers::warning(issue);
   }
 }
 
@@ -154,12 +164,33 @@ void nsw::NSWCalibRc::subTransition(const daq::rc::SubTransitionCmd& cmd) {
     }*/
 }
 
+void nsw::NSWCalibRc::publish() {
+  ERS_INFO("Publishing information to IS");
+  for (const auto& [key, commands] :
+       calib->getAltiSequences().getCommands()) {
+    for (const auto& command : commands) {
+      if (std::find(std::cbegin(nsw::commands::availableCommands),
+                    std::cend(nsw::commands::availableCommands),
+                    command) == std::cend(nsw::commands::availableCommands)) {
+        // FIXME: Proper error handling
+        throw std::runtime_error(
+          fmt::format("Received invalid command {}",
+                      nsw::calib::utils::commandToString(command)));
+      }
+    }
+    is_dictionary->checkin(
+      key, ISInfoString(nsw::calib::utils::serializeCommands(commands)));
+  }
+  const std::string numIterations = "NswParams.Calib.numIterations";
+  is_dictionary->checkin(numIterations, ISInfoUnsignedLong(calib->total()));
+}
+
 void nsw::NSWCalibRc::handler() {
 
-  sleep(1);
+  nsw::snooze();
 
   // create calib object
-  calib = 0;
+  calib.reset();
   m_calibType = calibTypeFromIS();
   if (m_calibType=="MMARTConnectivityTest" ||
       m_calibType=="MMARTConnectivityTestAllChannels" ||
@@ -175,7 +206,7 @@ void nsw::NSWCalibRc::handler() {
              m_calibType=="sTGCPadLatency") {
     calib = std::make_unique<sTGCTriggerCalib>(m_calibType);
   } else if (m_calibType=="sTGCPadVMMTDSChannels") {
-    calib = std::make_unique<sTGCPadVMMTDSChannels>();
+    calib = std::make_unique<sTGCPadVMMTDSChannels>(m_calibType);
   } else if (m_calibType=="sTGCSFEBToRouter"   ||
              m_calibType=="sTGCSFEBToRouterQ1" ||
              m_calibType=="sTGCSFEBToRouterQ2" ||
@@ -208,51 +239,9 @@ void nsw::NSWCalibRc::handler() {
   calib->setup(m_dbcon);
   ERS_INFO("calib counter:    " << calib->counter());
   ERS_INFO("calib total:      " << calib->total());
-  ERS_INFO("calib toggle:     " << calib->toggle());
   ERS_INFO("calib wait4swrod: " << calib->wait4swrod());
   ERS_INFO("calib simulation: " << calib->simulation());
   ERS_INFO("calib run number: " << calib->runNumber());
-
-  loop_content();
-
-}
-
-void nsw::NSWCalibRc::loop_content() {
-  bool IsNext;
-  while ( (IsNext = calib->next()) ) {
-    if (end_of_run)
-      break;
-    publish4swrod();
-    calib->progressbar();
-    calib->configure();
-    if (calib->toggle()) {
-      orchestrator_operation("StartPatternGenerator");
-      ERS_INFO("NSWCalibRc::handler::Waiting for the next iteration");
-      break;
-    }
-    calib->unconfigure();
-  }
-
-  // fin
-  if (end_of_run || !IsNext) {
-    alti_count();
-    ERS_INFO("NSWCalibRc::handler::End of handler");
-    orchestrator_operation("StopTransition");
-  }
-}
-
-void nsw::NSWCalibRc::orchestrator_operation(const std::string& cmd_name) {
-    //
-    // NB: the StartPatternGenerator logic is:
-    //   if pg enabled
-    //     stop it
-    //   start it
-    //
-    const std::string app_name = m_orchestrator_name;
-    daq::rc::UserCmd cmd(cmd_name, std::vector<std::string>());
-    daq::rc::CommandSender sendr(m_ipcpartition.name(), "NSWCalibRcSender");
-    if (!m_simulation)
-      sendr.sendCommand(app_name, cmd);
 }
 
 void nsw::NSWCalibRc::alti_setup() {
@@ -290,15 +279,15 @@ std::string nsw::NSWCalibRc::alti_pg_file() {
   //
   // Look up the ALTI PG file
   //
-  try {
-    ISInfoDynAny any;
-    if (alti_monitoring() == "")
-      return "";
-    is_dictionary->getValue(alti_monitoring(), any);
-    auto pg_file = any.getAttributeValue<std::string>("pg_file");
-    return pg_file;
-  } catch(daq::is::Exception& ex) {
-    ers::warning(ex);
+  if (alti_monitoring() != "") {
+    try {
+      ISInfoDynAny any;
+      is_dictionary->getValue(alti_monitoring(), any);
+      const auto pg_file = any.getAttributeValue<std::string>("pg_file");
+      return pg_file;
+    } catch(daq::is::Exception& ex) {
+      ers::warning(ex);
+    }
   }
   return "";
 }
@@ -311,7 +300,7 @@ uint64_t nsw::NSWCalibRc::alti_pg_duration(bool refresh) {
   //
   if (!refresh)
     return m_alti_pg_duration;
-  auto fname = alti_pg_file();
+  const auto fname = alti_pg_file();
   ERS_INFO("ALTI PG file: " << (fname=="" ? "N/A" : fname));
   if (fname == "")
     return 0;
@@ -402,74 +391,83 @@ void nsw::NSWCalibRc::publish4swrod() {
   //
   // if (calib) {
   //   is_dictionary->checkin(m_calibCounter, ISInfoInt(calib->counter()));
+  //   wait4swrod();
   // } else {
   //   is_dictionary->checkin(m_calibCounter, ISInfoInt(-1));
   // }
-  // wait4swrod();
 }
 
 void nsw::NSWCalibRc::wait4swrod() {
-  if (!calib)
-    return;
-  if (!calib->wait4swrod())
-    return;
-  ISInfoInt counter(-1);
-  ERS_INFO("calib waiting for swROD...");
-  size_t attempt_i = 0;
-  constexpr size_t attempts_max = 5;
-  while (counter.getValue() != calib->counter()) {
-    try {
-      is_dictionary->getValue(m_calibCounter_readback, counter);
-    } catch(daq::is::Exception& ex) {
-      ers::error(ex);
+  if (calib->wait4swrod()) {
+    ISInfoInt counter(-1);
+    ERS_INFO("calib waiting for swROD...");
+    std::size_t           attempt_i    = 0;
+    constexpr std::size_t attempts_max = 5;
+    while (counter.getValue() != calib->counter()) {
+      try {
+        is_dictionary->getValue(m_calibCounter_readback, counter);
+      } catch (daq::is::Exception& ex) {
+        ers::error(ex);
+      }
+      ERS_INFO("calib waiting for swROD, attempt " << attempt_i);
+      nsw::snooze();
+      attempt_i++;
+      if (attempt_i >= attempts_max)
+        throw std::runtime_error("Waiting for swROD failed");
     }
-    // usleep(100e3);
-    ERS_INFO("calib waiting for swROD, attempt " << attempt_i);
-    usleep(100e3);
-    // usleep(1e6);
-    attempt_i++;
-    if (attempt_i >= attempts_max)
-      throw std::runtime_error("Waiting for swROD failed");
   }
 }
 
 std::string nsw::NSWCalibRc::calibTypeFromIS() {
   // Grab the calibration type string from IS
+  // The OKS parameter dbISName determines the prefix, in the example below: NswParams.Calib
   // Can manually write to this variable from the command line:
-  // > is_write -p part-BB5-Calib -n Setup.NSW.calibType -t String  -v MMARTPhase -i 0
+  // > is_write -p part-BB5-Calib -n NswParams.Calib.calibType -t String  -v MMARTPhase -i 0
   // > is_ls -p part-BB5-Calib -R ".*NSW.cali.*" -v
   // Currently supported options are written in the `handler` function.
-  std::string calibType;
-  if(is_dictionary->contains(fmt::format("{}.calibType", m_is_db_name))) {
-    ISInfoDynAny calibTypeFromIS;
-    is_dictionary->getValue(fmt::format("{}.calibType", m_is_db_name), calibTypeFromIS);
-    calibType = calibTypeFromIS.getAttributeValue<std::string>(0);
-    ERS_INFO("Calibration type from IS: " << calibType);
-    if (m_calibType != "" && calibType != m_calibType) {
-      std::string msg = "Found a new calibType. Was " + m_calibType + ", is now " + calibType;
-      nsw::NSWCalibIssue issue(ERS_HERE, msg);
+  const auto calibType = [this]() -> std::string {
+    const auto paramIsName = fmt::format("{}.calibType", m_is_db_name);
+    if (is_dictionary->contains(paramIsName)) {
+      ISInfoDynAny calibTypeFromIS;
+      is_dictionary->getValue(paramIsName, calibTypeFromIS);
+      const auto calibType = calibTypeFromIS.getAttributeValue<std::string>(0);
+      ERS_INFO("Calibration type from IS: " << calibType);
+      if (m_calibType != "" && calibType != m_calibType) {
+        nsw::NSWCalibIssue issue(
+          ERS_HERE,
+          fmt::format("Found a new calibType. Was {}, is now {}",
+                      m_calibType,
+                      calibType));
+        ers::warning(issue);
+      }
+      return calibType;
+    } else {
+      const std::string  calibType = "MMARTConnectivityTest";
+      nsw::NSWCalibIssue issue(
+        ERS_HERE,
+        fmt::format("Calibration type not found in IS. Defaulting to: {}", calibType));
       ers::warning(issue);
+      return calibType;
     }
-  } else {
-    calibType = "MMARTConnectivityTest";
-    nsw::NSWCalibIssue issue(ERS_HERE, "Calibration type not found in IS. Defaulting to: " + calibType);
-    ers::warning(issue);
-  }
+  }();
+
   ISInfoDynAny runParams;
   is_dictionary->getValue("RunParams.RunParams", runParams);
-  runParams.setAttributeValue<std::string>(4,"Calibration");
-  runParams.setAttributeValue<std::string>(8,calibType);
+  runParams.setAttributeValue<std::string>(4, "Calibration");
+  runParams.setAttributeValue<std::string>(8, calibType);
   is_dictionary->update("RunParams.RunParams", runParams);
   return calibType;
 }
 
 bool nsw::NSWCalibRc::simulationFromIS() {
   // Grab the simulation bool from IS
+  // The OKS parameter dbISName determines the prefix, in the example below: NswParams.Calib
   // Can manually write to this variable from the command line:
-  // > is_write -p part-BB5-Calib -n Setup.NSW.simulation -t Boolean -v 1 -i 0
-  if(is_dictionary->contains("Setup.NSW.simulation") ){
+  // > is_write -p part-BB5-Calib -n NswParams.Calib.simulation -t Boolean -v 1 -i 0
+  const auto paramIsSim = fmt::format("{}.simulation", m_is_db_name);
+  if (is_dictionary->contains(paramIsSim)) {
     ISInfoDynAny any;
-    is_dictionary->getValue("Setup.NSW.simulation", any);
+    is_dictionary->getValue(paramIsSim, any);
     auto val = any.getAttributeValue<bool>(0);
     ERS_INFO("Simulation from IS: " << val);
     return val;

@@ -28,8 +28,8 @@ namespace nsw {
   class sTGCTriggerCalib: public CalibAlg {
 
   public:
-    sTGCTriggerCalib(const std::string& calibType);
-    virtual ~sTGCTriggerCalib() = default;
+    explicit sTGCTriggerCalib(const std::string& calibType) : CalibAlg(std::move(calibType)) {};
+
     void setup(const std::string& db) override;
     void configure() override;
     void unconfigure() override;
@@ -50,7 +50,6 @@ namespace nsw {
     bool m_order_pfebs = true;
     int m_offset_for_latency = 0;
     int m_nbc_for_latency = 0;
-    std::string m_calibType = "";
     std::vector<nsw::FEBConfig> m_pfebs = {};
     std::vector<nsw::hw::PadTrigger> m_pts = {};
     std::vector<std::string> m_pfebs_ordered = {};

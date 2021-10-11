@@ -9,12 +9,6 @@
 
 #include "ers/ers.h"
 
-nsw::MMTPInputPhase::MMTPInputPhase(const std::string& calibType) {
-  setCounter(-1);
-  setTotal(0);
-  m_calibType = calibType;
-}
-
 void nsw::MMTPInputPhase::setup(const std::string& db) {
   ERS_INFO("setup " << db);
 
@@ -53,9 +47,8 @@ void nsw::MMTPInputPhase::setup(const std::string& db) {
 
   // set number of iterations
   setTotal(m_nreads * m_nphases * m_noffsets);
-  setToggle(true);
-  setWait4swROD(false);
-  usleep(1e6);
+
+  nsw::snooze();
 }
 
 void nsw::MMTPInputPhase::configure() {
@@ -87,6 +80,13 @@ void nsw::MMTPInputPhase::configure() {
 
 void nsw::MMTPInputPhase::unconfigure() {
   ERS_INFO("MMTPInputPhase::unconfigure " << counter());
+}
+
+nsw::commands::Commands nsw::MMTPInputPhase::getAltiSequences() const {
+  return {{}, // before configure
+          {nsw::commands::actionStartPG}, // during (before acquire)
+          {nsw::commands::actionStopPG}   // after (before unconfigure)
+  };
 }
 
 int nsw::MMTPInputPhase::configure_tp(const nsw::TPConfig & tp, uint32_t phase, uint32_t offset) const {

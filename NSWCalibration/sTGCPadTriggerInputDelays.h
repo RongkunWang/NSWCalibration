@@ -37,8 +37,8 @@ namespace nsw {
   class sTGCPadTriggerInputDelays: public CalibAlg {
 
   public:
-    explicit sTGCPadTriggerInputDelays(const std::string& calibType);
-    virtual ~sTGCPadTriggerInputDelays() = default;
+    explicit sTGCPadTriggerInputDelays(std::string calibType) : CalibAlg(std::move(calibType)) {};
+
     sTGCPadTriggerInputDelays(const sTGCPadTriggerInputDelays&) = delete;
     sTGCPadTriggerInputDelays& operator=(const sTGCPadTriggerInputDelays&) = delete;
     void setup(const std::string& db) override;
@@ -69,7 +69,6 @@ namespace nsw {
     std::shared_ptr<TTree> m_rtree;
 
   private:
-    std::string m_calibType;
     std::vector<nsw::hw::PadTrigger> m_pts;
   };
 

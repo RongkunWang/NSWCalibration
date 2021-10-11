@@ -31,11 +31,13 @@ namespace nsw {
   class MMTriggerCalib: public CalibAlg {
 
   public:
-    MMTriggerCalib(const std::string& calibType);
-    virtual ~MMTriggerCalib() = default;
+    explicit MMTriggerCalib(std::string calibType);
+
     void setup(const std::string& db) override;
     void configure() override;
     void unconfigure() override;
+    [[nodiscard]]
+    nsw::commands::Commands getAltiSequences() const override;
 
   public:
     boost::property_tree::ptree patterns() const;
@@ -66,8 +68,6 @@ namespace nsw {
     int announce(const std::string& name, const boost::property_tree::ptree& tr, bool unmask) const;
 
   private:
-    std::string                    m_calibType = "";
-
     std::vector<nsw::FEBConfig>    m_febs   = {};
     std::vector<nsw::ADDCConfig>   m_addcs  = {};
     std::vector<nsw::TPConfig>     m_tps    = {};
