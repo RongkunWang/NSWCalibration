@@ -60,6 +60,14 @@ void nsw::sTGCSFEBToRouter::setup(const std::string& db) {
   m_routers_at_start = count_ready_routers();
   ERS_INFO("At start of run, found " << m_routers_at_start
            << " Routers which have ClkReady = true");
+
+  // crash if highly suspicious
+  if (m_routers_at_start == std::size_t{0}) {
+    const auto msg{"Found 0 Routers which have ClkReady. Crashing."};
+    nsw::NSWsTGCSFEBToRouterIssue issue(ERS_HERE, msg);
+    ers::error(issue);
+    throw issue;
+  }
 }
 
 void nsw::sTGCSFEBToRouter::configure() {
