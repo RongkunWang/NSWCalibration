@@ -45,10 +45,11 @@ tdaq_add_library(nswcalib
     src/sTGCRouterToTP.cpp
     src/sTGCPadTriggerToSFEB.cpp
     src/sTGCPadTriggerInputDelays.cpp
+    src/sTGCPadsControlPhase.cpp
     src/NSWCalibRc.cpp
     src/MMTPFeedback.cpp
     src/MMTPStatusRegisters.cpp
-  LINK_LIBRARIES nswconfig NSWConfig nswcalibdal
+  LINK_LIBRARIES nswconfig nswhwinterface NSWConfig nswcalibdal
     nswopcclient
     LogIt
     Boost::boost
