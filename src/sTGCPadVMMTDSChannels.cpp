@@ -50,19 +50,19 @@ void nsw::sTGCPadVMMTDSChannels::configure_pfeb(nsw::FEBConfig feb) {
            );
 
   // choose the VMM channel to pulse
-  const size_t vmm  = counter() / nsw::vmm::NUM_CH_PER_VMM + nsw::PFEB_FIRST_PAD_VMM;
+  const size_t vmmId  = counter() / nsw::vmm::NUM_CH_PER_VMM + nsw::PFEB_FIRST_PAD_VMM;
   const size_t chan = counter() % nsw::vmm::NUM_CH_PER_VMM;
-  ERS_INFO("Enable VMM " << vmm << ", channel " << chan);
+  ERS_INFO("Enable VMM " << vmmId << ", channel " << chan);
 
   // mask all channels
-  for (size_t vmm = 0; vmm < nsw::NUM_VMM_PER_PFEB; vmm++) {
-    feb.getVmm(vmm).setChannelRegisterAllChannels("channel_st", false);
-    feb.getVmm(vmm).setChannelRegisterAllChannels("channel_sm", true);
+  for (auto& vmm : feb.getVmms()) {
+    vmm.setChannelRegisterAllChannels("channel_st", false);
+    vmm.setChannelRegisterAllChannels("channel_sm", true);
   }
 
   // test pulse and unmask the channel of interest
-  feb.getVmm(vmm).setChannelRegisterOneChannel("channel_st", true,  chan);
-  feb.getVmm(vmm).setChannelRegisterOneChannel("channel_sm", false, chan);
+  feb.getVmm(vmmId).setChannelRegisterOneChannel("channel_st", true,  chan);
+  feb.getVmm(vmmId).setChannelRegisterOneChannel("channel_sm", false, chan);
 
   // send configuration
   const auto cs = std::make_unique<nsw::ConfigSender>();
