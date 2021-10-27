@@ -16,6 +16,8 @@
 #include <ers/ers.h>
 #include <logit_logger.h>
 
+#include <fmt/core.h>
+
 using boost::property_tree::ptree;
 
 nsw::NSWCalibRc::NSWCalibRc(bool simulation):m_simulation {simulation} {
@@ -435,9 +437,9 @@ std::string nsw::NSWCalibRc::calibTypeFromIS() {
   // > is_ls -p part-BB5-Calib -R ".*NSW.cali.*" -v
   // Currently supported options are written in the `handler` function.
   std::string calibType;
-  if(is_dictionary->contains(m_is_db_name + ".calibType") ){
+  if(is_dictionary->contains(fmt::format("{}.calibType", m_is_db_name))) {
     ISInfoDynAny calibTypeFromIS;
-    is_dictionary->getValue(m_is_db_name + ".calibType", calibTypeFromIS);
+    is_dictionary->getValue(fmt::format("{}.calibType", m_is_db_name), calibTypeFromIS);
     calibType = calibTypeFromIS.getAttributeValue<std::string>(0);
     ERS_INFO("Calibration type from IS: " << calibType);
     if (m_calibType != "" && calibType != m_calibType) {
