@@ -12,6 +12,7 @@
 
 #include "NSWConfiguration/FEBConfig.h"
 #include "NSWConfiguration/PadTriggerSCAConfig.h"
+#include "NSWConfiguration/hw/PadTrigger.h"
 
 #include "ers/Issue.h"
 
@@ -51,7 +52,7 @@ namespace nsw {
     int m_nbc_for_latency = 0;
     std::string m_calibType = "";
     std::vector<nsw::FEBConfig> m_pfebs = {};
-    std::vector<nsw::PadTriggerSCAConfig> m_pts = {};
+    std::vector<nsw::hw::PadTrigger> m_pts = {};
     std::vector<std::string> m_pfebs_ordered = {};
 
   };
