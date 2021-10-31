@@ -19,8 +19,6 @@ nsw::sTGCTriggerCalib::sTGCTriggerCalib(const std::string& calibType) {
 void nsw::sTGCTriggerCalib::setup(const std::string& db) {
   ERS_INFO("setup " << db);
 
-  gather_pfebs();
-
   // parse calib type
   if (m_calibType=="sTGCPadConnectivity") {
     ERS_INFO(m_calibType);
@@ -36,10 +34,11 @@ void nsw::sTGCTriggerCalib::setup(const std::string& db) {
   // make NSWConfig objects from input db
   ERS_INFO("Making pFEB and Pad Trigger objects");
   m_pfebs = nsw::ConfigReader::makeObjects<nsw::FEBConfig> (db, "PFEB");
-  m_pts   = nsw::ConfigReader::makeObjects<nsw::PadTriggerSCAConfig> (db, "PadTriggerSCA");
+  for (auto pt: nsw::ConfigReader::makeObjects<nsw::PadTriggerSCAConfig> (db, "PadTriggerSCA")) {
+    m_pts.emplace_back(pt);
+  }
   ERS_INFO("Found " << m_pfebs.size() << " pFEBs");
   ERS_INFO("Found " << m_pts.size()   << " pad triggers");
-
   if (m_pts.size() != 1) {
     std::stringstream msg;
     msg << "I dont know how to process !=1 PadTriggers. You gave: " << m_pts.size();
@@ -47,13 +46,13 @@ void nsw::sTGCTriggerCalib::setup(const std::string& db) {
     throw std::runtime_error(msg.str());
   }
 
-  // PT details:
-  // keep IdleState low during the calib
+  // get list of ordered PFEBs
+  gather_pfebs();
+
   // get latency scan parameters from user
-  for (auto & pt: m_pts) {
-    pt.SetStartIdleState(0);
-    set_latencyscan_offset(pt.LatencyScanStart());
-    set_latencyscan_nbc(pt.LatencyScanNBC());
+  for (const auto& pt: m_pts) {
+    set_latencyscan_offset(pt.getConfig().LatencyScanStart());
+    set_latencyscan_nbc(pt.getConfig().LatencyScanNBC());
   }
 
   // set number of loops in the iteration
@@ -99,9 +98,12 @@ void nsw::sTGCTriggerCalib::configure() {
         configure_vmms(pfeb, true);
     }
 
-    // set pad trigger readout latency
-    for (auto & pt: m_pts)
-      pt.SetL1AReadoutLatency(latencyscan_current());
+    // set readout latency
+    for (const auto& pt: m_pts) {
+      if (!simulation()) {
+        pt.writeReadoutBCOffset(latencyscan_current());
+      }
+    }
     configure_pad_trigger();
     usleep(1e6);
     usleep(5e6);
@@ -151,22 +153,21 @@ int nsw::sTGCTriggerCalib::configure_vmms(nsw::FEBConfig feb, bool unmask) {
 }
 
 int nsw::sTGCTriggerCalib::configure_pad_trigger() {
-  for (auto & pt: m_pts) {
-    auto cs = std::make_unique<nsw::ConfigSender>();
-    ERS_INFO("Configuring " << pt.getOpcServerIp() << " " << pt.getAddress());
+  for (const auto& pt: m_pts) {
+    ERS_INFO("Configuring " << pt.name());
 
     // enable the L1A readout
-    pt.SetL1AReadoutEnable();
-    if (!simulation())
-        cs->sendPadTriggerSCAControlRegister(pt);
+    if (!simulation()) {
+      pt.writeReadoutEnable();
+    }
 
     // pause to collect L1As
-    usleep(50e3);
+    nsw::snooze(std::chrono::milliseconds(50));
 
     // disable the L1A readout
-    pt.SetL1AReadoutDisable();
-    if (!simulation())
-        cs->sendPadTriggerSCAControlRegister(pt);
+    if (!simulation()) {
+      pt.writeReadoutDisable();
+    }
   }
   return 0;
 }
@@ -186,8 +187,8 @@ void nsw::sTGCTriggerCalib::gather_pfebs() {
   ERS_INFO("Gather PFEBs: sector name "      << sector_name);
   ERS_INFO("Gather PFEBs: sector is large: " << nsw::isLargeSector(sector_name));
   std::uint32_t firmware_dateword{0};
-  for (const auto & pt: m_pts) {
-    firmware_dateword = pt.firmware_dateword();
+  for (const auto& pt: m_pts) {
+    firmware_dateword = pt.getConfig().firmware_dateword();
     break;
   }
   ERS_INFO("Gather pFEBs: found firmware dateword " << firmware_dateword);
