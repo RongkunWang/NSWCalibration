@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "NSWCalibration/CalibAlg.h"
-#include "NSWConfiguration/PadTriggerSCAConfig.h"
+#include "NSWConfiguration/hw/PadTrigger.h"
 
 #include "ers/Issue.h"
 
@@ -52,8 +52,8 @@ namespace nsw {
     void close_tree();
 
   public:
-    void set_delays(const nsw::PadTriggerSCAConfig & pt);
-    void read_bcids(const nsw::PadTriggerSCAConfig & pt);
+    void set_delays(const nsw::hw::PadTrigger& pt);
+    void read_bcids(const nsw::hw::PadTrigger& pt);
     void fill();
 
   private:
@@ -70,7 +70,7 @@ namespace nsw {
 
   private:
     std::string m_calibType;
-    std::vector<nsw::PadTriggerSCAConfig> m_pts;
+    std::vector<nsw::hw::PadTrigger> m_pts;
   };
 
 }
