@@ -108,10 +108,10 @@ int main(int argc, const char *argv[])
     // mask everything
     if (mask_all) {
         for (auto & feb: febs) {
-            for (int vmm_id = 0; vmm_id < (int)(feb.getVmms().size()); vmm_id++) {
-               // feb.getVmm(vmm_id).setTestPulseDAC(400);
-                feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_st", 0);
-                feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_sm", 1);
+            for (auto& vmm : feb.getVmms()) {
+               // vmm.setTestPulseDAC(400);
+                vmm.setChannelRegisterAllChannels("channel_st", 0);
+                vmm.setChannelRegisterAllChannels("channel_sm", 1);
             }
             wait_until_fewer(threads, max_threads);
             if(!dry_run)
@@ -124,10 +124,10 @@ int main(int argc, const char *argv[])
 for(long unsigned int i=0; i<tpdacs.size(); i++){
 
     for (auto & feb: febs) {
-            for (int vmm_id = 0; vmm_id < (int)(feb.getVmms().size()); vmm_id++) {
-                feb.getVmm(vmm_id).setTestPulseDAC(tpdacs[i]);
-               // feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_st", 0);
-               // feb.getVmm(vmm_id).setChannelRegisterAllChannels("channel_sm", 1);
+            for (auto& vmm : feb.getVmms()) {
+                vmm.setTestPulseDAC(tpdacs[i]);
+               // vmm.setChannelRegisterAllChannels("channel_st", 0);
+               // vmm.setChannelRegisterAllChannels("channel_sm", 1);
             }
             wait_until_fewer(threads, max_threads);
             if(!dry_run)

@@ -142,9 +142,9 @@ void nsw::sTGCTriggerCalib::unconfigure() {
 
 int nsw::sTGCTriggerCalib::configure_vmms(nsw::FEBConfig feb, bool unmask) {
   ERS_INFO("Configuring " << feb.getOpcServerIp() << " " << feb.getAddress() << " - " << (unmask ? "pulsing" : "masking"));
-  for (size_t vmmid = 0; vmmid < feb.getVmms().size(); vmmid++) {
-    feb.getVmm(vmmid).setChannelRegisterAllChannels("channel_st", unmask ? 1 : 0);
-    feb.getVmm(vmmid).setChannelRegisterAllChannels("channel_sm", unmask ? 0 : 1);
+  for (auto& vmm : feb.getVmms()) {
+    vmm.setChannelRegisterAllChannels("channel_st", unmask ? 1 : 0);
+    vmm.setChannelRegisterAllChannels("channel_sm", unmask ? 0 : 1);
   }
   auto cs = std::make_unique<nsw::ConfigSender>();
   if (!simulation())
