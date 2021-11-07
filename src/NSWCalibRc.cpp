@@ -10,6 +10,7 @@
 #include "NSWCalibration/sTGCPadTriggerToSFEB.h"
 #include "NSWCalibration/sTGCPadTriggerInputDelays.h"
 #include "NSWCalibration/sTGCPadsControlPhase.h"
+#include "NSWCalibration/sTGCPadsL1DDCFibers.h"
 #include "NSWConfiguration/NSWConfig.h"
 
 #include <RunControl/Common/OnlineServices.h>
@@ -190,6 +191,8 @@ void nsw::NSWCalibRc::handler() {
     calib = std::make_unique<sTGCStripsTriggerCalib>(m_calibType);
   } else if (m_calibType=="sTGCPadsControlPhase") {
     calib = std::make_unique<sTGCPadsControlPhase>(m_calibType);
+  } else if (m_calibType=="sTGCPadsL1DDCFibers") {
+    calib = std::make_unique<sTGCPadsL1DDCFibers>(m_calibType);
   } else {
     std::string msg = "Unknown calibration request: " + m_calibType;
     nsw::NSWCalibIssue issue(ERS_HERE, msg);
