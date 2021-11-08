@@ -28,11 +28,13 @@ namespace nsw {
   class MMTPInputPhase: public CalibAlg {
 
   public:
-    MMTPInputPhase(const std::string& calibType);
-    virtual ~MMTPInputPhase() = default;
+    explicit MMTPInputPhase(std::string calibType) : CalibAlg(std::move(calibType)) {};
+
     void setup(const std::string& db) override;
     void configure() override;
     void unconfigure() override;
+    [[nodiscard]]
+    nsw::commands::Commands getAltiSequences() const override;
 
   public:
     int configure_tp(const nsw::TPConfig & tp, uint32_t phase, uint32_t offset) const;
@@ -61,7 +63,6 @@ namespace nsw {
     /// number of input phase-offsets available (register 0x0C)
     static constexpr int m_noffsets = 8;
 
-    std::string m_calibType;
     std::vector<nsw::TPConfig> m_tps;
   };
 

@@ -11,12 +11,6 @@
 
 #include "ers/ers.h"
 
-nsw::sTGCPadTriggerToSFEB::sTGCPadTriggerToSFEB(const std::string& calibType) {
-  setCounter(-1);
-  setTotal(0);
-  m_calibType = calibType;
-}
-
 void nsw::sTGCPadTriggerToSFEB::setup(const std::string& db) {
   ERS_INFO("setup " << db);
 
@@ -52,11 +46,7 @@ void nsw::sTGCPadTriggerToSFEB::setup(const std::string& db) {
   // start dog
   m_watchdog = std::async(std::launch::async, &nsw::sTGCPadTriggerToSFEB::sfeb_watchdog, this);
 
-  // keep it simple
-  setTotal(1);
-  setToggle(false);
-  setWait4swROD(false);
-  usleep(1e6);
+  nsw::snooze();
 }
 
 void nsw::sTGCPadTriggerToSFEB::configure() {

@@ -5,11 +5,6 @@
 #include "ers/ers.h"
 #include <future>
 
-nsw::sTGCPadVMMTDSChannels::sTGCPadVMMTDSChannels() {
-  setCounter(-1);
-  setTotal(0);
-}
-
 void nsw::sTGCPadVMMTDSChannels::setup(const std::string& db) {
   ERS_INFO("setup " << db);
 
@@ -19,8 +14,7 @@ void nsw::sTGCPadVMMTDSChannels::setup(const std::string& db) {
   // set calib options
   setTotal((nsw::NUM_VMM_PER_PFEB - nsw::PFEB_FIRST_PAD_VMM)
            * nsw::vmm::NUM_CH_PER_VMM);
-  setToggle(true);
-  setWait4swROD(false);
+
   nsw::snooze();
 }
 
@@ -40,6 +34,13 @@ void nsw::sTGCPadVMMTDSChannels::configure() {
     thread.get();
   }
 
+}
+
+nsw::commands::Commands nsw::sTGCPadVMMTDSChannels::getAltiSequences() const {
+  return {{}, // before configure
+          {nsw::commands::actionStartPG}, // during (before acquire)
+          {} // after (before unconfigure)
+  };
 }
 
 void nsw::sTGCPadVMMTDSChannels::configure_pfeb(nsw::FEBConfig feb) {

@@ -38,8 +38,7 @@ namespace nsw {
     /**
      * \brief Simple constructor.
      */
-    sTGCPadVMMTDSChannels();
-    ~sTGCPadVMMTDSChannels() = default;
+    explicit sTGCPadVMMTDSChannels(std::string calibType) : CalibAlg(std::move(calibType)) {};
 
     /**
      * \brief Set up the calibration algorithm.
@@ -56,6 +55,12 @@ namespace nsw {
      * \brief Launch threads for each PFEB configuration.
      */
     void configure() override;
+
+    /**
+     * \brief Describe the set of Alti actions for the Orchestrator
+     */
+    [[nodiscard]]
+    nsw::commands::Commands getAltiSequences() const override;
 
   private:
     /**

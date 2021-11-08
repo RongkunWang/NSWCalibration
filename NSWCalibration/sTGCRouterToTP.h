@@ -25,8 +25,8 @@ namespace nsw {
   class sTGCRouterToTP: public CalibAlg {
 
   public:
-    sTGCRouterToTP(const std::string& calibType);
-    virtual ~sTGCRouterToTP() = default;
+    explicit sTGCRouterToTP(const std::string& calibType) : CalibAlg(std::move(calibType)) {};
+
     void setup(const std::string& db) override;
     void configure() override;
     void unconfigure() override;
@@ -37,7 +37,6 @@ namespace nsw {
 
   private:
     bool m_dry_run = false;
-    std::string m_calibType = "";
     std::vector<nsw::RouterConfig> m_routers = {};
   };
 

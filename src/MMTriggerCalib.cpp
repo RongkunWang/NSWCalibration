@@ -22,11 +22,9 @@
 
 using boost::property_tree::ptree;
 
-nsw::MMTriggerCalib::MMTriggerCalib(const std::string& calibType) {
+nsw::MMTriggerCalib::MMTriggerCalib(std::string calibType) :
+  CalibAlg(std::move(calibType)) {
   ROOT::EnableThreadSafety();
-  setCounter(-1);
-  setTotal(0);
-  m_calibType = calibType;
 }
 
 void nsw::MMTriggerCalib::setup(const std::string& db) {
@@ -86,11 +84,7 @@ void nsw::MMTriggerCalib::setup(const std::string& db) {
 
   m_patterns = patterns();
   write_json("test.json", m_patterns);
-  setTotal(static_cast<int>(m_patterns.size()));
-  setToggle(true);
-  setWait4swROD(false);
-  if (m_latency || m_staircase)
-    setToggle(false);
+  setTotal(m_patterns.size());
 
   m_febs   = nsw::ConfigReader::makeObjects<nsw::FEBConfig> (db, "MMFE8");
   m_addcs  = nsw::ConfigReader::makeObjects<nsw::ADDCConfig>(db, "ADDC");
@@ -153,6 +147,16 @@ void nsw::MMTriggerCalib::unconfigure() {
     read_arts_counters();
   }
 
+}
+
+nsw::commands::Commands nsw::MMTriggerCalib::getAltiSequences() const {
+  if (!(m_latency || m_staircase)) {
+    return {{}, // before configure
+            {nsw::commands::actionStartPG}, // during (before acquire)
+            {} // after (before unconfigure)
+    };
+  }
+  return {};
 }
 
 int nsw::MMTriggerCalib::wait_until_done() {

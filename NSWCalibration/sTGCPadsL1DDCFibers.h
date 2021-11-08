@@ -35,7 +35,7 @@ namespace nsw {
   class sTGCPadsL1DDCFibers: public CalibAlg {
 
   public:
-    explicit sTGCPadsL1DDCFibers(const std::string& calibType);
+    explicit sTGCPadsL1DDCFibers(const std::string& calibType) : CalibAlg(std::move(calibType)) {};
     void setup(const std::string& db) override;
     void configure() override;
     void unconfigure() override;
@@ -73,7 +73,6 @@ namespace nsw {
     std::unique_ptr< std::vector<bool> >          m_mask{nullptr};
     std::unique_ptr< std::vector<bool> >          m_left{nullptr};
 
-    std::string m_calibType{""};
     std::unique_ptr<nsw::hw::PadTrigger> m_pt{nullptr};
     std::vector<nsw::FEBConfig> m_pfebs{};
   };

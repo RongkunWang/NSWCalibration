@@ -22,6 +22,8 @@
 #include "NSWConfiguration/NSWConfig.h"
 #include "NSWCalibration/CalibAlg.h"
 
+#include "NSWCalibrationDal/NSWCalibApplication.h"
+
 #include "ers/Issue.h"
 
 ERS_DECLARE_ISSUE(nsw,
@@ -63,24 +65,22 @@ class NSWCalibRc: public daq::rc::Controllable {
     //! Used to syncronize ROC/VMM configuration
     void subTransition(const daq::rc::SubTransitionCmd&) override;
 
-    //! Handle configuration and ALTI
-    std::atomic<bool> end_of_run;
-    std::future<void> handler_thread;
+    void publish() override;
+
     std::string calibTypeFromIS();
     bool simulationFromIS();
     uint32_t runNumberFromIS();
     void handler();
     void loop_content();
-    void orchestrator_operation(const std::string& cmd_name);
     void alti_setup();
     void alti_count();
     void publish4swrod();
     void wait4swrod();
     void alti_callback(ISCallbackInfo* isc);
-    uint64_t alti_pg_duration(bool refresh = 0);
+    uint64_t alti_pg_duration(bool refresh = false);
     uint64_t alti_pg_multiplicity(std::string line);
     std::string alti_pg_file();
-    std::string alti_monitoring(bool refresh = 0);
+    std::string alti_monitoring(bool refresh = false);
     enum alti_pg_enum {pg_orb, pg_creq, pg_ttyp, pg_bgo, pg_l1a_ttr, pg_mult, pg_size};
 
  private:
@@ -93,9 +93,11 @@ class NSWCalibRc: public daq::rc::Controllable {
     uint64_t m_alti_pg_duration = 0;
     std::string m_alti_monitoring = "";
 
+    const nsw::dal::NSWCalibApplication* m_nswApp;
+
     // Run the program in simulation mode, don't send any configuration
     bool                        m_simulation;
-    bool                        m_simulation_lock = 0;
+    bool                        m_simulation_lock = false;
     std::unique_ptr<NSWConfig>  m_NSWConfig;
     std::string                 m_dbcon;
     std::string                 m_orchestrator_name;

@@ -1,20 +1,18 @@
 #include "NSWCalibration/sTGCPadsL1DDCFibers.h"
+
+#include <unistd.h>
+#include <stdexcept>
+#include <future>
+
+#include <fmt/core.h>
+
+#include <ers/ers.h>
+
 #include "NSWCalibration/Utility.h"
 #include "NSWConfiguration/Constants.h"
 #include "NSWConfiguration/ConfigReader.h"
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/I2cMasterConfig.h"
-#include <fmt/core.h>
-#include <ers/ers.h>
-#include <unistd.h>
-#include <stdexcept>
-#include <future>
-
-nsw::sTGCPadsL1DDCFibers::sTGCPadsL1DDCFibers(const std::string& calibType) : 
-  m_calibType(calibType) {
-  setCounter(-1);
-  setTotal(0);
-}
 
 void nsw::sTGCPadsL1DDCFibers::setup(const std::string& db) {
   ERS_INFO("setup " << db);
@@ -35,8 +33,7 @@ void nsw::sTGCPadsL1DDCFibers::setup(const std::string& db) {
   //
   // other settings
   //
-  setToggle(false);
-  setWait4swROD(false);
+
   nsw::snooze();
 }
 

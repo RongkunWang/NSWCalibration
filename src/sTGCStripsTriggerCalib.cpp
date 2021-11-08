@@ -26,12 +26,6 @@
 
 #include "ers/ers.h"
 
-nsw::sTGCStripsTriggerCalib::sTGCStripsTriggerCalib(const std::string& calibType) {
-  setCounter(-1);
-  setTotal(0);
-  m_calibType = calibType;
-}
-
 void nsw::sTGCStripsTriggerCalib::setup(const std::string& db) {
   ERS_INFO("setup " << db);
 
@@ -74,10 +68,9 @@ void nsw::sTGCStripsTriggerCalib::setup(const std::string& db) {
         configure_tds(name, tds, true, false);
 
   // set number of loops in the iteration
-  setTotal(static_cast<int>(m_sfebs_ordered.size() * m_tdss.size()));
-  setToggle(false);
-  setWait4swROD(false);
-  usleep(1e6);
+  setTotal(m_sfebs_ordered.size() * m_tdss.size());
+
+  nsw::snooze();
 }
 
 void nsw::sTGCStripsTriggerCalib::configure() {

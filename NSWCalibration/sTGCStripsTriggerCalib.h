@@ -24,8 +24,8 @@ namespace nsw {
   class sTGCStripsTriggerCalib: public CalibAlg {
 
   public:
-    sTGCStripsTriggerCalib(const std::string& calibType);
-    virtual ~sTGCStripsTriggerCalib() = default;
+    explicit sTGCStripsTriggerCalib(std::string calibType) : CalibAlg(std::move(calibType)) {};
+
     void setup(const std::string& db) override;
     void configure() override;
     void unconfigure() override;
@@ -39,7 +39,6 @@ namespace nsw {
     std::string simplified(const std::string& name) const;
 
   private:
-    std::string m_calibType = "";
     std::vector<std::string> m_sfebs_ordered = {};
     std::vector<nsw::FEBConfig> m_sfebs = {};
     std::vector<std::pair <std::string, std::string > > m_router_recovery_tds = {};

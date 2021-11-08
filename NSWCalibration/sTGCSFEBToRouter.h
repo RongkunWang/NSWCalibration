@@ -31,8 +31,8 @@ namespace nsw {
   class sTGCSFEBToRouter: public CalibAlg {
 
   public:
-    sTGCSFEBToRouter(const std::string& calibType);
-    virtual ~sTGCSFEBToRouter() = default;
+    explicit sTGCSFEBToRouter(std::string calibType) : CalibAlg(std::move(calibType)) {};
+
     void setup(const std::string& db) override;
     void configure() override;
     void unconfigure() override;
@@ -51,7 +51,6 @@ namespace nsw {
 
   private:
     boost::property_tree::ptree m_patterns;
-    std::string m_calibType = "";
     std::vector<std::string> m_sfebs_ordered = {};
     std::vector<nsw::FEBConfig> m_sfebs = {};
     std::vector<nsw::RouterConfig> m_routers = {};
