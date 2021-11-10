@@ -1,140 +1,239 @@
-# NSWCalibration 
+# NSWCalibration
 
-## Intro 
-
-Calibration/configuration module is tied to the input file of .json format to manage data writing and further processing(plotting).
-Input file contains all data output paths, default names of the OPC server and communication port, self location path,
-channel mask and trimmer register json files, and desired default configuration .json file, etc.
-
-**Mandatory!**
+## Intro
 
 NSWCalibration has dependencies on the NSWConfiguration libraries of _UaoClientForOpcUa_ and _NSWConfiguration_ - thus installation of NSWConfiguration is a pre-requisite. In long-term perspective a standalone build should be available.
 
-In the beginning, for the installation and afterwards, one needs to setup the work enviroment by sourcing current tdaq release libraries and exporting external opc client path:
-```bash
-source /afs/cern.ch/atlas/project/tdaq/cmake/cmake_tdaq/bin/cm_setup.sh tdaq-08-03-01 # replace nightly with any other release
-export OPC_OPEN62541_PATH=/afs/cern.ch/work/n/nswdaq/public/tdaq-08-03-01/sw/external/open62541-compat
-```
-In case a local opc client installation was made for the NSWConfiguration package - one should set the OPC_OPEN62541_PATH variable with a complete path to it.
-
 ## Installation
 
-Move to the directory where NSWConfiguration is installed and:
+NSWCalibration is insatlled as a part of the nswdaq package and should work out of the box.
+
+## Class functionality
+
+### NSWCalibRc
+
+<!--This is basicly a placeholder for later description of the ACCURATE NSWCalibRc functionality -->
+Class responsible for opreating the specialized calibration applications in the TDAQ partition
+Basic strucutre and usage of function follows the partition transitions e.g. `INITIALIZE`, `CONNECT`, `CONFIGURE` etc.
+User enables the desired calibration class by specifyong calibration type in the information Server (IS). The main handler of the calibration classes in NSWCalibRc is the nsw::NSWCalibRc::handler function.
+During `INITIALIZE` and `CONFIGURE` steps the configuration is received from database and sent to hardware in use by `NSWConfigRc.cpp`.
+Upon receiving the calibration type from IS after `PREPARE_FOR_RUN` transition unique pointer to desired class is made.
+Later the handler function itrates through configuration steps that are common to all classes in the NSWCalibration.
+The end of calibration loop in handler is signified by the `ERS_INFO` message.
+
+### CalibAlg
+
+`CalibAlg` is the base class for all NSW calibrations.
+The current calibrations are described by the implementations below.
+
+#### THRCalib
+
+Class desiganted for VMM threshold calibration and runs only from TDAQ
+partition. Built in options allow to read front-end baselines to
+assess the noise, calibrate global VMM thresholds with respect to the
+desired number of samples per channel and desired RMS threshold offset
+provided by user. During the calibration cycle the channel trimmer
+DACs are also calibrated. Information about calibrated DAC values is
+being stored in per-frontend partial `.json` config files and at the end
+of the calibration cycle merged into a single file to be upladed to
+the conditions database.
+
+To run threshold calibration user does following:
+
+1. Start TDAQ partition
+
+2. Upload the threshold calibration type to the IS using following
+   command line command
+
+   ```bash
+   is_write -p <partition_name> -n Setup.NSW.calibType -t String -v THRCalib -i 0
+   ```
+
+3. Declare desired threshold calibration routine
+
+   For pure baseline readout and internal pulser DAC calibration (done
+   one after another):
+
+   ```bash
+
+   is_write -p <partition_name> -n Setup.NSW.calibParams -t String -v BLN,<nr.of samplesx10>,<RMSfactor>,<debug flag> -i 0
+   ```
+
+   as an example:
+
+   ```bash
+   is_write -p <partition_name> -n Setup.NSW.calibParams -t String -v BLN,10,9,0 -i 0
+
+   ```
+
+   where -v option holds following comma separated input parameters in
+   exactly this order:
+   * BLN - marks the baseline readout operation (has to be specifically
+     these three capital characters)
+   * 10 - 100 samples per channel (has a x10 multiplier in the script -
+     so to have 100 samples one enters 10)
+   * 9 - RMS factor for the threshold calibration (not needed for
+     baselines but entry must not be empty anyway)
+   * 0 - debug output minimised in the RC application log files (1 -
+     enables more detailed information per channel)
+
+   Or complete threshold calibration cycle by specifying first entry with
+   `THR` flag as the first parameter in the IS input string:
+
+   ```bash
+   is_write -p <partition_name> -n Setup.NSW.calibParams -t String -v THR,10,9,0 -i 0
+
+   ```
+
+4. Continue with `INITIALIZE`, `CONFIGURE`, `START` transitions during
+   which the infrastructure is initialized, the frontends are
+   configured and data acquisition starts. User will be notified when
+   the calibration has succeeded.
+
+Data acquisition for the `THRCalib` does not depend on the TDAQ
+partition `record data` setting, and in both states the data `.txt`
+files are written.
+
+Script will calibrate thresholds for those front-ends that are
+specified in the `.json` configuration generated from database of
+manually assembled.
+
+Data from THRCalib is being written to the directory specified in the
+`schema/NSWCalib.schema.xml`
+
+```xml
+<attribute name="CalibOutput" description="Directory to write threshold calibration data" type="string" init-value="/afs/cern.ch/user/v/vplesano/vladwork/threshold_data/" is-not-null="yes"/>
+```
+
+that should be modified at the partition generation to hold the user
+desired output directory.
 
 ```bash
-git clone --recursive https://:@gitlab.cern.ch:8443/atlas-muon-nsw-daq/NSWCalibration.git
+MMFE8_L1P1_IPR_calibration_data.txt            #calibration data output file
+MMFE8_L1P1_IPR_thresholds.txt                  #untrimmed threshold data file
+MMFE8_L1P1_IPR_partial_config.json             #json files that hold mask and trimmer values
+MMFE8_L1P1_IPR_baseline_samples.txt            #sampled baseline file
+MMFE8_L1P1_IPR_TPDAC_samples.txt               #pulser dac calibration file
 ```
-Now there sould be this structure in your work directory, before compilation:
 
-* CMakeLists.txt
-* NSWConfiguration
-* NSWCalibration
+The complete data volume for a single MM double wedge should not
+exceed 900 Mb.  All aforementioned files are used by the
+`NSWCalibrationDataPlotter` package to plot/analyse the calibration
+data (`.txt`), and generation of the modified frontend configuration
+that holds calibrated global threshold and trimmed regiser values
+(`.json`).
 
-Next step is to compile both sw with following commands:
+#### PDOCalib
 
-```bash
-cmake_config
-#after cmake configured move to build directory under appropriate hw tag
-cd x64...
-make -j
-```
-In case build exits with pkill error or One of the libraries is not linking properly - try repeating last step with lesser nr of cores: {make -j5}. For sure it helps when NSWConfigRc.cpp linking is not working properly. Sometimes one must delete the hardware tagged directory (x64_86...) and repeat from cmake_config command.
+This class is designated for PDO and TDO calibration i.e. to read VMM
+digital data to be later converted from PDO to fC and from TDO to
+ns. Class is written to run from run controll application in TDAQ
+partition. Performance of this class highly depends on the swROD and
+ALTI configuration correctness for a specific setup.  In short,
+PDOCalib pulses the VMM channels at a user defined pulser DAC
+`sdp_dac` or ROC test pulse delay registers
+`RocAnalog:reg073ePllVmm#:tp_phase_#` in several iterations depending
+on the selected channel groups to be pulsed. Application iterates
+through each entered register value for on channel(channel group) and
+moves to next and iterates throug register values again and so
+on. Possibility to pulse all channels at the same time is available.
 
-After this NSWCalibration will be installed and will use appropriate libraties from NSWConfiguration
+Class contains dedicated warninigs if the connection to some
+front-ends was lost before and after configuration with new register
+values. It waits few seconds in 3 attempts for OPC server to
+reestablish connection and if its sucessfull continues. If connection
+was not reestablished - then major malfunction was experienced in the
+system and felixcore and OPC server must be restarted and whole
+procedure rerun.
 
-As the last step, one should run shell script to setup the calibration data readout directory:
+The data recording in this calibration type is handled by the swROD
+and data recording in the TDAQ partition settings must be enabled with
+a desired tier0 name. the calibration tag will be added automatically
+from is calibration type entry.
 
-```bash
-./set_dir.sh absolute/path/to/desired/directory/ opc.server-name.cern.ch
-```
-This shell script has twofold purpose. First is creation of the **[lxplus_input_data.json]** file with all directory references and opc server to access. The file looks like this:
+To run PDO/TDO calibration using this class user does following:
 
-```
-# Absolute paths have to be specified
-# mainly keys point to the absolute path of some specific output/input files
-{
-"config_dir":"/afs/cern.ch/user/v/vplesano/public/NSWCalibrationData/config_files/",		#location of the configuration files
-"configuration_json":"integration_config_ala_bb5.json",						#configuration file of choice in the config_files
-"cal_data_output":"/afs/cern.ch/user/v/vplesano/public/NSWCalibrationData/calib_data/",		#calibration data output file
-"thr_data_output":"/afs/cern.ch/user/v/vplesano/public/NSWCalibrationData/thresholds/",		#untrimmed threshold data file 
-"json_data_output":"/afs/cern.ch/user/v/vplesano/public/NSWCalibrationData/calib_json/",	#json files that hold mask and trimmer values
-"opc_server_name":"hefr40.physik.unifreiburg.de",						#reserved but not used yet, opc server hostname
-"opc_server_port":":48020",									#reserved but not used yet, communication port
-"bl_data_output":"/afs/cern.ch/user/v/vplesano/public/NSWCalibrationData/baselines/",		#sampled baseline out. file
-"tp_data_output":"/afs/cern.ch/user/v/vplesano/public/NSWCalibrationData/test_pulse_dac/",	#pulser dac calibration out. file
-"tp_data_output2":"/afs/cern.ch/user/v/vplesano/public/NSWCalibrationData/test_pulse_dac2/",	#reserved for future dev.
-"report_log":"/afs/cern.ch/user/v/vplesano/public/NSWCalibrationData/CalibReport.txt",		#Report log file
-"archive":"/afs/cern.ch/user/v/vplesano/public/NSWCalibrationData/archive/"			#archive
-}
-```
-The second action of the shell script is to create output file directories defined by user in the .json fiel above with following structure(examplary):
+1. Starts TDAQ partition created by `nswdaq/NSWPartitionMaker` package
 
-```
-NSWCalibrationData/
-├── archive
-│   ├── RootFiles
-│   │   ├── baseline_tree_17-12-2019_10-02-20.root
-│   │   ├── baseline_tree_17-12-2019_10-02-47.root
-│   │   ├── baseline_tree_17-12-2019_10-03-18.root
-│   │   ├── data_tree_17-12-2019_10-02-20.root
-│   │   ├── data_tree_17-12-2019_10-02-47.root
-│   │   ├── data_tree_17-12-2019_10-03-18.root
-│   │   ├── data_tree_17-12-2019_11-26-44.root
-│   │   ├── threshold_tree_17-12-2019_10-02-20.root
-│   │   ├── threshold_tree_17-12-2019_10-02-47.root
-│   │   ├── threshold_tree_17-12-2019_10-03-18.root
-│   │   └── threshold_tree_17-12-2019_11-26-44.root
-│   └── TextFiles
-│       ├── Baselines_17-12-2019_10-02-19.txt
-│       ├── Baselines_17-12-2019_10-02-47.txt
-│       ├── Baselines_17-12-2019_10-03-18.txt
-│       ├── Calib_data_17-12-2019_10-02-20.txt
-│       ├── Calib_data_17-12-2019_10-02-47.txt
-│       ├── Calib_data_17-12-2019_10-03-18.txt
-│       ├── Calib_data_17-12-2019_11-26-44.txt
-│       ├── Untrimmed_thresholds_17-12-2019_10-02-20.txt
-│       ├── Untrimmed_thresholds_17-12-2019_10-02-47.txt
-│       ├── Untrimmed_thresholds_17-12-2019_10-03-18.txt
-│       └── Untrimmed_thresholds_17-12-2019_11-26-44.txt
-├── baselines							
-│   ├── MMFE8-0000_full_bl.txt
-│   └── MMFE8-0001_full_bl.txt
-├── calib_data
-│   ├── MMFE8-0000_data.txt
-│   └── MMFE8-0001_data.txt
-├── calib_json
-│   ├── MMFE8-0000_config_test2.json
-│   └── MMFE8-0001_config_test2.json
-├── CalibReport.txt
-├── config_files
-│   ├── generated_config_sdsm_appended.json
-│   └── integration_config_ala_bb5.json
-├── test_pulse_dac
-└── thresholds
-    ├── MMFE8-0000_thresholds.txt
-    └── MMFE8-0001_thresholds.txt
+2. Declares the calibration type in the IS to enable the `PDOCalib`
+   class in the run controll application in following way:
 
-```
-Files for separate FEBs in the baselines/, calib_data/, calib_json/, thresholds/ and test_pulse_dac/ are overwritten each time one starts a new calibration run and their merged copy is held in the archive (created by the NSWCalibrationDataPlotter)
+   ```bash
+   is_write -p <partition_name> -n Setup.NSW.calibType -t String -v PDOCalib(/TDOCalib)-i 0
+   ```
 
-*What remains is to insert desired configuration file name in the node "configuration_json". The file paths can be changed at any time. In general changes in the input .json file do not require recompilation of the SW itself. Of course one can still call the desitred configuration file using conventional -c option*
+   where depending on the -v entry either TDO (-v TDOCalib) OR PDO (-v
+   PDOCalib) will be calibrated.
 
-_Now the installation is complete.(whop, whop!)_
+3. Declare the calibration run parameters:
+   ```bash
+   is_write -p <partition_name> -n Setup.NSW.calibParams -t String -v <channel-group>,<reg-val-1>,<reg-val-2>,...,<reg-val-n>,*<data-coll-time[ms]>* -i 0
+   ```
 
-# Operation description
+   example:
 
-Script itself allows to:
+   ```bash
+   is_write -p <partition_name> -n Setup.NSW.calibType -t String -v PDOCalib -i 0
+
+   is_write -p <partition_name> -n Setup.NSW.calibParams -t String -v 8,200,300,400,*6000* -i 0
+   ```
+
+   in which user tells application to calibrate PDO with following
+   input parameters:
+
+   * 8 - Group of channels to be pulsed (supported groups are 1,2,4,8
+     channels at a time, to enable all 64 VMM channels user writes any
+     odd integer)
+   * 200,300,400 - internal Pulser DAC register values to pulse (only
+     limitation - VMM register range from 0-1024 DAC)
+   * 6000 - pulsing time of 6000 milliseconds (to adjust for different
+     pattern file rates)
+
+   Note: *First entry in the -v option MUST be the channel group*, all
+   other parameters can be swapped
+
+4. Proceed with the `INITIALIZE`, `CONFIGURE`, and `START`
+   transitions. Calibration starts and ends automatically
+
+   As in the THRCalib class case all front-ends specified in the
+   configuration .json file will be calibrated.
+
+   Few pro tips in resolving problems with run
+
+#### MMTPFeedback
+
+#### MMTPInputPhase
+
+#### MMTriggerCalib
+
+#### sTGCPadTriggerToSFEB
+
+#### sTGCRouterToTP
+
+#### sTGCSFEBToRouter
+
+#### sTGCStripsTriggerCalib
+
+#### sTGCTriggerCalib
+
+#### CalibrationSca [[deprecated]]
+
+This class is a pre-decessor of the `THRCalib` class that basicly
+works from the command line. All the functionality (except the pulser
+DAC calibration) is provided by `app/Calibrate.cpp` executable. This
+script allows user to :
 
 * Configure frontends (function applicable for SCA path calibration only);
 * Read channel baseline and thresholds;
 * Modify configuration .json files;
-(Calibrate.cpp)
 * Calibrate internal pulser DAC;
 (pulse.cpp, description will follow later...)
 
-For example, lets inspect Calibate.cpp that does SCA path calibrations (executable name - ./calibrate) that has following options (can be viewed by using option -h):
+For example, lets inspect Calibate.cpp that does SCA path calibrations
+(executable name - ./calibrate) that has following options (can be
+viewed by using option -h):
 
-## General function calls (flags)
+##### General function calls (flags)
 -------------------------------------------------------------------------
 
 	* --init_conf 	-	-> send configuration to FEBs (use only for SCA calibrations - for L1 data taking use configure_frontend.cpp from NSWConfiguration);
@@ -145,9 +244,13 @@ For example, lets inspect Calibate.cpp that does SCA path calibrations (executab
 	* --split_config	-> (for bb5/191 sites) split configuration into 4 separate .json files for HO_L1L2, HO_L3L$, IP_L1L2, and IP_L3L4 front-end mapping;
 			(if Nr. of FEBs in operation is >1, function is called automatically)
 
-Aforementioned options (except split_config) write notifications in the CalibReport.txt in user defined directory. In case there were no calculations with strong deviations or any misbehaving channels the log woill just have the start message with date-time stamp and overall procedure time.
+Aforementioned options (except split_config) write notifications in
+the CalibReport.txt in user defined directory. In case there were no
+calculations with strong deviations or any misbehaving channels the
+log woill just have the start message with date-time stamp and overall
+procedure time.
 
-## Other options
+##### Other options
 ----------------------------------------------------------------------------------
 
 	* -L -> desired FEB or FEB group to be used (default - "") - input string is compared with the FEB names in the .json file and in the case of a match thread will be started;
@@ -161,7 +264,7 @@ Aforementioned options (except split_config) write notifications in the CalibRep
 	* --conn_check -> same, but for --baseline option
 -------------------------------------------------------------------------------------------------
 
-# Typical use cases are:
+##### Typical use cases are:
 
 ```bash
 ./calibrate -L MM --init_conf			#configure all FEBs which name (in.xml/.json files) have MM in their naming;
@@ -173,24 +276,39 @@ Aforementioned options (except split_config) write notifications in the CalibRep
 
 In general the sequence for the full cycle would be:
 
+```
  --init_conf -> --threshold(OR --baseline, then got to start) -> --cal_thresholds -> --init_conf
+```
 
 with appropriate additional options.
 
-IMPORTANT - In case of small scale operations (less than 96 FEBs) on can give multiple function calls (flags) in one execution. IF opeation scale is > 96 FEBs it is advised to execute each function call separately (otherwise memory is overwhelmed and process fails with pkill error).
+IMPORTANT - In case of small scale operations (less than 96 FEBs) on
+can give multiple function calls (flags) in one execution. IF
+operation scale is > 96 FEBs it is advised to execute each function
+call separately (otherwise memory is overwhelmed and process fails
+with pkill error).
 
 **Few warnings:**
-	
+
 	* !Always! put search string in the -L option that will match the name in working .json file - otherwise >> exception;
 	* -b option sorts FEB names from .json file and starts count from 0 to entered number;
 	* --baseline and --threshold can not be called simultaneously;
 	* if only one FEB was calibrated - one needs to manually call --merge_config and -j options;
 	* in case Nr. of FEBs to be calibrated is >64 -> call --threshold and --cal_thresholds as a separate, consequen processes - otherwise memory gets overloaded and programm flips out.(to be fixed)
 	* Text file archivation is temporarily suspended to decease disk space usage (from 12.02.2020)
-	
-**Usefull links:**
 
-	[Data plotter](https://gitlab.cern.ch/vplesano/nswcalibrationdataplotter/tree/master)
-	[Corresponding NSWConfig branch](https://gitlab.cern.ch/atlas-muon-nsw-daq/NSWConfiguration/tree/vlad_calib_devmerged)
+### Utility
+
+#### CalibrationMath
+
+Class holds basic mathematical expressions to transform VMM ADC/DAC
+sample values to mV and backwards.  In addition it stores the
+calculation constants, VMM parameters, cutoff limits for the readout
+sample in a speciffic `nsw::ref_val` namespace that are use in
+THRCalib and PDOCalib classes.
 
 
+**Useful links:**
+
+        [Link to plotter][data_plotter]
+	[data_plotter]:https://gitlab.cern.ch/vplesano/nswcalibrationdataplotter/tree/master

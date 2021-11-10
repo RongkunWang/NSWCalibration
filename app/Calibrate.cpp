@@ -24,7 +24,6 @@
 #include "boost/program_options.hpp"
 #include "boost/property_tree/json_parser.hpp"
 
-#include "NSWCalibration/CalibrationMath.h"
 #include "NSWCalibration/CalibrationSca.h"
 
 namespace po = boost::program_options;
@@ -38,17 +37,6 @@ int main(int ac, const char* av[]){
 
   auto start= std::chrono::high_resolution_clock::now();
   //--------------------------------------------------------------
-  namespace pt = boost::property_tree;
-  pt::ptree input_data;
-  std::string io_config_path = "../../NSWCalibration/lxplus_input_data.json"; //<<---- default input_data.json path file location!!!!
-
-  //    std::string io_config_path = "../../NSWCalibration/bb5_sectA14_input_data.json"; //<<---- can have another path file in same direcroty but then recompile with default file path commented out and new file location in
-  pt::read_json(io_config_path, input_data);
-  //-------------------------------------------------------------------
-  std::string   def_config = input_data.get<std::string>("configuration_json");
-  std::string base_folder = input_data.get<std::string>("config_dir");
-  std::string cl_file = input_data.get<std::string>("report_log");
-
   std::string description = "\tProgramm allows to configure/calibrate MM FEBs\n\t declare what you want to do, type:\n\t --init_conf - to load inital VMM configuration or final configuration with resulting json file\n\t --threshold - to read thresholds of the particular VMM\n\t --cal_thresholds - to calibrate threshold and trimmer DAC on FEB scale\n\t --merge_config - to merge separate board .json files into one\t default name -> generated_config.json (name changing option -j)\n\n\t!!!\n\tIMPORTANT: programm requires existance of the input configuration .json file with necessary output file location paths, OPC server name and associated communication port\n\t!!!";
 
   bool init_conf;
@@ -58,9 +46,6 @@ int main(int ac, const char* av[]){
   bool split_config;
   bool baseline;
   bool debug;
-  //    bool stgc;
-
-  //            bool pFEB; //swithch for pFEBs
   bool conn_check; //swithch baseline checks
   int N_FEB;
   int n_samples;
@@ -72,11 +57,16 @@ int main(int ac, const char* av[]){
   std::string mod_json;
   std::string dw_layer;
   std::string fe_name;
+  std::string output_dir;
+  std::string json_dir;
+
   po::options_description desc(description);
   desc.add_options()
     ("help,h", "produce help message")
-    ("config,c", po::value<std::string>(&config_filename)->default_value(base_folder+def_config),"Configuration .json file. If not specified choses from input_data.json - [configuration_json] ")
-    ("new_json,j", po::value<std::string>(&mod_json)->default_value("generated_config"),"Generated json file name, type in -> example_config.json")
+    ("config,c", po::value<std::string>(&config_filename)->default_value(""),"Configuration .json file")
+    ("mod_json,m", po::value<std::string>(&mod_json)->default_value("generated_config"),"Generated json file name, type in -> example_config.json")
+    ("output,o", po::value<std::string>(&output_dir)->default_value(""),"Generated json file name, type in -> example_config.json")
+    ("json_dir,j", po::value<std::string>(&json_dir)->default_value(""),"Generated json file name, type in -> example_config.json")
     ("layer_dw,L", po::value<std::string>(&dw_layer)->default_value(""),"Layer in the DW to configure/calibrate, type in -> L1/L2/L3/L4")
     ("samples,s", po::value<int>(&n_samples)->
      default_value(10), "Number of ADC samples to read per channel >>> For the baselines a multiplication factor of x10 is implemented")
@@ -129,7 +119,7 @@ int main(int ac, const char* av[]){
 
   std::time_t run_start = std::chrono::system_clock::to_time_t(start);
 
-  std::ofstream calibrep(cl_file, std::ofstream::out|std::ofstream::app);
+  std::ofstream calibrep(output_dir+"CalibReport.txt", std::ofstream::out|std::ofstream::app);
   calibrep.is_open();
   calibrep<<"\n------------------ Calibration run log -------------------------\n";
   calibrep<<"\t\t   "<<std::ctime(&run_start);
@@ -138,13 +128,9 @@ int main(int ac, const char* av[]){
   if(cal_thresholds){calibrep<<"MAIN INPUT PARAMETERS: [samples:"<<n_samples<<"([bl:x10][trims:x1][thdac:x2])]-[RMS:"<<rms<<"]\n"<<std::endl;}
   if(merge_config){calibrep<<"MAIN INPUT PARAMETERS: [new config file name - "<<mod_json<<"_sdsm_app_"<<rms<<"]\n"<<std::endl;}
   else{calibrep<<"MAIN INPUT PARAMETERS: [config file - "<<config_filename<<"]\n"<<std::endl;}
-  //--------------------------------------------------------------------------------------------------------------------------------
-
-  //------- using input data json file (mainly paths to folders)--------------------------------
 
   std::thread conf_threads[N_FEB];
 
-  //nsw::CalibrationMath cm;
   nsw::CalibrationSca sca;
 
   //========================== sending initial configuration ======================================
@@ -255,8 +241,8 @@ int main(int ac, const char* av[]){
                 if(fe_names_v[l].find(dw_layer)!=std::string::npos)
                   {
                     nsw::CalibrationSca * calib_ptr = new nsw::CalibrationSca;
-                    if(baseline){conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::read_baseline_full, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, l, fe_names_v.at(l),conn_check);}
-                    if(threshold){conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::read_thresholds, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, l, debug, fe_names_v.at(l));}
+                    if(baseline){conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::read_baseline_full, calib_ptr, config_filename, frontend_configs, output_dir, n_samples, l, fe_names_v.at(l),conn_check);}
+                    if(threshold){conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::read_thresholds, calib_ptr, config_filename, frontend_configs, output_dir, n_samples, l, debug, fe_names_v.at(l));}
                     ifeb++;
                   }
                 else{continue;}
@@ -288,8 +274,8 @@ int main(int ac, const char* av[]){
             for(int i=0; i<N_FEB; i++)
               {
                 nsw::CalibrationSca * calib_ptr = new nsw::CalibrationSca;
-                if(threshold){conf_threads[i] = std::thread(&nsw::CalibrationSca::read_thresholds, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, i, debug, *ct_it);}
-                if(baseline){conf_threads[i] = std::thread(&nsw::CalibrationSca::read_baseline_full, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, i, *ct_it, conn_check);}
+                if(threshold){conf_threads[i] = std::thread(&nsw::CalibrationSca::read_thresholds, calib_ptr, config_filename, frontend_configs, output_dir, n_samples, i, debug, *ct_it);}
+                if(baseline){conf_threads[i] = std::thread(&nsw::CalibrationSca::read_baseline_full, calib_ptr, config_filename, frontend_configs, output_dir, n_samples, i, *ct_it, conn_check);}
                 ct_it++;
               }
 
@@ -335,7 +321,7 @@ int main(int ac, const char* av[]){
               if(fe_names_v[b].find(dw_layer)!=std::string::npos)
                 {
                   nsw::CalibrationSca * calib_ptr = new nsw::CalibrationSca;
-                  conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::sca_calib, calib_ptr, config_filename, frontend_configs, fe_names_v[b], io_config_path, b, n_samples, debug, rms);
+                  conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::sca_calib, calib_ptr, config_filename, frontend_configs, fe_names_v[b], output_dir, json_dir, b, n_samples, debug, rms);
                   ifeb++;
                 }
               else{continue;}
@@ -351,7 +337,7 @@ int main(int ac, const char* av[]){
           printf("\nthreads joined!\n");
 
           std::this_thread::sleep_for(std::chrono::seconds(1));
-          if(nfebs>1){sca.merge_json(mod_json, io_config_path, config_filename, rms, split_config);} //generate new .json file
+          if(nfebs>1){sca.merge_json(mod_json, output_dir, json_dir, config_filename, rms, split_config);} //generate new .json file
         }
         catch(std::exception & e)
           {
@@ -368,7 +354,7 @@ int main(int ac, const char* av[]){
           for(int i = 0; i < N_FEB; i++)
             {
               nsw::CalibrationSca * calib_ptr = new nsw::CalibrationSca;
-              conf_threads[i] = std::thread(&nsw::CalibrationSca::sca_calib, calib_ptr, config_filename, frontend_configs, *ct_it, io_config_path, i, n_samples, debug, rms);
+              conf_threads[i] = std::thread(&nsw::CalibrationSca::sca_calib, calib_ptr, config_filename, frontend_configs, *ct_it, output_dir, json_dir, i, n_samples, debug, rms);
               ct_it++;
             }
           for(int j=0;j<N_FEB;j++)
@@ -377,7 +363,7 @@ int main(int ac, const char* av[]){
             }
           printf("\nthreads joined!\n");
           std::this_thread::sleep_for(std::chrono::seconds(1));
-          if(N_FEB>1){sca.merge_json(mod_json, io_config_path, config_filename, rms, split_config);} //generate new .json file
+          if(N_FEB>1){sca.merge_json(mod_json, output_dir, json_dir, config_filename, rms, split_config);} //generate new .json file
         }
         catch(std::exception &e){
           std::cout<<"Error on thread: ["<<e.what()<<"]"<<std::endl;
@@ -389,7 +375,7 @@ int main(int ac, const char* av[]){
   if(merge_config){
     calibrep<<"\n\t\t_____Merging json files_____"<<std::endl;
     try{
-      sca.merge_json(mod_json, io_config_path, config_filename, rms, split_config);
+      sca.merge_json(mod_json, output_dir, json_dir, config_filename, rms, split_config);
     }catch(std::exception &e){
       std::cout<<"Couldn`t merge .json files, reason: "<<e.what()<<std::endl;
       calibrep<<"\nERROR interupt: "<<e.what()<<std::endl;

@@ -4,27 +4,21 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include <map>
 #include <future>
 
-#include "ipc/partition.h"
-#include "ipc/core.h"
-#include "is/info.h"
-#include "is/infoT.h"
-#include "is/infostream.h"
-#include "is/infodynany.h"
-#include "is/infodictionary.h"
-#include "is/inforeceiver.h"
+#include <ers/Issue.h>
 
-#include "RunControl/RunControl.h"
-#include "RunControl/Common/RunControlCommands.h"
+#include <ipc/partition.h>
+#include <is/infodictionary.h>
+#include <is/inforeceiver.h>
+
+#include <RunControl/RunControl.h>
+#include <RunControl/Common/RunControlCommands.h>
 
 #include "NSWConfiguration/NSWConfig.h"
 #include "NSWCalibration/CalibAlg.h"
 
 #include "NSWCalibrationDal/NSWCalibApplication.h"
-
-#include "ers/Issue.h"
 
 ERS_DECLARE_ISSUE(nsw,
                   NSWCalibIssue,
@@ -40,8 +34,7 @@ namespace nsw {
 class NSWCalibRc: public daq::rc::Controllable {
  public:
     // override only the needed methods
-    explicit NSWCalibRc(bool simulation = false);
-    virtual ~NSWCalibRc() noexcept {}
+    explicit NSWCalibRc(bool simulation=false);
 
     //! Connects to configuration database/ or reads file based config database
     //! Reads the names of front ends that should be configured and constructs
@@ -105,8 +98,8 @@ class NSWCalibRc: public daq::rc::Controllable {
     bool                        m_resetTDS;
     std::string                 m_is_db_name;
     IPCPartition                m_ipcpartition;
-    ISInfoDictionary*           is_dictionary;
-    ISInfoReceiver*             m_rec;
+    std::unique_ptr<ISInfoDictionary> is_dictionary;
+    std::unique_ptr<ISInfoReceiver>   m_rec;
 
 };
 }  // namespace nsw

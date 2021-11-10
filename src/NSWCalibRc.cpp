@@ -1,4 +1,19 @@
 #include "NSWCalibration/NSWCalibRc.h"
+
+#include <thread>
+
+#include <RunControl/Common/OnlineServices.h>
+
+#include <is/infoT.h>
+#include <is/infostream.h>
+#include <is/infodynany.h>
+
+#include <ers/ers.h>
+
+#include <logit_logger.h>
+
+#include <fmt/core.h>
+
 #include "NSWCalibration/Commands.h"
 #include "NSWCalibration/Utility.h"
 #include "NSWCalibrationDal/NSWCalibApplication.h"
@@ -13,14 +28,10 @@
 #include "NSWCalibration/sTGCPadTriggerInputDelays.h"
 #include "NSWCalibration/sTGCPadsControlPhase.h"
 #include "NSWCalibration/sTGCPadsL1DDCFibers.h"
+#include "NSWCalibration/THRCalib.h"
+#include "NSWCalibration/PDOCalib.h"
+
 #include "NSWConfiguration/NSWConfig.h"
-
-#include <RunControl/Common/OnlineServices.h>
-#include <ers/ers.h>
-#include <logit_logger.h>
-#include <thread>
-
-#include <fmt/core.h>
 
 using boost::property_tree::ptree;
 
@@ -60,7 +71,7 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd&) {
     m_ipcpartition = rcSvc.getIPCPartition();
 
     // Get the IS dictionary for the current partition
-    is_dictionary = new ISInfoDictionary (m_ipcpartition);
+    is_dictionary = std::make_unique<ISInfoDictionary>(m_ipcpartition);
     std::string g_calibration_type="";
     std::string g_info_server_name="";
     const std::string stateInfoName = g_info_server_name + ".CurrentCalibState";
@@ -224,6 +235,11 @@ void nsw::NSWCalibRc::handler() {
     calib = std::make_unique<sTGCPadsControlPhase>(m_calibType);
   } else if (m_calibType=="sTGCPadsL1DDCFibers") {
     calib = std::make_unique<sTGCPadsL1DDCFibers>(m_calibType);
+  } else if (m_calibType=="THRCalib"){
+    calib = std::make_unique<THRCalib>(m_calibType, m_is_db_name, *is_dictionary);
+  } else if (m_calibType=="PDOCalib" ||
+             m_calibType=="TDOCalib"){
+    calib = std::make_unique<PDOCalib>(m_calibType, m_is_db_name, *is_dictionary);
   } else {
     std::string msg = "Unknown calibration request: " + m_calibType;
     nsw::NSWCalibIssue issue(ERS_HERE, msg);
@@ -248,7 +264,7 @@ void nsw::NSWCalibRc::alti_setup() {
   alti_monitoring(true);
   alti_pg_duration(true);
   if (alti_monitoring() != "") {
-    m_rec = new ISInfoReceiver(m_ipcpartition, false);
+    m_rec = std::make_unique<ISInfoReceiver>(m_ipcpartition, false);
     m_rec->subscribe(alti_monitoring(), &nsw::NSWCalibRc::alti_callback);
   }
 }

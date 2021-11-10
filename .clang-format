@@ -1,42 +1,61 @@
 ---
-Language:        Cpp
-BasedOnStyle:  Mozilla
-AccessModifierOffset: 0 ## modified from default (-2)
-AlignConsecutiveAssignments: true  ## modified from default
-AlignConsecutiveDeclarations: true ## modified from default
-AllowShortBlocksOnASingleLine: false ## available from clang10 false -> Never
-AlwaysBreakAfterDefinitionReturnType: None ## modified from default (TopLevel)
-AlwaysBreakAfterReturnType: None           ## modified from default (TopLevel)
-BreakBeforeBraces: Custom ## modified from default (Mozilla)
-BreakConstructorInitializers: AfterColon ## modified from default (BeforeComma)
-ColumnLimit:     80
-CommentPragmas:  '^ IWYU pragma:'
-ConstructorInitializerAllOnOneLineOrOnePerLine: true ## modified from default
-Cpp11BracedListStyle: true ## modified from default
-DerivePointerAlignment: true ## modified from default
-FixNamespaceComments: true ## modified from default
-IncludeIsMainRegex: '(Test)?$'
-IndentCaseLabels: true ## maybe change
-IndentPPDirectives: None ## maybe change to AfterHash
-IndentWidth:     2 ## maybe change per developer prefs
-KeepEmptyLinesAtTheStartOfBlocks: false ## modified from default
-MacroBlockBegin: '' ## maybe add, if TDAQ macros demand it
-MacroBlockEnd:   '' ## maybe add, if TDAQ macros demand it
-NamespaceIndentation: All ## modified from default (None)
-### May need to tweak the penalties for desired style
-PenaltyBreakAssignment: 2
-PenaltyBreakBeforeFirstCallParameter: 19
-PenaltyBreakComment: 300
-PenaltyBreakFirstLessLess: 120
-PenaltyBreakString: 1000
-PenaltyBreakTemplateDeclaration: 10
-PenaltyExcessCharacter: 1000000
-PenaltyReturnTypeOnItsOwnLine: 200
-PointerAlignment: Left ## maybe better as Right
-SortIncludes:    false ## modified from default
-SpaceBeforeCpp11BracedList: false ## maybe change
-SpacesBeforeTrailingComments: 2 ## modified from default
-SpacesInContainerLiterals: false ## modified from default
-Standard:        Cpp11 ## modified from default (Cpp11), available from clang10 Cpp11 -> Latest
-TabWidth:        2 ## modified from default (8)
+BasedOnStyle: Mozilla
+Language: Cpp
+Standard: Cpp11                                      ## default (Latest)
+TabWidth: 2                                          ## modified from default (8)
+
+AccessModifierOffset: 0                              ## default (-2)
+AlwaysBreakAfterDefinitionReturnType: None           ## default (TopLevel)
+AlwaysBreakAfterReturnType: None                     ## default (TopLevel)
+# BreakBeforeBraces: Linux                             ## default (Mozilla), breaks for namespaces
+# BreakBeforeBraces: WebKit                            ## default (Mozilla), doesn't break for classes
+BreakBeforeBraces: Custom                            ## default (Mozilla), does what we want
+BraceWrapping:
+  AfterCaseLabel:  false
+  AfterClass:      true
+  AfterControlStatement: Never
+  AfterEnum:       false                             ## default (true)
+  AfterFunction:   true
+  AfterNamespace:  false
+  AfterObjCDeclaration: false
+  AfterStruct:     false                             ## default (true)
+  AfterUnion:      false
+  AfterExternBlock: true
+  BeforeCatch:     false
+  BeforeElse:      false
+  BeforeLambdaBody: false
+  BeforeWhile:     false
+  IndentBraces:    false
+  SplitEmptyFunction: false                          ## default (true)
+  SplitEmptyRecord: false                            ## default (true)
+  SplitEmptyNamespace: false                         ## default (true)
+BreakConstructorInitializers: AfterColon             ## default (BeforeComma)
+BreakInheritanceList: AfterColon                     ## default (BeforeComma)
+ColumnLimit: 100                                     ## default (80)
+ConstructorInitializerAllOnOneLineOrOnePerLine: true ## default (false)
+Cpp11BracedListStyle: true                           ## default (false)
+# DerivePointerAlignment: true                         ## default (false)
+FixNamespaceComments: true                           ## default (false)
+IndentCaseLabels: false                              ## default (true)
+IndentWidth:     2                                   ## default (2), maybe change per developer prefs
+KeepEmptyLinesAtTheStartOfBlocks: false              ## default (true)
+# MacroBlockBegin: ''                                  ## maybe add, if TDAQ macros demand it
+# MacroBlockEnd:   ''                                  ## maybe add, if TDAQ macros demand it
+NamespaceIndentation: All                            ## default (None)
+PointerAlignment: Left                               ## maybe better as Right
+SortIncludes:    false                               ## default (true)
+SpaceBeforeCpp11BracedList: false                    ## default (false)
+SpacesBeforeTrailingComments: 2                      ## default (1)
+SpacesInContainerLiterals: false                     ## default (true)
+
+### May need to tweak the penalties to achieve desired style
+# PenaltyBreakAssignment: 2
+# PenaltyBreakBeforeFirstCallParameter: 19
+# PenaltyBreakComment: 300
+# PenaltyBreakFirstLessLess: 120
+# PenaltyBreakString: 1000
+# PenaltyBreakTemplateDeclaration: 10
+PenaltyExcessCharacter: 10000                        ## default (1000000)
+# PenaltyIndentedWhitespace: 0
+# PenaltyReturnTypeOnItsOwnLine: 200
 ...

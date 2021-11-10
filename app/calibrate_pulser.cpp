@@ -25,7 +25,6 @@
 #include "boost/program_options.hpp"
 #include "boost/property_tree/json_parser.hpp"
 
-#include "NSWCalibration/CalibrationMath.h"
 #include "NSWCalibration/CalibrationSca.h"
 
 namespace po = boost::program_options;
@@ -38,21 +37,6 @@ int main(int ac, const char* av[]){
   std::cout<<"========================================================================================"<<std::endl;
 
   auto start= std::chrono::high_resolution_clock::now();
-  //--------------------------------------------------------------
-  namespace pt = boost::property_tree;
-  pt::ptree input_data;
-  //std::string io_config_path = "../../NSWCalibration/lxplus_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
-  std::string io_config_path = "../../NSWCalibration/vs_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
-  //    std::string io_config_path = "../../NSWCalibration/bb5_sectA14_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
-  //    std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/lxplus_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
-  //std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/bb5_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
-  //    std::string io_config_path = "/afs/cern.ch/user/v/vplesano/public/calib_repo/NSWCalibration/vs_input_data.json"; //<<---- change this path according to input_data.json location path!!!!
-  pt::read_json(io_config_path, input_data);
-  //-------------------------------------------------------------------
-  std::string   def_config = input_data.get<std::string>("configuration_json");
-  std::string base_folder = input_data.get<std::string>("config_dir");
-  std::string cl_file = input_data.get<std::string>("report_log");
-
   std::string description = "\tProgramm allows to calibrate VMM internal pulser DAC. Options are listed below. \n\tIMPORTANT: programm requires existance of the input configuration .json file with necessary output file location paths, OPC server name and associated communication port\n\t!!!";
 
   bool debug;
@@ -64,10 +48,12 @@ int main(int ac, const char* av[]){
   std::string config_filename;
   std::string dw_layer;
   std::string fe_name;
+  std::string output_dir;
   po::options_description desc(description);
   desc.add_options()
     ("help,h", "produce help message")
-    ("config,c", po::value<std::string>(&config_filename)->default_value(base_folder+def_config),"Configuration .json file. If not specified choses from input_data.json - [configuration_json] ")
+    ("config,c", po::value<std::string>(&config_filename)->default_value(""),"Configuration .json file")
+    ("output,o", po::value<std::string>(&output_dir)->default_value(""),"Configuration .json file")
     ("layer_dw,L", po::value<std::string>(&dw_layer)->default_value(""),"Layer in the DW to configure/calibrate, type in -> L1/L2/L3/L4")
     ("samples,s", po::value<int>(&n_samples)->
      default_value(10), "Number of ADC samples to read per channel >>> For the baselines a multiplication factor of x10 is implemented")
@@ -89,7 +75,7 @@ int main(int ac, const char* av[]){
   po::store(po::parse_command_line(ac, av, desc), vm);
   po::notify(vm);
 
-  debug                          = vm["debug"]                  .as<bool>();
+  debug                         = vm["debug"]                  .as<bool>();
 
   if (vm.count("help")) {
     std::cout << desc << "\n";
@@ -104,7 +90,7 @@ int main(int ac, const char* av[]){
 
   std::time_t run_start = std::chrono::system_clock::to_time_t(start);
 
-  std::ofstream calibrep(cl_file, std::ofstream::out|std::ofstream::app);
+  std::ofstream calibrep(output_dir+"CalibReport.txt", std::ofstream::out|std::ofstream::app);
   calibrep.is_open();
   calibrep<<"\n------------------ Calibration run log -------------------------\n";
   calibrep<<"\t\t   "<<std::ctime(&run_start);
@@ -112,11 +98,8 @@ int main(int ac, const char* av[]){
   calibrep<<"MAIN INPUT PARAMETERS: [samples:"<<n_samples<<"]\n"<<std::endl;
   //--------------------------------------------------------------------------------------------------------------------------------
 
-  //------- using input data json file (mainly paths to folders)--------------------------------
+   std::thread conf_threads[N_FEB];
 
-  std::thread conf_threads[N_FEB];
-
-  //nsw::CalibrationMath cm;
   nsw::CalibrationSca sca;
 
   //========================== sending initial configuration ======================================
@@ -131,7 +114,6 @@ int main(int ac, const char* av[]){
   if(dw_layer.length()>0)
     {
       try{
-        //---------------- threshold reading here ---------------------------------
         full_set=false;
         sca.read_config(config_filename, fe_name, full_set, frontend_names, fe_names_v, frontend_configs);
         int ifeb=0;
@@ -155,7 +137,7 @@ int main(int ac, const char* av[]){
             if(fe_names_v[l].find(dw_layer)!=std::string::npos)
               {
                 nsw::CalibrationSca * calib_ptr = new nsw::CalibrationSca;
-                conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::calib_pulserDAC, calib_ptr, frontend_configs, io_config_path, fe_names_v.at(l), n_samples, l, debug);
+                conf_threads[ifeb] = std::thread(&nsw::CalibrationSca::calib_pulserDAC, calib_ptr, frontend_configs, output_dir, fe_names_v.at(l), n_samples, l, debug);
                 ifeb++;
               }
             else{continue;}
@@ -184,9 +166,7 @@ int main(int ac, const char* av[]){
         for(int i=0; i<N_FEB; i++)
           {
             nsw::CalibrationSca * calib_ptr = new nsw::CalibrationSca;
-            conf_threads[i] = std::thread(&nsw::CalibrationSca::calib_pulserDAC, calib_ptr, frontend_configs, io_config_path, *ct_it, n_samples, i, debug);
-            //                                          if(threshold){conf_threads[i] = std::thread(&nsw::CalibrationSca::read_thresholds, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, i, debug, *ct_it);}
-            //                                          if(baseline){conf_threads[i] = std::thread(&nsw::CalibrationSca::read_baseline_full, calib_ptr, config_filename, frontend_configs, io_config_path, n_samples, i, *ct_it, conn_check);}
+            conf_threads[i] = std::thread(&nsw::CalibrationSca::calib_pulserDAC, calib_ptr, frontend_configs, output_dir, *ct_it, n_samples, i, debug);
             ct_it++;
           }
 

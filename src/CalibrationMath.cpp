@@ -1,145 +1,37 @@
-#include <algorithm>                    // for sort
-#include <cmath>                        // for sqrt, fabs
-#include <numeric>                      // for inner_product
-#include <utility>                      // for make_pair, pair
-#include <vector>                       // for vector
-
 #include "NSWCalibration/CalibrationMath.h"
 
-float nsw::CalibrationMath::take_median(std::vector<float> &v){
-  size_t n = v.size() / 2;
-  std::nth_element(v.begin(), v.begin()+n, v.end());
-  float median = v[n];
-  return median;
-}
-
-float nsw::CalibrationMath::take_median(std::vector<short unsigned int> &v) {
-  size_t n = v.size() / 2;
-  std::nth_element(v.begin(), v.begin()+n, v.end());
-  float median = v[n];
-  return median;
-}
-
-//############################################################################
-float nsw::CalibrationMath::take_mode(std::vector<short unsigned int> &v) {
-
-  std::sort(v.begin(),v.end());
-  //	std::vector<short unsigned int> n_modes;
-  int counter = 0;
-  int mode_count_max = 0;
-  short unsigned int mode = 0;
-  for(short unsigned int i = 0; i< v.size(); i++) {
-    counter++;
-    ///		std::cout<<v[i]<<" - "<<counter<<std::endl;
-    if(i==0){continue;}
-    if(v[i]!=v[i+1]){
-      if(mode_count_max < counter){
-        //				std::cout<<"max count"<<mode_count_max<<std::endl;
-        mode_count_max = counter;
-        mode=v[i];
-        //				std::cout<<"max count"<<mode_count_max<<" - "<<counter<<" - "<<std::endl;
-        //				if(i==v.size()-1){n_modes.push_back(mode);}
-        counter=0;
-      }
-      else if(mode_count_max == counter){
-        mode = v[i];//prev_sample_val;
-        //				n_modes.push_back(mode);
-
-        //				std::cout<<"max count"<<mode_count_max<<" - "<<counter<<" - "<<std::endl;
-        counter=0;
-      }
-      else{counter=0;continue;}
-    }
-    else{continue;}
-  }
-  //	int nr_of_modes = n_modes.size();
-  //	if(nr_of_modes>1){
-  //		std::cout<<" found few modes ["<<nr_of_modes<<"]"<<std::endl;
-  //		for(auto &m: n_modes){std::cout<<"-"<<m<<"-";}
-  //	}
-  //	std::cout<<" << MODE is"<<mode<<" >> with <<"<<mode_count_max<<" counts >>"<<std::endl;
-
-  ////--------------------------------------------------------------------------
-  //	int nr = v[0];
-  //  float mode = nr;
-  //  short unsigned int n = v.size() / 2;
-  //	std::sort(v.begin(),v.end());
-  //	int count = 1;
-  //	int mode_count = 1;
-  //	for(int i=0; i<n; i++)
-  //	{
-  //		if(v[i]==nr){count++;}
-  //		else
-  //		{
-  //			if(count>mode_count)
-  //			{
-  //				mode_count = count;
-  //				mode = nr;
-  //			}
-  //			count=1;
-  //			nr = v[i];
-  //		}
-  //	}
-  ////-----------------------------------------------------------------------------
-  return mode;
-}
-//############################################################################
-
-float nsw::CalibrationMath::sample_to_mV(float sample, bool stgc){
-  float val = sample * ref_val::SAMPLES_PER_MV;
+std::size_t nsw::CalibrationMath::mVtoSample(const float mV_read, const bool stgc)
+{
+  float val = mV_read * nsw::ref::MV_PER_SAMPLE;
   if (!stgc) {
-    val *= ref_val::MM_RESISTOR_FACTOR;
+    val /= nsw::ref::MM_RESISTOR_FACTOR;
   }
-  return val;
+  return std::size_t{val};
 }
 
-float nsw::CalibrationMath::sample_to_mV(short unsigned int sample, bool stgc){
-  float val = sample * ref_val::SAMPLES_PER_MV;
-  if (!stgc) {
-    val *= ref_val::MM_RESISTOR_FACTOR;
-  }
-  return val;
+
+bool nsw::CalibrationMath::checkChannel(const float ch_baseline_rms, const bool stgc)
+{
+  // FIXME CHECK OVERUSAGE OF RMS_CUTOFF!!!!!!!
+  return !(sampleTomV(ch_baseline_rms, stgc) > nsw::ref::RMS_CUTOFF);
 }
 
-float nsw::CalibrationMath::mV_to_sample(float mV_read, bool stgc){
-  float val = mV_read * ref_val::MV_PER_SAMPLE;
-  if (!stgc) {
-    val /= ref_val::MM_RESISTOR_FACTOR;
-  }
-  return val;
-}
 
-float nsw::CalibrationMath::take_rms(std::vector<float> &v, float mean) {
-  float sq_sum = std::inner_product(v.begin(), v.end(), v.begin(), 0.0);
-  float stdev = std::sqrt(sq_sum / v.size() - mean * mean);
-  return stdev;
-}
-
-float nsw::CalibrationMath::take_rms(std::vector<short unsigned int> &v, float mean) {
-  float sq_sum = std::inner_product(v.begin(), v.end(), v.begin(), 0.0);
-  float stdev = std::sqrt(sq_sum / v.size() - mean * mean);
-  return stdev;
-}
-
-bool nsw::CalibrationMath::check_channel(float ch_baseline_med, float ch_baseline_rms, float vmm_baseline_med, bool stgc){
-  return ! (sample_to_mV(ch_baseline_rms, stgc) > nsw::ref_val::RmsCutoff/*RMS_CUTOFF*/);
-}
-
-std::pair<float,float> nsw::CalibrationMath::get_slopes(float ch_lo,
-                                                        float ch_mid,
-                                                        float ch_hi,
-                                                        //  int trim_hi  = TRIM_HI,
-                                                        /* int trim_hi  = nsw::ref_val::TrimHi,
-                                                           int trim_mid = nsw::ref_val::TrimMid,
-                                                           int trim_lo  = nsw::ref_val::TrimLo*/
-                                                        int trim_hi,
-                                                        int trim_mid,
-                                                        int trim_lo){
-  float m1 = (ch_hi - ch_mid)/(trim_hi-trim_mid);
-  float m2 = (ch_mid - ch_lo)/(trim_mid-trim_lo);
+std::pair<float,float> nsw::CalibrationMath::getSlopes(const float ch_lo,
+                                                       const float ch_mid,
+                                                       const float ch_hi,
+                                                       const int trim_hi,
+                                                       const int trim_mid,
+                                                       const int trim_lo)
+{
+  const float m1 = (ch_hi - ch_mid)/(trim_hi-trim_mid);
+  const float m2 = (ch_mid - ch_lo)/(trim_mid-trim_lo);
   return std::make_pair(m1,m2);
 }
 
-bool nsw::CalibrationMath::check_slopes(float m1, float m2, float slope_check_val){
-  return ! ( fabs(m1 - m2) > slope_check_val/*SLOPE_CHECK*/ );
+
+bool nsw::CalibrationMath::checkSlopes(const float m1, const float m2, const float slope_check_val)
+{
+  // FIXME TODO adapt for both MM and sTGC
+  return (std::abs(m1 - m2) < slope_check_val);
 }
