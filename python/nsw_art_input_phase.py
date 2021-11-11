@@ -362,8 +362,6 @@ def plot_efficiency(dataman, outrfile):
     # save good
     outrfile.cd()
     canv.Write()
-    canv.SaveAs(canv.GetName()+".pdf")
-    canv.SaveAs(canv.GetName()+".png")
     canv.Close()
 
     # draw effi, no numbers
@@ -382,8 +380,6 @@ def plot_efficiency(dataman, outrfile):
     # save effi, no numbers
     outrfile.cd()
     canv.Write()
-    canv.SaveAs(canv.GetName()+".pdf")
-    canv.SaveAs(canv.GetName()+".png")
     canv.Close()
 
     # draw effi, with numbers
@@ -399,8 +395,6 @@ def plot_efficiency(dataman, outrfile):
     # save effi, with numbers
     outrfile.cd()
     canv.Write()
-    canv.SaveAs(canv.GetName()+".pdf")
-    canv.SaveAs(canv.GetName()+".png")
     canv.Close()
 
     return best_phase
