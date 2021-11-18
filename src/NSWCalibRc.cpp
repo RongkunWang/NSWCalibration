@@ -205,12 +205,13 @@ void nsw::NSWCalibRc::handler() {
   m_calibType = calibTypeFromIS();
   if (m_calibType=="MMARTConnectivityTest" ||
       m_calibType=="MMARTConnectivityTestAllChannels" ||
-      m_calibType=="MMTrackPulserTest" ||
       m_calibType=="MMCableNoise" ||
       m_calibType=="MMARTPhase" ||
       m_calibType=="MML1ALatency" ||
       m_calibType=="MMStaircase") {
-    calib = std::make_unique<MMTriggerCalib>(m_calibType);
+    calib = std::make_unique<MMTriggerCalib>(m_calibType, m_is_db_name, *is_dictionary);
+  } else if (m_calibType=="MMTrackPulserTest") {
+    calib = std::make_unique<MMTriggerCalib>(m_calibType, m_is_db_name, *is_dictionary);
   } else if (m_calibType=="MMTPInputPhase") {
     calib = std::make_unique<MMTPInputPhase>(m_calibType);
   } else if (m_calibType=="sTGCPadConnectivity" ||
