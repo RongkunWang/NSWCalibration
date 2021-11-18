@@ -96,12 +96,6 @@ tdaq_add_executable(NSWCalibRc_main app/NSWCalibRc_main.cpp src/NSWCalibRc.cpp
     tdaq::AltiModule
 )
 
-tdaq_add_executable(nsw_write_patterns app/write_patterns.cpp
-  LINK_LIBRARIES nswcalib tdaq::daq-df-dal tdaq::rc_ItemCtrl
-    tdaq-common::ers Boost::program_options nswcalibdal
-    tdaq::AltiModule
-)
-
 tdaq_add_executable(nsw_art_hit_counters app/art_hit_counters.cpp
   LINK_LIBRARIES nswcalib tdaq-common::ers Boost::program_options
 )

@@ -18,12 +18,19 @@
 
 #include "ers/ers.h"
 
+#include <is/infodynany.h>
+
 #include "TROOT.h"
 
 using boost::property_tree::ptree;
 
-nsw::MMTriggerCalib::MMTriggerCalib(std::string calibType) :
-  CalibAlg(std::move(calibType)) {
+nsw::MMTriggerCalib::MMTriggerCalib(std::string calibType,
+                        std::string calibIsName,
+                        const ISInfoDictionary& calibIsDict) :
+  CalibAlg(std::move(calibType)),
+  m_isDbName(std::move(calibIsName)),
+  m_isInfoDict(calibIsDict)
+{
   ROOT::EnableThreadSafety();
 }
 
@@ -50,6 +57,7 @@ void nsw::MMTriggerCalib::setup(const std::string& db) {
     m_noise        = false;
     m_latency      = false;
     m_staircase    = false;
+    m_trackPatternFile = trackPatternFileFromIS();
   } else if (m_calibType=="MMCableNoise") {
     m_phases = {-1};
     m_connectivity = false;
@@ -458,149 +466,8 @@ ptree nsw::MMTriggerCalib::patterns() const {
       }
     }
   } else if (m_tracks) {
-/*
-        //
-        // track-like loop
-        //
-        bool even;
-        int pcb = 0;
-        for (int pos = 0; pos < nsw::MMFE8_PER_LAYER; pos++) {
-            even = pos % 2 == 0;
-            pcb  = pos / 2 + 1;
-            auto pcbstr = std::to_string(pcb);
-            for (int vmmid = 0; vmmid < nsw::MAX_NUMBER_OF_VMM; vmmid++) {
-                // if (vmm_of_interest >= 0 && vmmid != vmm_of_interest)
-                //     continue;
-                for (int chan = 0; chan < nsw::vmm::NUM_CH_PER_VMM; chan++) {
-                    if (chan % 10 != 0)
-                        continue;
-                    ptree feb_patt;
-                    for (auto name : {"MMFE8_L1P" + pcbstr + "_HO" + (even ? "R" : "L"),
-                                "MMFE8_L2P" + pcbstr + "_HO" + (even ? "L" : "R"),
-                                "MMFE8_L3P" + pcbstr + "_HO" + (even ? "R" : "L"),
-                                "MMFE8_L4P" + pcbstr + "_HO" + (even ? "L" : "R"),
-                                "MMFE8_L4P" + pcbstr + "_IP" + (even ? "R" : "L"),
-                                "MMFE8_L3P" + pcbstr + "_IP" + (even ? "L" : "R"),
-                                "MMFE8_L2P" + pcbstr + "_IP" + (even ? "R" : "L"),
-                                "MMFE8_L1P" + pcbstr + "_IP" + (even ? "L" : "R")}) {
-                        ptree febtree;
-                        // this might seem stupid, and it is, but
-                        //   it allows to write a vector of channels per VMM
-                        ptree vmmtree;
-                        ptree chantree;
-                        chantree.put("", chan);
-                        vmmtree.push_back(std::make_pair("", chantree));
-                        febtree.add_child(std::to_string(vmmid), vmmtree);
-                        feb_patt.add_child(name, febtree);
-                    }
-                    for (auto art_phase : m_phases) {
-                      ptree top_patt;
-                      top_patt.put("tp_latency", -1);
-                      top_patt.put("art_input_phase", art_phase);
-                      top_patt.add_child("febpattern_" + std::to_string(ifebpatt), feb_patt);
-                      patts.add_child("pattern_" + std::to_string(ipatts), top_patt);
-                      ifebpatt++;
-                      ipatts++;
-                    }
-                }
-            }
-        }
-*/
-        //
-        // homogeneously distributted perpendicular tracks
-        //
-
-        bool even;
-        int countId[nsw::mmfe8::NUM_CH_PER_LAYER][4]; // TODO Use NSWConfiguration::Constants
-        for (int pos = 0; pos < nsw::mmfe8::MMFE8_PER_LAYER; pos++) {
-            even = pos % 2 == 0;
-            for (int vmmid = 0; vmmid < nsw::MAX_NUMBER_OF_VMM; vmmid++) {
-              for (int chan = 0; chan < nsw::vmm::NUM_CH_PER_VMM; chan++) {
-                    int count = (even ?
-                                 ((pos+1)*nsw::mmfe8::NUM_CH_PER_MMFE8-vmmid*nsw::vmm::NUM_CH_PER_VMM-chan-1) :
-                                 (pos*nsw::mmfe8::NUM_CH_PER_MMFE8+vmmid*nsw::vmm::NUM_CH_PER_VMM+chan));
-                    countId[count][0] = count;
-                    countId[count][1] = pos;
-                    countId[count][2] = vmmid;
-                    countId[count][3] = chan;
-                }
-            }
-        }
-        for (int cx = 0; cx < nsw::mmfe8::NUM_CH_PER_LAYER; cx++) { // TODO Use NSWConfiguration::Constants
-            if (cx % 300 != 0)
-                continue;
-            for (int dif = -70; dif < 71; dif++) {
-                if (dif % 5 != 0)
-                    continue;
-                int posx = countId[cx][1];
-                int vmmidx = countId[cx][2];
-                int chanx = countId[cx][3];
-                bool evenx = posx % 2 == 0;
-                int pcbx  = posx / 2 + 1;
-                auto pcbstrx = std::to_string(pcbx);
-                ptree feb_patt;
-                for (auto name : {"MMFE8_L1P" + pcbstrx + "_HO" + (evenx ? "R" : "L"),
-                            "MMFE8_L2P" + pcbstrx + "_HO" + (evenx ? "L" : "R"),
-                            "MMFE8_L2P" + pcbstrx + "_IP" + (evenx ? "R" : "L"),
-                            "MMFE8_L1P" + pcbstrx + "_IP" + (evenx ? "L" : "R")}) {
-                    ptree febtree;
-                    ptree vmmtree;
-                    ptree chantree;
-                    chantree.put("", chanx);
-                    vmmtree.push_back(std::make_pair("", chantree));
-                    febtree.add_child(std::to_string(vmmidx), vmmtree);
-                    feb_patt.add_child(name, febtree);
-                }
-                int cu = cx + dif;
-                if (cu >= 0 && cu < 8192){ // TODO Use NSWConfiguration::Constants
-                    int posu = countId[cu][1];
-                    int vmmidu = countId[cu][2];
-                    int chanu = countId[cu][3];
-                    bool evenu = posu % 2 == 0;
-                    int pcbu  = posu / 2 + 1;
-                    auto pcbstru = std::to_string(pcbu);
-                    for (auto name : {"MMFE8_L4P" + pcbstru + "_HO" + (evenu ? "L" : "R"),
-                                "MMFE8_L3P" + pcbstru + "_IP" + (evenu ? "L" : "R")}) {
-                        ptree febtree;
-                        ptree vmmtree;
-                        ptree chantree;
-                        chantree.put("", chanu);
-                        vmmtree.push_back(std::make_pair("", chantree));
-                        febtree.add_child(std::to_string(vmmidu), vmmtree);
-                        feb_patt.add_child(name, febtree);
-                    }
-                }
-                int cv = cx - dif;
-                if (cv >= 0 && cv < 8192){ // TODO Use NSWConfiguration::Constants
-                    int posv = countId[cv][1];
-                    int vmmidv = countId[cv][2];
-                    int chanv = countId[cv][3];
-                    bool evenv = posv % 2 == 0;
-                    int pcbv  = posv / 2 + 1;
-                    auto pcbstrv = std::to_string(pcbv);
-                    for (auto name : {"MMFE8_L3P" + pcbstrv + "_HO" + (evenv ? "R" : "L"),
-                                "MMFE8_L4P" + pcbstrv + "_IP" + (evenv ? "R" : "L")}) {
-                        ptree febtree;
-                        ptree vmmtree;
-                        ptree chantree;
-                        chantree.put("", chanv);
-                        vmmtree.push_back(std::make_pair("", chantree));
-                        febtree.add_child(std::to_string(vmmidv), vmmtree);
-                        feb_patt.add_child(name, febtree);
-                    }
-                }
-                for (auto art_phase : m_phases) {
-                      ptree top_patt;
-                      top_patt.put("tp_latency", -1);
-                      top_patt.put("art_input_phase", art_phase);
-                      top_patt.add_child("febpattern_" + std::to_string(ifebpatt), feb_patt);
-                      patts.add_child("pattern_" + std::to_string(ipatts), top_patt);
-                      ifebpatt++;
-                      ipatts++;
-                }
-            }
-        }
-    }
+    read_json(m_trackPatternFile, patts);
+  }
   return patts;
 }
 
@@ -866,4 +733,25 @@ std::vector<uint32_t> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConf
   }
 
   return results;
+}
+
+std::string nsw::MMTriggerCalib::trackPatternFileFromIS() {
+  // Grab the track patters file from IS
+  // Can manually write to this variable from the command line:
+  // > is_write -p <partition name> -n NswParams.Calib.trackPatternFile -t String  -v "path" -i 0
+
+  const auto patternFileIsName = fmt::format("{}.trackPatternFile", m_isDbName);
+  std::string trackPatternFile;
+  if(m_isInfoDict.contains(patternFileIsName)) {
+    ISInfoDynAny trackPatternFileFromIS;
+    m_isInfoDict.getValue(patternFileIsName, trackPatternFileFromIS);
+    trackPatternFile = trackPatternFileFromIS.getAttributeValue<std::string>(0);
+    ERS_INFO("trackPatternFile from IS: " << trackPatternFile);
+  } else {
+    nsw::NSWMMTriggerCalibIssue issue(ERS_HERE, fmt::format("trackPatternFile not found in IS; try is_write -p <partition> -n {} -t String  -v <path> -i 0", patternFileIsName));
+    ers::error(issue);
+    throw issue;
+  }
+
+  return trackPatternFile;
 }
