@@ -450,7 +450,7 @@ std::string nsw::NSWCalibRc::calibTypeFromIS() {
   // Grab the calibration type string from IS
   // The OKS parameter dbISName determines the prefix, in the example below: NswParams.Calib
   // Can manually write to this variable from the command line:
-  // > is_write -p part-BB5-Calib -n NswParams.Calib.calibType -t String  -v MMARTPhase -i 0
+  // > is_write -p part-BB5-Calib -n NswParams.calibType -t String  -v MMARTPhase -i 0
   // > is_ls -p part-BB5-Calib -R ".*NSW.cali.*" -v
   // Currently supported options are written in the `handler` function.
   const auto calibType = [this]() -> std::string {
