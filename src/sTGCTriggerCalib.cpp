@@ -218,17 +218,8 @@ void nsw::sTGCTriggerCalib::gather_pfebs() {
   }
   else {
     // 191/P1
-    if (firmware_dateword > nsw::padtrigger::DATE_NEW_MAPPING) {
-      for (const auto& pfeb: nsw::padtrigger::ORDERED_PFEBS) {
-        m_pfebs_ordered.push_back(std::string(pfeb));
-      }
-    } else {
-      const auto& pfebs = (nsw::isLargeSector(sector_name)) ?
-        nsw::padtrigger::ORDERED_PFEBS_OLDFW_LS :
-        nsw::padtrigger::ORDERED_PFEBS_OLDFW_SS;
-      for (const auto& pfeb: pfebs) {
-        m_pfebs_ordered.push_back(std::string(pfeb));
-      }
+    for (const auto& pfeb: nsw::padtrigger::ORDERED_PFEBS) {
+      m_pfebs_ordered.push_back(std::string(pfeb));
     }
   }
 }
