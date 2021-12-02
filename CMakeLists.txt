@@ -59,7 +59,12 @@ tdaq_add_library(nswcalib
     src/NSWCalibRc.cpp
     src/MMTPFeedback.cpp
     src/MMTPStatusRegisters.cpp
-  LINK_LIBRARIES nswconfig nswhwinterface NSWConfig nswcalibdal
+    src/RocPhaseCalibrationBase.cpp
+    src/RocPhase40MhzCore.cpp
+    src/RocPhase160MhzCore.cpp
+    src/RocPhase160MhzVmm.cpp
+  LINK_LIBRARIES nswconfig  NSWConfig nswcalibdal
+    nswhwinterface
     nswopcclient
     LogIt
     Boost::boost
