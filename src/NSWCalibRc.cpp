@@ -30,6 +30,11 @@
 #include "NSWCalibration/sTGCPadsL1DDCFibers.h"
 #include "NSWCalibration/THRCalib.h"
 #include "NSWCalibration/PDOCalib.h"
+#include "NSWCalibration/RocPhaseCalibrationBase.h"
+#include "NSWCalibration/RocPhase40MhzCore.h"
+#include "NSWCalibration/RocPhase160MhzCore.h"
+#include "NSWCalibration/RocPhase160MhzVmm.h"
+#include "NSWConfiguration/NSWConfig.h"
 
 #include "NSWConfiguration/NSWConfig.h"
 
@@ -241,6 +246,12 @@ void nsw::NSWCalibRc::handler() {
   } else if (m_calibType=="PDOCalib" ||
              m_calibType=="TDOCalib"){
     calib = std::make_unique<PDOCalib>(m_calibType, m_is_db_name, *is_dictionary);
+  } else if (m_calibType=="RocPhase40MHzCore") {
+    calib = std::make_unique<RocPhaseCalibrationBase<RocPhase40MhzCore>>("rocphase_40mhzcore");
+  } else if (m_calibType == "RocPhase160MHzCore") {
+    calib = std::make_unique<RocPhaseCalibrationBase<RocPhase160MhzCore>>("rocphase_160mhzcore");
+  } else if (m_calibType == "RocPhase160MHzVmm") {
+    calib = std::make_unique<RocPhaseCalibrationBase<RocPhase160MhzVmm>>("rocphase_160mhzvmm");
   } else {
     std::string msg = "Unknown calibration request: " + m_calibType;
     nsw::NSWCalibIssue issue(ERS_HERE, msg);
