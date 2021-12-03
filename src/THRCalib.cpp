@@ -36,7 +36,7 @@
 
 #include "NSWCalibration/CalibrationMath.h"
 #include "NSWCalibration/CalibTypes.h"
-#include "NSWCalibration/NSWCalibException.h"
+#include "NSWCalibration/Issues.h"
 #include "NSWCalibration/Utility.h"
 
 #include "NSWCalibration/VmmTrimmerScaCalibration.h"
@@ -284,9 +284,10 @@ void nsw::THRCalib::merge_json()
 void nsw::THRCalib::get_setup_from_IS()
 {
   std::string sca_read_params;
-  if (m_isInfoDict.contains(fmt::format("{}.Calib.calibParams", m_isDbName))) {
+  const auto calibParamsIsName = fmt::format("{}.Calib.calibParams", m_isDbName);
+  if (m_isInfoDict.contains(calibParamsIsName)) {
     ISInfoDynAny calibParamsFromIS;
-    m_isInfoDict.getValue(fmt::format("{}.Calib.calibParams", m_isDbName), calibParamsFromIS);
+    m_isInfoDict.getValue(calibParamsIsName, calibParamsFromIS);
     sca_read_params = calibParamsFromIS.getAttributeValue<std::string>(0);
     ERS_INFO(fmt::format("Calibration Parameters from IS: {}", sca_read_params));
     std::this_thread::sleep_for(2000ms);
@@ -313,14 +314,16 @@ void nsw::THRCalib::get_setup_from_IS()
                            "(nedd char B (baseline) or T (threshold)) or not entered correctly - "
                            "defaulting to threshold type"));
       m_run_type = "thresholds";
-      ERS_INFO("run type - " << m_run_type);
     }
   } else {
+    const auto is_cmd = fmt::format(
+      "is_write -p ${{TDAQ_PARTITION}} -n {} -t String  -v '<params>' -i 0", calibParamsIsName);
+    ers::warning(nsw::calib::IsParameterNotFound(ERS_HERE, "calibParams", is_cmd));
     ers::warning(nsw::THRCalibIssue(ERS_HERE,
                                     "Calibration parameters were not specified - "
                                     "using default n_sample(100/chan)/m_rms_factor(x6)/ settings"));
     m_run_type = "thresholds";
-    ERS_INFO(fmt::format("Run type - {}", m_run_type));
   }
+  ERS_INFO(fmt::format("Run type - {}", m_run_type));
   std::this_thread::sleep_for(2000ms);
 }

@@ -21,6 +21,7 @@
 
 // FIXME TODO only used for nsw::ref constant inclusion
 #include "NSWCalibration/CalibrationMath.h"
+#include "NSWCalibration/Issues.h"
 
 #include "NSWConfiguration/Constants.h"
 #include "NSWConfiguration/ConfigReader.h"
@@ -393,9 +394,10 @@ void nsw::PDOCalib::push_to_swrod(const std::size_t i_par)
 
 void nsw::PDOCalib::get_calib_params_IS(std::vector<int>& reg_values, int& group)
 {
-  if (m_isInfoDict.contains(fmt::format("{}.Calib.calibParams", m_isDbName))) {
+  const auto calibParamsIsName = fmt::format("{}.Calib.calibParams", m_isDbName);
+  if (m_isInfoDict.contains(calibParamsIsName)) {
     ISInfoDynAny calibParamsFromIS;
-    m_isInfoDict.getValue(fmt::format("{}.Calib.calibParams", m_isDbName), calibParamsFromIS);
+    m_isInfoDict.getValue(calibParamsIsName, calibParamsFromIS);
     const std::string params = calibParamsFromIS.getAttributeValue<std::string>(0);
 
     // channel groups to pulse come as first arg in the string
@@ -446,6 +448,10 @@ void nsw::PDOCalib::get_calib_params_IS(std::vector<int>& reg_values, int& group
                "settings - looping through delays 1,3,5,7 - pulsing 8 channel groups";
       }
     }();
+
+    const auto is_cmd = fmt::format(
+      "is_write -p ${{TDAQ_PARTITION}} -n {} -t String  -v '<params>' -i 0", calibParamsIsName);
+    ers::warning(nsw::calib::IsParameterNotFound(ERS_HERE, "calibParams", is_cmd));
     nsw::PDOCalibIssue issue(ERS_HERE, msg);
     ers::warning(issue);
   }

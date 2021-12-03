@@ -1,4 +1,6 @@
 #include "NSWCalibration/MMTriggerCalib.h"
+
+#include "NSWCalibration/Issues.h"
 #include "NSWCalibration/Utility.h"
 
 #include "NSWConfiguration/ConfigReader.h"
@@ -738,9 +740,8 @@ std::vector<uint32_t> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConf
 std::string nsw::MMTriggerCalib::trackPatternFileFromIS() {
   // Grab the track patters file from IS
   // Can manually write to this variable from the command line:
-  // > is_write -p <partition name> -n NswParams.Calib.trackPatternFile -t String  -v "path" -i 0
 
-  const auto patternFileIsName = fmt::format("{}.trackPatternFile", m_isDbName);
+  const auto patternFileIsName = fmt::format("{}.Calib.trackPatternFile", m_isDbName);
   std::string trackPatternFile;
   if(m_isInfoDict.contains(patternFileIsName)) {
     ISInfoDynAny trackPatternFileFromIS;
@@ -748,7 +749,9 @@ std::string nsw::MMTriggerCalib::trackPatternFileFromIS() {
     trackPatternFile = trackPatternFileFromIS.getAttributeValue<std::string>(0);
     ERS_INFO("trackPatternFile from IS: " << trackPatternFile);
   } else {
-    nsw::NSWMMTriggerCalibIssue issue(ERS_HERE, fmt::format("trackPatternFile not found in IS; try is_write -p <partition> -n {} -t String  -v <path> -i 0", patternFileIsName));
+    const auto is_cmd = fmt::format(
+      "is_write -p ${{TDAQ_PARTITION}} -n {} -t String  -v '<path>' -i 0", patternFileIsName);
+    nsw::calib::IsParameterNotFound issue(ERS_HERE, "trackPatternFile", is_cmd);
     ers::error(issue);
     throw issue;
   }

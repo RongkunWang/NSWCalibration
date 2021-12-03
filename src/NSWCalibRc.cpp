@@ -15,6 +15,7 @@
 #include <fmt/core.h>
 
 #include "NSWCalibration/Commands.h"
+#include "NSWCalibration/Issues.h"
 #include "NSWCalibration/Utility.h"
 #include "NSWCalibrationDal/NSWCalibApplication.h"
 #include "NSWCalibration/MMTriggerCalib.h"
@@ -448,13 +449,9 @@ void nsw::NSWCalibRc::wait4swrod() {
 
 std::string nsw::NSWCalibRc::calibTypeFromIS() {
   // Grab the calibration type string from IS
-  // The OKS parameter dbISName determines the prefix, in the example below: NswParams.Calib
-  // Can manually write to this variable from the command line:
-  // > is_write -p part-BB5-Calib -n NswParams.Calib.calibType -t String  -v MMARTPhase -i 0
-  // > is_ls -p part-BB5-Calib -R ".*NSW.cali.*" -v
   // Currently supported options are written in the `handler` function.
   const auto calibType = [this]() -> std::string {
-    const auto paramIsName = fmt::format("{}.calibType", m_is_db_name);
+    const auto paramIsName = fmt::format("{}.Calib.calibType", m_is_db_name);
     if (is_dictionary->contains(paramIsName)) {
       ISInfoDynAny calibTypeFromIS;
       is_dictionary->getValue(paramIsName, calibTypeFromIS);
@@ -470,10 +467,9 @@ std::string nsw::NSWCalibRc::calibTypeFromIS() {
       }
       return calibType;
     } else {
-      const std::string  calibType = "MMARTConnectivityTest";
-      nsw::NSWCalibIssue issue(
-        ERS_HERE,
-        fmt::format("Calibration type not found in IS. Defaulting to: {}", calibType));
+      const std::string calibType = "MMARTConnectivityTest";
+      const auto is_cmd = fmt::format("is_write -p ${{TDAQ_PARTITION}} -n {} -t String -v <CalibrationType> -i 0", paramIsName);
+      nsw::calib::IsParameterNotFoundUseDefault issue(ERS_HERE, "calibType", is_cmd, calibType);
       ers::warning(issue);
       return calibType;
     }
@@ -489,9 +485,7 @@ std::string nsw::NSWCalibRc::calibTypeFromIS() {
 
 bool nsw::NSWCalibRc::simulationFromIS() {
   // Grab the simulation bool from IS
-  // The OKS parameter dbISName determines the prefix, in the example below: NswParams.Calib
-  // Can manually write to this variable from the command line:
-  // > is_write -p part-BB5-Calib -n NswParams.Calib.simulation -t Boolean -v 1 -i 0
+  // The OKS parameter dbISName determines the prefix, m_is_db_name
   const auto paramIsSim = fmt::format("{}.simulation", m_is_db_name);
   if (is_dictionary->contains(paramIsSim)) {
     ISInfoDynAny any;
@@ -500,6 +494,11 @@ bool nsw::NSWCalibRc::simulationFromIS() {
     ERS_INFO("Simulation from IS: " << val);
     return val;
   }
+
+  const auto is_cmd =
+    fmt::format("is_write -p ${{TDAQ_PARTITION}} -n {} -t Boolean -v 1 -i 0", paramIsSim);
+  ers::warning(nsw::calib::IsParameterNotFound(ERS_HERE, "simulation", is_cmd));
+
   return false;
 }
 
