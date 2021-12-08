@@ -10,6 +10,7 @@
 #include <sstream>
 #include <fstream>
 #include <stdexcept>
+#include <fmt/core.h>
 
 #include "ers/ers.h"
 
@@ -244,6 +245,8 @@ void nsw::sTGCSFEBToRouter::wait_for_routers(size_t expectation) const {
     count = count_ready_routers();
     std::this_thread::sleep_for(std::chrono::seconds{1});
   }
+  ERS_INFO(fmt::format("Finished waiting for Routers to be ready: {} of {} ok",
+                       count, expectation));
 }
 
 size_t nsw::sTGCSFEBToRouter::count_ready_routers() const {
