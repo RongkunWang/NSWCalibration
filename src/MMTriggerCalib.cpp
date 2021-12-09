@@ -15,6 +15,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <utility>
+#include <chrono>
 
 #include <boost/property_tree/json_parser.hpp>  // for write_json
 
@@ -25,6 +26,7 @@
 #include "TROOT.h"
 
 using boost::property_tree::ptree;
+using namespace std::chrono_literals;
 
 nsw::MMTriggerCalib::MMTriggerCalib(std::string calibType,
                         std::string calibIsName,
@@ -106,10 +108,13 @@ void nsw::MMTriggerCalib::setup(const std::string& db) {
   ERS_INFO("Found " << m_phases.size()   << " ART input phases");
   ERS_INFO("Found " << m_patterns.size() << " patterns");
 
-  m_watchdog = std::async(std::launch::async, &nsw::MMTriggerCalib::addc_tp_watchdog, this);
 }
 
 void nsw::MMTriggerCalib::configure() {
+
+  if (counter() == 0) {
+    m_watchdog = std::async(std::launch::async, &nsw::MMTriggerCalib::addc_tp_watchdog, this);
+}
 
   for (auto toppattkv : m_patterns) {
 
@@ -137,6 +142,11 @@ void nsw::MMTriggerCalib::configure() {
       sleep(5);
   }
 
+}
+
+void nsw::MMTriggerCalib::acquire() {
+  // TODO: remove this after Alti oneshot user command is used (and test) 
+  if(m_calibType != "MMStaircase") std::this_thread::sleep_for(2000ms);
 }
 
 void nsw::MMTriggerCalib::unconfigure() {
