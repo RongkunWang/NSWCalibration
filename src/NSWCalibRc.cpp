@@ -156,6 +156,7 @@ void nsw::NSWCalibRc::user(const daq::rc::UserCmd& usrCmd) {
     calib->next();
   } else if (usrCmd.commandName() == "reset") {
     calib->setCounter(0);
+    calib->setRunNumber(runNumberFromIS());
   } else {
     nsw::NSWCalibIssue issue(ERS_HERE, fmt::format("Unrecognized UserCmd specified {}", usrCmd.commandName()));
     ers::warning(issue);
@@ -262,8 +263,9 @@ void nsw::NSWCalibRc::handler() {
 
   // setup
   alti_setup();
+  // FIXME: Alex will remove it in another MR
   calib->setApplicationName(m_appname);
-  calib->setRunNumber(runNumberFromIS());
+  calib->setRunNumber(runNumberFromIS());  
   calib->setSimulation(m_simulation);
   calib->setup(m_dbcon);
   ERS_INFO("calib counter:    " << calib->counter());

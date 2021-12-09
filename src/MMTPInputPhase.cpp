@@ -28,11 +28,19 @@ void nsw::MMTPInputPhase::setup(const std::string& db) {
   ERS_INFO("Found " << m_tps.size() << " MMTPs");
 
   // make output
+  m_phase  = 0;
+  m_offset = 0;
+
+  // set number of iterations
+  setTotal(m_nreads * m_nphases * m_noffsets);
+
+  nsw::snooze();
+}
+
+void nsw::MMTPInputPhase::setupRootFile() {
   m_now = nsw::calib::utils::strf_time();
   std::string rname = "tpscax." + std::to_string(runNumber()) + "."
     + applicationName() + "." + m_now + ".root";
-  m_phase  = 0;
-  m_offset = 0;
   m_rfile  = std::make_unique< TFile >(rname.c_str(), "recreate");
   m_rtree  = std::make_shared< TTree >("nsw", "nsw");
   m_align  = std::make_unique< std::vector<int> >();
@@ -44,11 +52,6 @@ void nsw::MMTPInputPhase::setup(const std::string& db) {
   m_rtree->Branch("fiber_align",  m_align.get());
   m_rtree->Branch("fiber_bcid",   m_bcid.get());
   m_rtree->Branch("fiber_index",  m_fiber.get());
-
-  // set number of iterations
-  setTotal(m_nreads * m_nphases * m_noffsets);
-
-  nsw::snooze();
 }
 
 void nsw::MMTPInputPhase::configure() {
@@ -110,8 +113,10 @@ int nsw::MMTPInputPhase::read_tp(const nsw::TPConfig & tp, uint32_t phase, uint3
   auto cs   = std::make_unique<nsw::ConfigSender>();
   auto ip   = tp.getOpcServerIp();
   auto addr = tp.getAddress();
-  if (counter() == 0)
+  if (counter() == 0) {
     m_myfile.open("tpscax." + std::to_string(runNumber()) + "." + applicationName() + "." + m_now + ".txt");
+    setupRootFile();
+  }
 
   // clear
   m_align->clear();

@@ -38,6 +38,7 @@ namespace nsw {
 
     void setup(const std::string& db) override;
     void configure() override;
+    void acquire() override;
     void unconfigure() override;
     [[nodiscard]]
     nsw::commands::Commands getAltiSequences() const override;

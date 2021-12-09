@@ -64,6 +64,8 @@ namespace nsw {
     static constexpr int m_noffsets = 8;
 
     std::vector<nsw::TPConfig> m_tps;
+
+    void setupRootFile();
   };
 
 }
