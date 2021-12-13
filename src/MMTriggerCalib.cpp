@@ -629,16 +629,23 @@ int nsw::MMTriggerCalib::read_arts_counters() {
     // launch reader threads
     // https://its.cern.ch/jira/browse/OPCUA-2188
     for (auto & addc : m_addcs)
-      for (auto art: addc.getARTs())
+      for (auto art: addc.getARTs()) {
+        if(addc.getART(art.index()).SkipConfigure()) {
+          continue;
+        }
         threads->push_back(std::async(std::launch::async,
                                       &nsw::MMTriggerCalib::read_art_counters,
                                       this, addc, art.index()));
+      }
 
     // get results
     // 1 TTree entry per ART
     size_t it = 0;
     for (auto & addc : m_addcs) {
       for (auto art: addc.getARTs()) {
+        if(addc.getART(art.index()).SkipConfigure()) {
+          continue;
+        }
         auto result = threads->at(it).get();
         m_addc_address = addc.getAddress();
         m_art_name     = art.getName();
@@ -677,6 +684,7 @@ int nsw::MMTriggerCalib::read_arts_counters() {
   return 0;
 }
 
+// TODO: this function should move to NSWConfiguration
 std::vector<uint32_t> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConfig& addc, int art) const {
 
   // setup
