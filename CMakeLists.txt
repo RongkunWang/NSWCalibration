@@ -51,7 +51,6 @@ tdaq_add_library(nswcalib
     src/sTGCPadVMMTDSChannels.cpp
     src/sTGCStripsTriggerCalib.cpp
     src/sTGCSFEBToRouter.cpp
-    src/sTGCRouterToTP.cpp
     src/sTGCPadTriggerToSFEB.cpp
     src/sTGCPadTriggerInputDelays.cpp
     src/sTGCPadsControlPhase.cpp

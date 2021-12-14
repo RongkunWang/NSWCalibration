@@ -24,7 +24,6 @@
 #include "NSWCalibration/sTGCPadVMMTDSChannels.h"
 #include "NSWCalibration/sTGCStripsTriggerCalib.h"
 #include "NSWCalibration/sTGCSFEBToRouter.h"
-#include "NSWCalibration/sTGCRouterToTP.h"
 #include "NSWCalibration/sTGCPadTriggerToSFEB.h"
 #include "NSWCalibration/sTGCPadTriggerInputDelays.h"
 #include "NSWCalibration/sTGCPadsControlPhase.h"
@@ -231,8 +230,6 @@ void nsw::NSWCalibRc::handler() {
              m_calibType=="sTGCSFEBToRouterQ2" ||
              m_calibType=="sTGCSFEBToRouterQ3") {
     calib = std::make_unique<sTGCSFEBToRouter>(m_calibType);
-  } else if (m_calibType=="sTGCRouterToTP") {
-    calib = std::make_unique<sTGCRouterToTP>(m_calibType);
   } else if (m_calibType=="sTGCPadTriggerToSFEB") {
     calib = std::make_unique<sTGCPadTriggerToSFEB>(m_calibType);
   } else if (m_calibType=="sTGCPadTriggerInputDelays") {
