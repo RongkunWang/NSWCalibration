@@ -496,7 +496,7 @@ bool nsw::NSWCalibRc::simulationFromIS() {
 
   const auto is_cmd =
     fmt::format("is_write -p ${{TDAQ_PARTITION}} -n {} -t Boolean -v 1 -i 0", paramIsSim);
-  ers::warning(nsw::calib::IsParameterNotFound(ERS_HERE, "simulation", is_cmd));
+  ers::log(nsw::calib::IsParameterNotFound(ERS_HERE, "simulation", is_cmd));
 
   return false;
 }
