@@ -33,7 +33,8 @@ void nsw::sTGCSFEBToRouter::setup(const std::string& db) {
 
   // make NSWConfig objects from input db
   // can be SFEB, SFEB8, or SFEB6 :(
-  m_routers = nsw::ConfigReader::makeObjects<nsw::RouterConfig> (db, "Router");
+  for (const auto& cfg: nsw::ConfigReader::makeObjects<nsw::RouterConfig> (db, "Router"))
+    m_routers.emplace_back(nsw::hw::Router{cfg});
   for (auto feb: nsw::ConfigReader::makeObjects<nsw::FEBConfig> (db, "SFEB"))
     m_sfebs.push_back(feb);
   for (auto feb: nsw::ConfigReader::makeObjects<nsw::FEBConfig> (db, "SFEB8"))
@@ -104,13 +105,13 @@ int nsw::sTGCSFEBToRouter::configure_routers() const {
     return 0;
 }
 
-int nsw::sTGCSFEBToRouter::configure_router(const nsw::RouterConfig & router) const {
-    ERS_INFO("Configuring " << router.getAddress());
+int nsw::sTGCSFEBToRouter::configure_router(const nsw::hw::Router& router) const {
+    ERS_INFO("Configuring " << router.getName());
     constexpr std::chrono::seconds reset_hold{0};
     constexpr std::chrono::seconds reset_sleep{1};
-    auto cs = std::make_unique<nsw::ConfigSender>();
-    if (!simulation())
-      cs->sendRouterSoftReset(router, reset_hold, reset_sleep);
+    if (!simulation()) {
+        router.writeSoftReset(reset_hold, reset_sleep);
+    }
     return 0;
 }
 
@@ -222,7 +223,7 @@ int nsw::sTGCSFEBToRouter::router_watchdog(bool open, bool close) {
                                    this,
                                    router) );
   for (size_t ir = 0; ir < m_routers.size(); ir++) {
-    auto name = m_routers.at(ir).getAddress();
+    auto name = m_routers.at(ir).getConfig().getAddress();
     auto val  = threads ->at(ir).get();
     m_myfile << name << " " << val << std::endl;
   }
@@ -273,17 +274,12 @@ size_t nsw::sTGCSFEBToRouter::count_ready_routers() const {
   return count;
 }
 
-bool nsw::sTGCSFEBToRouter::router_ClkReady(const nsw::RouterConfig & router) const {
-  const auto cs = std::make_unique<nsw::ConfigSender>();
-  const auto opc_ip   = router.getOpcServerIp();
-  const auto sca_addr = router.getAddress();
-  const auto rx_addr  = sca_addr + ".gpio." + "rxClkReady";
-  const auto tx_addr  = sca_addr + ".gpio." + "txClkReady";
-  const auto rx_val   = simulation() ? true : cs->readGPIO(opc_ip, rx_addr);
-  const auto tx_val   = simulation() ? true : cs->readGPIO(opc_ip, tx_addr);
-  bool ok = rx_val && tx_val;
+bool nsw::sTGCSFEBToRouter::router_ClkReady(const nsw::hw::Router& router) const {
+  const auto rx_val = simulation() ? true : router.readGPIO("rxClkReady");
+  const auto tx_val = simulation() ? true : router.readGPIO("txClkReady");
+  const bool ok = rx_val && tx_val;
   if (!ok) {
-    ERS_INFO("ClkReady=0 for " << opc_ip << "." << sca_addr);
+    ERS_INFO("ClkReady=0 for " << router.getName());
   }
   return ok;
 }
