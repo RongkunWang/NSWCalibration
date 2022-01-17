@@ -6,7 +6,7 @@
 
 #include "NSWCalibration/CalibAlg.h"
 #include "NSWConfiguration/FEBConfig.h"
-#include "NSWConfiguration/PadTriggerSCAConfig.h"
+#include "NSWConfiguration/hw/PadTrigger.h"
 
 #include "ers/Issue.h"
 
@@ -80,7 +80,7 @@ namespace nsw {
 
   private:
     std::vector<nsw::FEBConfig> m_pfebs;
-    std::vector<nsw::PadTriggerSCAConfig> m_pts;
+    std::vector<nsw::hw::PadTrigger> m_pts;
 
   };
 

@@ -9,7 +9,6 @@
 
 #include "NSWCalibration/CalibAlg.h"
 #include "NSWConfiguration/FEBConfig.h"
-#include "NSWConfiguration/PadTriggerSCAConfig.h"
 
 #include "ers/Issue.h"
 

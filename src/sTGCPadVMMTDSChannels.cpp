@@ -78,7 +78,7 @@ void nsw::sTGCPadVMMTDSChannels::setup_objects(const std::string& db) {
 
   // create NSWConfiguration objects
   m_pfebs = nsw::ConfigReader::makeObjects<nsw::FEBConfig>(db, "PFEB");
-  m_pts   = nsw::ConfigReader::makeObjects<nsw::PadTriggerSCAConfig>(db, "PadTriggerSCA");
+  m_pts   = nsw::ConfigReader::makeObjects<nsw::hw::PadTrigger>(db, "PadTrigger");
   ERS_INFO("Found " << m_pfebs.size() << " pFEBs");
   ERS_INFO("Found " << m_pts.size()   << " pad triggers");
 

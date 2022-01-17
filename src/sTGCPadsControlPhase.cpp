@@ -175,7 +175,7 @@ std::pair<FebMask, FebMask> nsw::sTGCPadsControlPhase::getPadTriggerMask() const
 
 void nsw::sTGCPadsControlPhase::setPadTriggerMask() const {
   for (const auto& pt: m_pts) {
-    ERS_INFO(fmt::format("Configuring {}", pt.name()));
+    ERS_INFO(fmt::format("Configuring {}", pt.getName()));
     if (!simulation()) {
       pt.writeFPGARegister(nsw::padtrigger::REG_MASK_TO_0, m_mask_to_0.to_ulong());
       pt.writeFPGARegister(nsw::padtrigger::REG_MASK_TO_1, m_mask_to_1.to_ulong());
@@ -205,9 +205,9 @@ std::uint32_t nsw::sTGCPadsControlPhase::getPadTriggerRate() const {
 
 void nsw::sTGCPadsControlPhase::fill() {
   for (const auto& pt: m_pts) {
-    m_pt_name        = pt.name();
-    m_pt_opcserverip = pt.getConfig().getOpcServerIp();
-    m_pt_address     = pt.getConfig().getAddress();
+    m_pt_name        = pt.getName();
+    m_pt_opcserverip = pt.getName();
+    m_pt_address     = pt.getName();
     break;
   }
   m_now = nsw::calib::utils::strf_time();
@@ -219,11 +219,7 @@ void nsw::sTGCPadsControlPhase::setup_objects(const std::string& db) {
   // pad trigger objects
   //
   ERS_INFO("Finding pad triggers...");
-  for (const auto& cfg:
-       nsw::ConfigReader::makeObjects<nsw::PadTriggerSCAConfig>(db, "PadTriggerSCA")
-       ) {
-    m_pts.emplace_back(nsw::hw::PadTrigger(cfg));
-  }
+  m_pts = nsw::ConfigReader::makeObjects<nsw::hw::PadTrigger>(db, "PadTrigger");
   ERS_INFO(fmt::format("Found {} pad triggers", m_pts.size()));
 
   //

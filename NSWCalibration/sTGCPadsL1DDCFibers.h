@@ -15,7 +15,6 @@
 
 #include "NSWCalibration/CalibAlg.h"
 #include "NSWConfiguration/Constants.h"
-#include "NSWConfiguration/PadTriggerSCAConfig.h"
 #include "NSWConfiguration/hw/PadTrigger.h"
 #include "NSWConfiguration/FEBConfig.h"
 

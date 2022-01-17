@@ -1,7 +1,5 @@
 #include "NSWCalibration/sTGCPadTriggerInputDelays.h"
 #include "NSWCalibration/Utility.h"
-
-#include "NSWConfiguration/PadTriggerSCAConfig.h"
 #include "NSWConfiguration/ConfigReader.h"
 
 #include <unistd.h>
@@ -58,13 +56,13 @@ void nsw::sTGCPadTriggerInputDelays::set_delays(const nsw::hw::PadTrigger& pt) {
   for (size_t it = 0; it < nsw::NUM_BITS_IN_WORD32 / nsw::padtrigger::NUM_BITS_PER_PFEB_BCID; it++) {
     m_delay += (static_cast<uint32_t>(counter()) << it*4);
   }
-  ERS_INFO("Configuring " << pt.name() << " with delay = " << std::hex << m_delay);
+  ERS_INFO("Configuring " << pt.getName() << " with delay = " << std::hex << m_delay);
   if (!simulation()) {
     pt.writeFPGARegister(nsw::padtrigger::REG_PFEB_DELAY_23_16, m_delay);
     pt.writeFPGARegister(nsw::padtrigger::REG_PFEB_DELAY_15_08, m_delay);
     pt.writeFPGARegister(nsw::padtrigger::REG_PFEB_DELAY_07_00, m_delay);
   }
-  ERS_LOG("Done configuring " << pt.name());
+  ERS_LOG("Done configuring " << pt.getName());
 }
 
 void nsw::sTGCPadTriggerInputDelays::read_bcids(const nsw::hw::PadTrigger& pt) {
@@ -72,7 +70,7 @@ void nsw::sTGCPadTriggerInputDelays::read_bcids(const nsw::hw::PadTrigger& pt) {
   //
   // Read BCID words
   //
-  ERS_LOG("Reading PFEB BCIDs of " << pt.name());
+  ERS_LOG("Reading PFEB BCIDs of " << pt.getName());
   uint32_t bcids_23_16 = 0;
   uint32_t bcids_15_08 = 0;
   uint32_t bcids_07_00 = 0;
@@ -88,9 +86,9 @@ void nsw::sTGCPadTriggerInputDelays::read_bcids(const nsw::hw::PadTrigger& pt) {
   ERS_LOG("Decoding PFEB BCIDs");
   m_pfeb->clear();
   m_bcid->clear();
-  for (const auto& bcid: pt.getConfig().PFEBBCIDs(bcids_07_00,
-                                                  bcids_15_08,
-                                                  bcids_23_16)) {
+  for (const auto& bcid: pt.PFEBBCIDs(bcids_07_00,
+                                      bcids_15_08,
+                                      bcids_23_16)) {
     m_pfeb->push_back(static_cast<int>(m_bcid->size()));
     m_bcid->push_back(static_cast<int>(bcid));
   }
@@ -98,8 +96,8 @@ void nsw::sTGCPadTriggerInputDelays::read_bcids(const nsw::hw::PadTrigger& pt) {
 
 void nsw::sTGCPadTriggerInputDelays::fill() {
   for (const auto& pt: m_pts) {
-    m_opcserverip = pt.getConfig().getOpcServerIp();
-    m_address     = pt.getConfig().getAddress();
+    m_opcserverip = pt.getName();
+    m_address     = pt.getName();
     break;
   }
   m_now = nsw::calib::utils::strf_time();
@@ -122,7 +120,7 @@ void nsw::sTGCPadTriggerInputDelays::setup_type() {
 
 void nsw::sTGCPadTriggerInputDelays::setup_objects(const std::string& db) {
   ERS_INFO("Finding PTs");
-  for (auto pt: nsw::ConfigReader::makeObjects<nsw::PadTriggerSCAConfig>(db, "PadTriggerSCA")) {
+  for (auto pt: nsw::ConfigReader::makeObjects<nsw::hw::PadTrigger>(db, "PadTrigger")) {
     m_pts.emplace_back(pt);
   }
   ERS_INFO("Found " << m_pts.size() << " pad triggers");

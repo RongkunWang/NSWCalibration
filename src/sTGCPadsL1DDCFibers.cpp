@@ -91,7 +91,7 @@ std::vector<std::uint32_t> nsw::sTGCPadsL1DDCFibers::getPadTriggerBCIDs() const 
 }
 
 void nsw::sTGCPadsL1DDCFibers::fill() {
-  m_pt_name = m_pt->name();
+  m_pt_name = m_pt->getName();
   m_now     = nsw::calib::utils::strf_time();
   m_rtree->Fill();
 }
@@ -101,8 +101,7 @@ void nsw::sTGCPadsL1DDCFibers::setupObjects(const std::string& db) {
   // pad trigger objects
   //
   ERS_INFO("Finding pad triggers...");
-  const auto pts = nsw::ConfigReader::makeObjects
-    <nsw::PadTriggerSCAConfig>(db, "PadTriggerSCA");
+  const auto pts = nsw::ConfigReader::makeObjects<nsw::hw::PadTrigger>(db, "PadTrigger");
   ERS_INFO(fmt::format("Found {} pad triggers", pts.size()));
   if (pts.size() != std::size_t{1}) {
     const auto msg = std::string("Only works with 1 pad trigger. Crashing.");
