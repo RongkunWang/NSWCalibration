@@ -28,7 +28,7 @@ void nsw::sTGCTriggerCalib::setup(const std::string& db) {
   // make NSWConfig objects from input db
   ERS_INFO("Making pFEB and Pad Trigger objects");
   m_pfebs = nsw::ConfigReader::makeObjects<nsw::FEBConfig> (db, "PFEB");
-  for (auto pt: nsw::ConfigReader::makeObjects<nsw::PadTriggerSCAConfig> (db, "PadTriggerSCA")) {
+  for (auto pt: nsw::ConfigReader::makeObjects<nsw::hw::PadTrigger>(db, "PadTrigger")) {
     m_pts.emplace_back(pt);
   }
   ERS_INFO("Found " << m_pfebs.size() << " pFEBs");
@@ -41,21 +41,21 @@ void nsw::sTGCTriggerCalib::setup(const std::string& db) {
   }
 
   // get list of ordered PFEBs
-  gather_pfebs();
+  gatherPFEBs();
 
   // get latency scan parameters from user
   for (const auto& pt: m_pts) {
-    set_latencyscan_offset(pt.getConfig().LatencyScanStart());
-    set_latencyscan_nbc(pt.getConfig().LatencyScanNBC());
+    setLatencyScanOffset(pt.LatencyScanStart());
+    setLatencyScanNBC(pt.LatencyScanNBC());
   }
 
   // set number of loops in the iteration
   if (m_calibType=="sTGCPadConnectivity") {
     setTotal(static_cast<int>(m_pfebs.size()));
   } else if (m_calibType=="sTGCPadLatency") {
-    setTotal(latencyscan_nbc());
-    ERS_INFO("Latency scan start: " << latencyscan_offset());
-    ERS_INFO("Latency scan steps: " << latencyscan_nbc());
+    setTotal(latencyScanNBC());
+    ERS_INFO("Latency scan start: " << latencyScanOffset());
+    ERS_INFO("Latency scan steps: " << latencyScanNBC());
   }
 
   nsw::snooze();
@@ -66,20 +66,20 @@ void nsw::sTGCTriggerCalib::configure() {
   if (m_calibType=="sTGCPadConnectivity") {
 
     // test pulse one pfeb
-    if (order_pfebs()) {
-      auto next_addr = next_pfeb(false);
+    if (orderPFEBs()) {
+      auto next_addr = nextPFEB(false);
       for (auto & pfeb: m_pfebs) {
         if (next_addr == pfeb.getAddress()) {
-          configure_vmms(pfeb, true);
+          configureVMMs(pfeb, true);
           break;
         }
       }
     } else {
       auto & pfeb = m_pfebs.at(static_cast<size_t>(counter()));
-      configure_vmms(pfeb, true);
+      configureVMMs(pfeb, true);
     }
 
-    configure_pad_trigger();
+    configurePadTrigger();
     usleep(500e3);
 
   } else if (m_calibType=="sTGCPadLatency") {
@@ -88,16 +88,16 @@ void nsw::sTGCTriggerCalib::configure() {
     if (counter() == 0) {
       ERS_INFO("sTGCTriggerCalib::configure all pFEBs");
       for (auto & pfeb: m_pfebs)
-        configure_vmms(pfeb, true);
+        configureVMMs(pfeb, true);
     }
 
     // set readout latency
     for (const auto& pt: m_pts) {
       if (!simulation()) {
-        pt.writeReadoutBCOffset(latencyscan_current());
+        pt.writeReadoutBCOffset(latencyScanCurrent());
       }
     }
-    configure_pad_trigger();
+    configurePadTrigger();
     usleep(1e6);
     usleep(5e6);
   }
@@ -107,17 +107,17 @@ void nsw::sTGCTriggerCalib::unconfigure() {
   ERS_INFO("sTGCTriggerCalib::unconfigure " << counter());
 
   if (m_calibType=="sTGCPadConnectivity") {
-    if (order_pfebs()) {
-      auto next_addr = next_pfeb(true);
+    if (orderPFEBs()) {
+      auto next_addr = nextPFEB(true);
       for (auto & pfeb: m_pfebs) {
         if (next_addr == pfeb.getAddress()) {
-          configure_vmms(pfeb, false);
+          configureVMMs(pfeb, false);
           break;
         }
       }
     } else {
       auto & pfeb = m_pfebs.at(static_cast<size_t>(counter()));
-      configure_vmms(pfeb, false);
+      configureVMMs(pfeb, false);
     }
 
     usleep(500e3);
@@ -128,12 +128,12 @@ void nsw::sTGCTriggerCalib::unconfigure() {
     if (counter() == total()-1) {
       ERS_INFO("sTGCTriggerCalib::unconfigure all pFEBs");
       for (auto & pfeb: m_pfebs)
-          configure_vmms(pfeb, false);
+          configureVMMs(pfeb, false);
     }
   }
 }
 
-int nsw::sTGCTriggerCalib::configure_vmms(nsw::FEBConfig feb, bool unmask) {
+int nsw::sTGCTriggerCalib::configureVMMs(nsw::FEBConfig feb, bool unmask) {
   ERS_INFO("Configuring " << feb.getOpcServerIp() << " " << feb.getAddress() << " - " << (unmask ? "pulsing" : "masking"));
   for (auto& vmm : feb.getVmms()) {
     vmm.setChannelRegisterAllChannels("channel_st", unmask ? 1 : 0);
@@ -145,9 +145,9 @@ int nsw::sTGCTriggerCalib::configure_vmms(nsw::FEBConfig feb, bool unmask) {
   return 0;
 }
 
-int nsw::sTGCTriggerCalib::configure_pad_trigger() {
+int nsw::sTGCTriggerCalib::configurePadTrigger() const {
   for (const auto& pt: m_pts) {
-    ERS_INFO("Configuring " << pt.name());
+    ERS_INFO("Configuring " << pt.getName());
 
     // enable the L1A readout
     if (!simulation()) {
@@ -165,7 +165,7 @@ int nsw::sTGCTriggerCalib::configure_pad_trigger() {
   return 0;
 }
 
-void nsw::sTGCTriggerCalib::gather_pfebs() {
+void nsw::sTGCTriggerCalib::gatherPFEBs() {
   //
   // get the partition environment
   //
@@ -181,7 +181,7 @@ void nsw::sTGCTriggerCalib::gather_pfebs() {
   ERS_INFO("Gather PFEBs: sector is large: " << nsw::isLargeSector(sector_name));
   std::uint32_t firmware_dateword{0};
   for (const auto& pt: m_pts) {
-    firmware_dateword = pt.getConfig().firmware_dateword();
+    firmware_dateword = pt.firmware_dateword();
     break;
   }
   ERS_INFO("Gather pFEBs: found firmware dateword " << firmware_dateword);
@@ -224,16 +224,16 @@ void nsw::sTGCTriggerCalib::gather_pfebs() {
   }
 }
 
-std::string nsw::sTGCTriggerCalib::next_pfeb(bool pop) {
+std::string nsw::sTGCTriggerCalib::nextPFEB(bool pop) {
   if (m_pfebs_ordered.size() == 0) {
-    std::string msg = "Error in next_pfeb. vector is empty, cant get next element.";
+    const auto msg = "Error in nextPFEB. vector is empty, cant get next element.";
     nsw::NSWsTGCTriggerCalibIssue issue(ERS_HERE, msg);
     ers::error(issue);
     throw std::runtime_error(msg);
   }
   // get the next valid pfeb
   // "valid" means: exists in the config
-  auto next_feb = m_pfebs_ordered.front();
+  const auto next_feb = m_pfebs_ordered.front();
   for (auto & pfeb: m_pfebs) {
     if (pfeb.getAddress().find(next_feb) != std::string::npos) {
       if (pop)
@@ -248,5 +248,5 @@ std::string nsw::sTGCTriggerCalib::next_pfeb(bool pop) {
   ers::warning(issue);
 
   m_pfebs_ordered.erase(m_pfebs_ordered.begin());
-  return next_pfeb(pop);
+  return nextPFEB(pop);
 }
