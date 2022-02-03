@@ -35,6 +35,7 @@ namespace nsw {
 
   public:
     sTGCPadsL1DDCFibers(std::string calibType, const hw::DeviceManager& deviceManager);
+
     void setup(const std::string& db) override;
     void configure() override;
     void unconfigure() override;

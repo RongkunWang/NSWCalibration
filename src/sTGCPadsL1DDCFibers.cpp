@@ -15,8 +15,7 @@
 #include "NSWConfiguration/I2cMasterConfig.h"
 #include "NSWConfiguration/hw/PadTrigger.h"
 
-nsw::sTGCPadsL1DDCFibers::sTGCPadsL1DDCFibers(std::string calibType,
-                                              const hw::DeviceManager& deviceManager) :
+nsw::sTGCPadsL1DDCFibers::sTGCPadsL1DDCFibers(std::string calibType, const hw::DeviceManager& deviceManager) :
   CalibAlg(std::move(calibType), deviceManager),
   m_pt{[&deviceManager]() -> const hw::PadTrigger& {
     ERS_INFO("Finding pad triggers...");

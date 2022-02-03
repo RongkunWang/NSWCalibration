@@ -62,7 +62,7 @@ class NSWCalibRc: public daq::rc::Controllable {
 
     std::string calibTypeFromIS();
     bool simulationFromIS();
-    uint32_t runNumberFromIS();
+    std::pair<std::uint32_t, std::time_t> runParamsFromIS();
     void handler();
     void loop_content();
     void alti_setup();

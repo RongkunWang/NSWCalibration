@@ -22,19 +22,15 @@
 #include "ers/ers.h"
 
 #include <is/infodynany.h>
+#include <is/infodictionary.h>
 
 #include "TROOT.h"
 
 using boost::property_tree::ptree;
 using namespace std::chrono_literals;
 
-nsw::MMTriggerCalib::MMTriggerCalib(std::string calibType,
-                        const hw::DeviceManager& deviceManager,
-                        std::string calibIsName,
-                        const ISInfoDictionary& calibIsDict) :
-  CalibAlg(std::move(calibType), deviceManager),
-  m_isDbName(std::move(calibIsName)),
-  m_isInfoDict(calibIsDict)
+nsw::MMTriggerCalib::MMTriggerCalib(std::string calibType, const hw::DeviceManager& deviceManager) :
+  CalibAlg(std::move(calibType), deviceManager)
 {
   ROOT::EnableThreadSafety();
 }
@@ -62,7 +58,6 @@ void nsw::MMTriggerCalib::setup(const std::string& db) {
     m_noise        = false;
     m_latency      = false;
     m_staircase    = false;
-    m_trackPatternFile = trackPatternFileFromIS();
   } else if (m_calibType=="MMCableNoise") {
     m_phases = {-1};
     m_connectivity = false;
@@ -756,24 +751,20 @@ std::vector<uint32_t> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConf
   return results;
 }
 
-std::string nsw::MMTriggerCalib::trackPatternFileFromIS() {
-  // Grab the track patters file from IS
-  // Can manually write to this variable from the command line:
-
-  const auto patternFileIsName = fmt::format("{}.Calib.trackPatternFile", m_isDbName);
-  std::string trackPatternFile;
-  if(m_isInfoDict.contains(patternFileIsName)) {
-    ISInfoDynAny trackPatternFileFromIS;
-    m_isInfoDict.getValue(patternFileIsName, trackPatternFileFromIS);
-    trackPatternFile = trackPatternFileFromIS.getAttributeValue<std::string>(0);
-    ERS_INFO("trackPatternFile from IS: " << trackPatternFile);
+void nsw::MMTriggerCalib::setCalibParamsFromIS(const ISInfoDictionary& is_dictionary,
+                                               const std::string& is_db_name)
+{
+  const auto calib_param_is_name = fmt::format("{}.Calib.trackPatternFile", is_db_name);
+  if (is_dictionary.contains(calib_param_is_name)) {
+    ISInfoDynAny calib_params_from_is;
+    is_dictionary.getValue(calib_param_is_name, calib_params_from_is);
+    const auto calibParams = calib_params_from_is.getAttributeValue<std::string>(0);
+    ERS_INFO(fmt::format("trackPatternFile from IS: {}", calibParams));
+    m_trackPatternFile = std::move(calibParams);
   } else {
-    const auto is_cmd = fmt::format(
-      "is_write -p ${{TDAQ_PARTITION}} -n {} -t String  -v '<path>' -i 0", patternFileIsName);
+    const auto is_cmd = fmt::format("is_write -p ${{TDAQ_PARTITION}} -n {} -t String -v <Track pattern file> -i 0", calib_param_is_name);
     nsw::calib::IsParameterNotFound issue(ERS_HERE, "trackPatternFile", is_cmd);
     ers::error(issue);
     throw issue;
   }
-
-  return trackPatternFile;
 }

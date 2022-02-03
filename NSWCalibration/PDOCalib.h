@@ -5,8 +5,6 @@
 #include <string>
 #include <vector>
 
-#include <is/infodictionary.h>
-
 #include "NSWConfiguration/FEBConfig.h"
 
 #include "NSWCalibration/CalibAlg.h"
@@ -23,7 +21,7 @@ namespace nsw {
   class PDOCalib : public CalibAlg
   {
     public:
-    PDOCalib(std::string calibType, const hw::DeviceManager& deviceManager, std::string calibIsName, const ISInfoDictionary& calibIsDict);
+    PDOCalib(std::string calibType, const hw::DeviceManager& deviceManager);
 
     /*!
      * \brief Obtains front-end configuration
@@ -133,36 +131,21 @@ namespace nsw {
                          bool toggle);
 
     /*!
-     * \brief passes and reads back data to/from swROD
+     * \copydoc CalibAlg::setCalibParamsFromIS
      *
-     * Uploads the concurrent calibration parameter into IS for the swROD
-     * to record data in short future
-     *
-     * \param i_par calibration parameter value (DAC/delay)
-     */
-    void push_to_swrod(std::size_t i_par);
-
-    /*!
-     * \brief retrieves calibration parameters from IS
-     *
-     *  This function reads the IS entry ``setup.NSW.calibParams``
-     *  that should contain the following information (comma
-     *  separated):
+     *  This function reads the IS entry that should contain the
+     *  following information (comma separated):
      *   - channel group to be pulsed
      *   - calibration parameters (DACs/delays)
      *   - pulsing/recording time in milliseconds (separated by *)
      *
      *  The input should look like this :
-     *   - ``is_write -p <part-name> -n Setup.NSW.calibType -t String -v PDOCalib -i 0``
-     *   - ``is_write -p <part-name> -n Setup.NSW.calibParams -t String -v 8,100,200,300,*6000* -i
-     * 0`` that would say that it is going to execute a PDO calibration run with groups of 8 channel
-     * to be pulsed at at the same time with DAC values of 100,200,300 and recording time of 6000
-     *  milliseconds
-     *
-     *  \param[in,out] reg_values vector of the register values to record data for
-     *  \param[in,out?] group channel group
+     *   - ``is_write -p <part-name> -n NswParams.calibParams -t String -v 8,100,200,300,*6000* -i 0``
+     *  indicating that it is going to execute a PDO calibration with
+     *  groups of 8 channels to be pulsed at the same time with DAC
+     *  values of 100,200,300 and recording time of 6000 milliseconds
      */
-    void get_calib_params_IS(std::vector<int>& reg_values, int& group);
+    void setCalibParamsFromIS(const ISInfoDictionary& is_dictionary, const std::string& is_db_name) override;
 
     /*!
      * \brief Reads ROC digital register error status
@@ -172,9 +155,6 @@ namespace nsw {
     void check_roc();
 
     private:
-    std::string m_isDbName;  //!< Name of the IS info DB
-    const ISInfoDictionary& m_isInfoDict;  //!< Instance of the IS dictionary
-
     std::chrono::milliseconds m_trecord;  //!< Waiting time to record data in [ms]
 
     bool m_pdo_flag;  //!< Flag stating the type of calibration PDO/TDO
@@ -193,13 +173,6 @@ namespace nsw {
     std::chrono::time_point<std::chrono::system_clock> m_calibStop;   //!< Stop time for calibration
 
     std::vector<std::thread> m_conf_threads = {};  //!< Per front-end board configuration thread
-    std::string m_calibCounterTck =
-      "Monitoring.NSWCalibration.triggerCalibrationKey";  //!< monitoring IS entry for the
-                                                          //!< triggerCalibrationKey that is
-                                                          //!< essentially pulser DAC or delay
-                                                          //!< register values
-    std::string m_calibCounterTck_readback =
-      "Monitoring.NSWCalibration.swrodCalibrationKey";  //!< Is entry sent to swROD, same as above
   };
 
 }  // namespace nsw
