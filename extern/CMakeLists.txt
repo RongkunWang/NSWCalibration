@@ -9,3 +9,9 @@ if(NSW_STANDALONE_CI_BUILD)
   option(NSW_CI_BUILD_USE_EXTERNAL_NSWCONFIG CACHE ON)
   set(NSW_DEP_FETCH_METHOD "ci" CACHE INTERNAL "")
 endif()
+
+option(NSW_EXTERN_WARN "Enable compiler warnings for extern" OFF)
+if(NOT NSW_EXTERN_WARN)
+  ## Disable compiler warnings in all external components
+  add_compile_options(-w)
+endif()
