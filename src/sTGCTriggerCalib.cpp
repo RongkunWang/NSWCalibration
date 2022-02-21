@@ -179,42 +179,21 @@ void nsw::sTGCTriggerCalib::gatherPFEBs() {
   ERS_INFO("Gather PFEBs: application "      << applicationName());
   ERS_INFO("Gather PFEBs: sector name "      << sector_name);
   ERS_INFO("Gather PFEBs: sector is large: " << nsw::isLargeSector(sector_name));
-  std::uint32_t firmware_dateword{0};
-  for (const auto& pt: m_pts) {
-    firmware_dateword = pt.firmware_dateword();
-    break;
-  }
-  ERS_INFO("Gather pFEBs: found firmware dateword " << firmware_dateword);
   if (partition.find("VS") != std::string::npos) {
     // VS
     ERS_INFO("Gather pFEBs: VS pFEBs");
-    if (firmware_dateword > nsw::padtrigger::DATE_NEW_MAPPING) {
-      m_pfebs_ordered.push_back("PFEB_L1Q1_IP");
-      m_pfebs_ordered.push_back("PFEB_L2Q1_IP");
-      m_pfebs_ordered.push_back("PFEB_L3Q1_IP");
-      m_pfebs_ordered.push_back("PFEB_L4Q1_IP");
-      m_pfebs_ordered.push_back("PFEB_L1Q2_IP");
-      m_pfebs_ordered.push_back("PFEB_L2Q2_IP");
-      m_pfebs_ordered.push_back("PFEB_L3Q2_IP");
-      m_pfebs_ordered.push_back("PFEB_L4Q2_IP");
-      m_pfebs_ordered.push_back("PFEB_L1Q3_IP");
-      m_pfebs_ordered.push_back("PFEB_L2Q3_IP");
-      m_pfebs_ordered.push_back("PFEB_L3Q3_IP");
-      m_pfebs_ordered.push_back("PFEB_L4Q3_IP");
-    } else {
-      m_pfebs_ordered.push_back("PFEB_L4Q2_IP");
-      m_pfebs_ordered.push_back("PFEB_L2Q2_IP");
-      m_pfebs_ordered.push_back("PFEB_L4Q1_IP");
-      m_pfebs_ordered.push_back("PFEB_L2Q1_IP");
-      m_pfebs_ordered.push_back("PFEB_L1Q3_IP");
-      m_pfebs_ordered.push_back("PFEB_L2Q3_IP");
-      m_pfebs_ordered.push_back("PFEB_L3Q3_IP");
-      m_pfebs_ordered.push_back("PFEB_L4Q3_IP");
-      m_pfebs_ordered.push_back("PFEB_L1Q2_IP");
-      m_pfebs_ordered.push_back("PFEB_L3Q2_IP");
-      m_pfebs_ordered.push_back("PFEB_L1Q1_IP");
-      m_pfebs_ordered.push_back("PFEB_L3Q1_IP");
-    }
+    m_pfebs_ordered.push_back("PFEB_L1Q1_IP");
+    m_pfebs_ordered.push_back("PFEB_L2Q1_IP");
+    m_pfebs_ordered.push_back("PFEB_L3Q1_IP");
+    m_pfebs_ordered.push_back("PFEB_L4Q1_IP");
+    m_pfebs_ordered.push_back("PFEB_L1Q2_IP");
+    m_pfebs_ordered.push_back("PFEB_L2Q2_IP");
+    m_pfebs_ordered.push_back("PFEB_L3Q2_IP");
+    m_pfebs_ordered.push_back("PFEB_L4Q2_IP");
+    m_pfebs_ordered.push_back("PFEB_L1Q3_IP");
+    m_pfebs_ordered.push_back("PFEB_L2Q3_IP");
+    m_pfebs_ordered.push_back("PFEB_L3Q3_IP");
+    m_pfebs_ordered.push_back("PFEB_L4Q3_IP");
   }
   else {
     // 191/P1
