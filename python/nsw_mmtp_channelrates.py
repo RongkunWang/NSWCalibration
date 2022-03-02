@@ -354,7 +354,19 @@ def fatal(msg):
     sys.exit(f"Error: {msg}")
 
 def root2html(fname):
-    webpath = "https://www.cern.ch/nsw191/trigger/mmtp_channelrates"
+    webpath = "UNKNOWN"
+    eospathP1  = "/eos/atlas/atlascerngroupdisk/det-nsw/P1"
+    eospath191 = "/eos/atlas/atlascerngroupdisk/det-nsw/191"
+    webbaseP1  = "https://nswp1.web.cern.ch"
+    webbase191 = "https://www.cern.ch/nsw191"
+    for (eospath, webbase) in [(eospathP1, webbaseP1),
+                               (eospath191, webbase191),
+                           ]:
+        if fname.startswith(eospath):
+            webpath = fname.replace(eospath, webbase)
+            webpath = os.path.dirname(webpath)
+            break
+
     print("Converting TCanvas into html with root2html...")
     if not os.path.isfile(fname):
         fatal(f"Bad ROOT file for root2html: {fname}")
