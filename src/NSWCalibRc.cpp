@@ -102,12 +102,6 @@ void nsw::NSWCalibRc::connect(const daq::rc::TransitionCmd&) {
     // Announce the current calibType (again)
     m_calibType = calibTypeFromIS();
 
-    // Retrieving the ptree configuration to be modified
-    ptree conf = m_NSWConfig->getConf();
-
-    // Sending the new configuration to be used for this run
-    m_NSWConfig->substituteConf(conf);
-
     // Sending the configuration to the HW
     m_NSWConfig->configureRc();
 
