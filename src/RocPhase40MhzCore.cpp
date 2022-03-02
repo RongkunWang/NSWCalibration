@@ -51,6 +51,7 @@ void RocPhase40MhzCore::configure(const nsw::hw::ROC& roc)
 {
   constexpr auto disable = 0xFF;
   roc.writeRegister("reg019fakeVmmFailure", disable);
+  roc.writeValue("bypassMode", 0);
 }
 
 int RocPhase40MhzCore::getValueOfIteration(const std::size_t iteration) const
