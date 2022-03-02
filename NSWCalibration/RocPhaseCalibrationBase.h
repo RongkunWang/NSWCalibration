@@ -134,7 +134,14 @@ class RocPhaseCalibrationBase : public nsw::CalibAlg
   void writeFileHeader(const std::string& filename) const;
 
   /**
-   * \brief Create output filename (<prefix>_<time>_<FEB name>.csv)
+   * \brief Get the output path from the partition
+   *
+   * \param path directory
+   */
+  [[nodiscard]] std::string getOutputPath() const;
+
+  /**
+   * \brief Create output filename (<directory>/<prefix>_<time>_<FEB name>.csv)
    *
    * \param roc ROC to be calibrated
    *
@@ -174,8 +181,9 @@ class RocPhaseCalibrationBase : public nsw::CalibAlg
   }
 
   std::vector<nsw::hw::ROC> m_rocs{};
-  std::string m_outputFilenameBase{};
   std::string m_initTime{};
+  std::string m_outputPath{};
+  std::string m_outputFilenameBase{};
   Specialized m_specialized{};
 };
 

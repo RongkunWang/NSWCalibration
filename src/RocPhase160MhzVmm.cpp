@@ -37,7 +37,9 @@ RocPhase160MhzVmm::RocPhase160MhzVmm(const std::vector<std::uint8_t>& input) :
           {"ePllVmm1.ePllPhase160MHz_3", ePllPhase160MHzVals}};
 }
 
-void RocPhase160MhzVmm::configure([[maybe_unused]] const nsw::hw::ROC& roc) {}
+void RocPhase160MhzVmm::configure(const nsw::hw::ROC& roc) {
+  roc.writeValue("bypassMode", 0);
+}
 
 int RocPhase160MhzVmm::getValueOfIteration(const std::size_t iteration) const
 {

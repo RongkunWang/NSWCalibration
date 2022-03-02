@@ -47,7 +47,9 @@ RocPhase160MhzCore::RocPhase160MhzCore(const std::vector<std::uint8_t>& input) :
           {"ePllCore.ePllPhase40MHz_2", ePllPhase40MHzVals}};
 }
 
-void RocPhase160MhzCore::configure([[maybe_unused]] const nsw::hw::ROC& roc) {}
+void RocPhase160MhzCore::configure(const nsw::hw::ROC& roc) {
+  roc.writeValue("bypassMode", 0);
+}
 
 int RocPhase160MhzCore::getValueOfIteration(const std::size_t iteration) const
 {

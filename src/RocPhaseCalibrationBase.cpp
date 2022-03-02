@@ -41,10 +41,12 @@ RocPhaseCalibrationBase<Specialized>::RocPhaseCalibrationBase(
   std::string outputFilenameBase,
   const std::vector<std::uint8_t>& values) :
   nsw::CalibAlg("RocPhase"),
-  m_outputFilenameBase(std::move(outputFilenameBase)),
   m_initTime(nsw::calib::utils::strf_time()),
+  m_outputPath(getOutputPath()),
+  m_outputFilenameBase(std::move(outputFilenameBase)),
   m_specialized(values)
 {
+  std::filesystem::create_directories(std::filesystem::path(m_outputPath));
   setTotal(getNumberOfIterations());
 }
 
@@ -57,19 +59,10 @@ void RocPhaseCalibrationBase<Specialized>::setup(const std::string& db)
       m_rocs.emplace_back(feb);
     }
   }
-
-  auto& runCtlOnlServ = daq::rc::OnlineServices::instance();
-  const auto& rcBase = runCtlOnlServ.getApplication();
-  const auto* calibApp = rcBase.cast<nsw::dal::NSWCalibApplication>();
-
-  const auto calibOutPath = calibApp->get_CalibOutput();
-
-  std::filesystem::create_directories(std::filesystem::path(calibOutPath));
   // look in header for documentation of executeFunc
-  executeFunc([this, &calibOutPath](const nsw::hw::ROC& roc) {
-    roc.writeConfiguration();
+  executeFunc([this](const nsw::hw::ROC& roc) {
     m_specialized.configure(roc);
-    const auto filename = fmt::format("{}/{}", calibOutPath, getFileName(roc));
+    const auto filename = getFileName(roc);
     ERS_LOG("Opening file " << filename);
     writeFileHeader(filename);
   });
@@ -175,9 +168,31 @@ void RocPhaseCalibrationBase<Specialized>::writeFileHeader(const std::string& fi
 }
 
 template<typename Specialized>
+std::string RocPhaseCalibrationBase<Specialized>::getOutputPath() const
+{
+  auto& runCtlOnlServ = daq::rc::OnlineServices::instance();
+  const auto& rcBase = runCtlOnlServ.getApplication();
+  const auto* calibApp = rcBase.cast<nsw::dal::NSWCalibApplication>();
+
+  return calibApp->get_CalibOutput();
+}
+
+template<typename Specialized>
 std::string RocPhaseCalibrationBase<Specialized>::getFileName(const nsw::hw::ROC& roc) const
 {
-  return fmt::format("{}_{}_{}.csv", m_outputFilenameBase, m_initTime, roc.getName());
+  auto name = roc.getName();
+  const auto replace_all = [] (std::string& inout, std::string_view what, std::string_view with)
+  {
+      std::size_t count{};
+      for (std::string::size_type pos{};
+          (pos = inout.find(what.data(), pos, what.length())) != std::string::npos;
+          pos += with.length(), ++count) {
+          inout.replace(pos, what.length(), with.data(), with.length());
+      }
+      return count;
+  };
+  replace_all(name, "/", "_");
+  return fmt::format("{}/{}_{}_{}.csv", m_outputPath, m_outputFilenameBase, m_initTime, name);
 }
 
 template<typename Specialized>
