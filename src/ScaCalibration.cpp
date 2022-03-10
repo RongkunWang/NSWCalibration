@@ -265,7 +265,7 @@ nsw::calib::FEBVMMConstants nsw::ScaCalibration::getBoardVmmConstants(const nsw:
     nsw::ScaFebCalibrationIssue issue(
       ERS_HERE,
       feName,
-      fmt::format("Unrealistic number of VMMs in the configuration [{}] for {}", nVmms));
+      fmt::format("Unrealistic number of VMMs in the configuration [{}]", nVmms));
     ers::error(issue);
     // FIXME TODO Should we throw?
     // throw issue;

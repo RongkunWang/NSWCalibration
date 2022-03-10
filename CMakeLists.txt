@@ -22,6 +22,9 @@ tdaq_add_scripts(bin/nsw_trigger_mapping.py             python/nsw_trigger_mappi
 
 find_package(ROOT REQUIRED COMPONENTS Core Tree RIO)
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 tdaq_generate_dal(schema/NSWCalib.schema.xml
   NAMESPACE nsw::dal
   INCLUDE_DIRECTORIES DFConfiguration dal
@@ -62,6 +65,8 @@ tdaq_add_library(nswcalib
     src/RocPhase40MhzCore.cpp
     src/RocPhase160MhzCore.cpp
     src/RocPhase160MhzVmm.cpp
+  INCLUDE_DIRECTORIES
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/extern/omni/include>
   LINK_LIBRARIES nswconfig  NSWConfig nswcalibdal
     nswhwinterface
     nswopcclient
@@ -95,6 +100,8 @@ tdaq_add_library(nswcalib
 # )
 
 tdaq_add_executable(NSWCalibRc_main app/NSWCalibRc_main.cpp src/NSWCalibRc.cpp
+  INCLUDE_DIRECTORIES
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/extern/omni/include>
   LINK_LIBRARIES nswcalib tdaq::daq-df-dal tdaq::rc_ItemCtrl
     tdaq-common::ers Boost::program_options nswcalibdal
     tdaq::AltiModule
