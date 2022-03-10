@@ -35,7 +35,7 @@ namespace nsw {
   class THRCalib : public CalibAlg
   {
     public:
-    THRCalib(std::string calibType, std::string calibIsName, const ISInfoDictionary& calibIsDict);
+    THRCalib(std::string calibType, const hw::DeviceManager& deviceManager, std::string calibIsName, const ISInfoDictionary& calibIsDict);
 
     /*!
      * \brief Get main calibration parameters for the run

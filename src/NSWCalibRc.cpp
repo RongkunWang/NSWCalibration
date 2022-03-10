@@ -200,6 +200,8 @@ void nsw::NSWCalibRc::handler() {
 
   nsw::snooze();
 
+  const auto& deviceManager = m_NSWConfig->getDeviceManager();
+
   // create calib object
   calib.reset();
   m_calibType = calibTypeFromIS();
@@ -209,42 +211,42 @@ void nsw::NSWCalibRc::handler() {
       m_calibType=="MMARTPhase" ||
       m_calibType=="MML1ALatency" ||
       m_calibType=="MMStaircase") {
-    calib = std::make_unique<MMTriggerCalib>(m_calibType, m_is_db_name, *is_dictionary);
+    calib = std::make_unique<MMTriggerCalib>(m_calibType, deviceManager, m_is_db_name, *is_dictionary);
   } else if (m_calibType=="MMTrackPulserTest") {
-    calib = std::make_unique<MMTriggerCalib>(m_calibType, m_is_db_name, *is_dictionary);
+    calib = std::make_unique<MMTriggerCalib>(m_calibType, deviceManager, m_is_db_name, *is_dictionary);
   } else if (m_calibType=="MMTPInputPhase") {
-    calib = std::make_unique<MMTPInputPhase>(m_calibType);
+    calib = std::make_unique<MMTPInputPhase>(m_calibType, deviceManager);
   } else if (m_calibType=="sTGCPadConnectivity" ||
              m_calibType=="sTGCPadLatency") {
-    calib = std::make_unique<sTGCTriggerCalib>(m_calibType);
+    calib = std::make_unique<sTGCTriggerCalib>(m_calibType, deviceManager);
   } else if (m_calibType=="sTGCPadVMMTDSChannels") {
-    calib = std::make_unique<sTGCPadVMMTDSChannels>(m_calibType);
+    calib = std::make_unique<sTGCPadVMMTDSChannels>(m_calibType, deviceManager);
   } else if (m_calibType=="sTGCSFEBToRouter"   ||
              m_calibType=="sTGCSFEBToRouterQ1" ||
              m_calibType=="sTGCSFEBToRouterQ2" ||
              m_calibType=="sTGCSFEBToRouterQ3") {
-    calib = std::make_unique<sTGCSFEBToRouter>(m_calibType);
+    calib = std::make_unique<sTGCSFEBToRouter>(m_calibType, deviceManager);
   } else if (m_calibType=="sTGCPadTriggerToSFEB") {
-    calib = std::make_unique<sTGCPadTriggerToSFEB>(m_calibType);
+    calib = std::make_unique<sTGCPadTriggerToSFEB>(m_calibType, deviceManager);
   } else if (m_calibType=="sTGCPadTriggerInputDelays") {
-    calib = std::make_unique<sTGCPadTriggerInputDelays>(m_calibType);
+    calib = std::make_unique<sTGCPadTriggerInputDelays>(m_calibType, deviceManager);
   } else if (m_calibType=="sTGCStripConnectivity") {
-    calib = std::make_unique<sTGCStripsTriggerCalib>(m_calibType);
+    calib = std::make_unique<sTGCStripsTriggerCalib>(m_calibType, deviceManager);
   } else if (m_calibType=="sTGCPadsControlPhase") {
-    calib = std::make_unique<sTGCPadsControlPhase>(m_calibType);
+    calib = std::make_unique<sTGCPadsControlPhase>(m_calibType, deviceManager);
   } else if (m_calibType=="sTGCPadsL1DDCFibers") {
-    calib = std::make_unique<sTGCPadsL1DDCFibers>(m_calibType);
+    calib = std::make_unique<sTGCPadsL1DDCFibers>(m_calibType, deviceManager);
   } else if (m_calibType=="THRCalib"){
-    calib = std::make_unique<THRCalib>(m_calibType, m_is_db_name, *is_dictionary);
+    calib = std::make_unique<THRCalib>(m_calibType, deviceManager, m_is_db_name, *is_dictionary);
   } else if (m_calibType=="PDOCalib" ||
              m_calibType=="TDOCalib"){
-    calib = std::make_unique<PDOCalib>(m_calibType, m_is_db_name, *is_dictionary);
+    calib = std::make_unique<PDOCalib>(m_calibType, deviceManager, m_is_db_name, *is_dictionary);
   } else if (m_calibType=="RocPhase40MHzCore") {
-    calib = std::make_unique<RocPhaseCalibrationBase<RocPhase40MhzCore>>("rocphase_40mhzcore");
+    calib = std::make_unique<RocPhaseCalibrationBase<RocPhase40MhzCore>>(m_calibType, deviceManager);
   } else if (m_calibType == "RocPhase160MHzCore") {
-    calib = std::make_unique<RocPhaseCalibrationBase<RocPhase160MhzCore>>("rocphase_160mhzcore");
+    calib = std::make_unique<RocPhaseCalibrationBase<RocPhase160MhzCore>>(m_calibType, deviceManager);
   } else if (m_calibType == "RocPhase160MHzVmm") {
-    calib = std::make_unique<RocPhaseCalibrationBase<RocPhase160MhzVmm>>("rocphase_160mhzvmm");
+    calib = std::make_unique<RocPhaseCalibrationBase<RocPhase160MhzVmm>>(m_calibType, deviceManager);
   } else {
     std::string msg = "Unknown calibration request: " + m_calibType;
     nsw::NSWCalibIssue issue(ERS_HERE, msg);

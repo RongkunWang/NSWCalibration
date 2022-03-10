@@ -35,7 +35,7 @@ void nsw::sTGCPadTriggerInputDelays::setup(const std::string& db) {
 
 void nsw::sTGCPadTriggerInputDelays::configure() {
   ERS_INFO("sTGCPadTriggerInputDelays::configure " << counter());
-  for (const auto& pt: m_pts) {
+  for (const auto& pt: m_pts.get()) {
     set_delays(pt);
     for (uint32_t i = 0; i < nsw::padtrigger::NUM_PFEB_BCID_READS; i++) {
       read_bcids(pt);
@@ -95,7 +95,7 @@ void nsw::sTGCPadTriggerInputDelays::read_bcids(const nsw::hw::PadTrigger& pt) {
 }
 
 void nsw::sTGCPadTriggerInputDelays::fill() {
-  for (const auto& pt: m_pts) {
+  for (const auto& pt: m_pts.get()) {
     m_opcserverip = pt.getName();
     m_address     = pt.getName();
     break;
@@ -120,11 +120,8 @@ void nsw::sTGCPadTriggerInputDelays::setup_type() {
 
 void nsw::sTGCPadTriggerInputDelays::setup_objects(const std::string& db) {
   ERS_INFO("Finding PTs");
-  for (auto pt: nsw::ConfigReader::makeObjects<nsw::hw::PadTrigger>(db, "PadTrigger")) {
-    m_pts.emplace_back(pt);
-  }
-  ERS_INFO("Found " << m_pts.size() << " pad triggers");
-  if (m_pts.size() != 1) {
+  ERS_INFO("Found " << m_pts.get().size() << " pad triggers");
+  if (m_pts.get().size() != 1) {
     std::stringstream msg;
     msg << "sTGCPadTriggerInputDelays only works with 1 PT now. Crashing.";
     ERS_INFO(msg.str());

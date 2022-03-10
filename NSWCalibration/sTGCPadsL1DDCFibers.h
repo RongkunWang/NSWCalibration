@@ -34,7 +34,7 @@ namespace nsw {
   class sTGCPadsL1DDCFibers: public CalibAlg {
 
   public:
-    explicit sTGCPadsL1DDCFibers(const std::string& calibType) : CalibAlg(std::move(calibType)) {};
+    sTGCPadsL1DDCFibers(std::string calibType, const hw::DeviceManager& deviceManager);
     void setup(const std::string& db) override;
     void configure() override;
     void unconfigure() override;
@@ -55,6 +55,7 @@ namespace nsw {
     static constexpr std::uint32_t phase_step{4};
     static constexpr std::uint32_t num_reads{nsw::padtrigger::NUM_PFEB_BCID_READS/10};
 
+    std::reference_wrapper<const hw::PadTrigger> m_pt;
     /// output ROOT file
     std::uint32_t m_step{0};
     std::uint32_t m_reads{0};
@@ -72,7 +73,6 @@ namespace nsw {
     std::unique_ptr< std::vector<bool> >          m_mask{nullptr};
     std::unique_ptr< std::vector<bool> >          m_left{nullptr};
 
-    std::unique_ptr<nsw::hw::PadTrigger> m_pt{nullptr};
     std::vector<nsw::FEBConfig> m_pfebs{};
   };
 

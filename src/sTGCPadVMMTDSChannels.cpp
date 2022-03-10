@@ -78,16 +78,15 @@ void nsw::sTGCPadVMMTDSChannels::setup_objects(const std::string& db) {
 
   // create NSWConfiguration objects
   m_pfebs = nsw::ConfigReader::makeObjects<nsw::FEBConfig>(db, "PFEB");
-  m_pts   = nsw::ConfigReader::makeObjects<nsw::hw::PadTrigger>(db, "PadTrigger");
   ERS_INFO("Found " << m_pfebs.size() << " pFEBs");
-  ERS_INFO("Found " << m_pts.size()   << " pad triggers");
+  ERS_INFO("Found " << m_pts.get().size()   << " pad triggers");
 
   // require exactly one Pad Trigger
-  if (m_pts.size() != 1) {
+  if (m_pts.get().size() != 1) {
     std::stringstream msg;
     msg << "Cannot handle !=1 pad triggers."
         << " You gave: "
-        << m_pts.size();
+        << m_pts.get().size();
     nsw::NSWsTGCPadVMMTDSChannelsIssue issue(ERS_HERE, msg.str());
     ers::fatal(issue);
     throw std::runtime_error(msg.str());

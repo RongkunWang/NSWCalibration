@@ -28,14 +28,11 @@ void nsw::sTGCTriggerCalib::setup(const std::string& db) {
   // make NSWConfig objects from input db
   ERS_INFO("Making pFEB and Pad Trigger objects");
   m_pfebs = nsw::ConfigReader::makeObjects<nsw::FEBConfig> (db, "PFEB");
-  for (auto pt: nsw::ConfigReader::makeObjects<nsw::hw::PadTrigger>(db, "PadTrigger")) {
-    m_pts.emplace_back(pt);
-  }
   ERS_INFO("Found " << m_pfebs.size() << " pFEBs");
-  ERS_INFO("Found " << m_pts.size()   << " pad triggers");
-  if (m_pts.size() != 1) {
+  ERS_INFO("Found " << m_pts.get().size()   << " pad triggers");
+  if (m_pts.get().size() != 1) {
     std::stringstream msg;
-    msg << "I dont know how to process !=1 PadTriggers. You gave: " << m_pts.size();
+    msg << "I dont know how to process !=1 PadTriggers. You gave: " << m_pts.get().size();
     ERS_INFO(msg.str());
     throw std::runtime_error(msg.str());
   }
@@ -44,7 +41,7 @@ void nsw::sTGCTriggerCalib::setup(const std::string& db) {
   gatherPFEBs();
 
   // get latency scan parameters from user
-  for (const auto& pt: m_pts) {
+  for (const auto& pt: m_pts.get()) {
     setLatencyScanOffset(pt.LatencyScanStart());
     setLatencyScanNBC(pt.LatencyScanNBC());
   }
@@ -92,7 +89,7 @@ void nsw::sTGCTriggerCalib::configure() {
     }
 
     // set readout latency
-    for (const auto& pt: m_pts) {
+    for (const auto& pt: m_pts.get()) {
       if (!simulation()) {
         pt.writeReadoutBCOffset(latencyScanCurrent());
       }
@@ -146,7 +143,7 @@ int nsw::sTGCTriggerCalib::configureVMMs(nsw::FEBConfig feb, bool unmask) {
 }
 
 int nsw::sTGCTriggerCalib::configurePadTrigger() const {
-  for (const auto& pt: m_pts) {
+  for (const auto& pt: m_pts.get()) {
     ERS_INFO("Configuring " << pt.getName());
 
     // enable the L1A readout

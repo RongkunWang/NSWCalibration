@@ -33,15 +33,13 @@ void nsw::sTGCSFEBToRouter::setup(const std::string& db) {
 
   // make NSWConfig objects from input db
   // can be SFEB, SFEB8, or SFEB6 :(
-  for (const auto& cfg: nsw::ConfigReader::makeObjects<nsw::RouterConfig> (db, "Router"))
-    m_routers.emplace_back(nsw::hw::Router{cfg});
   for (auto feb: nsw::ConfigReader::makeObjects<nsw::FEBConfig> (db, "SFEB"))
     m_sfebs.push_back(feb);
   for (auto feb: nsw::ConfigReader::makeObjects<nsw::FEBConfig> (db, "SFEB8"))
     m_sfebs.push_back(feb);
   for (auto feb: nsw::ConfigReader::makeObjects<nsw::FEBConfig> (db, "SFEB6"))
     m_sfebs.push_back(feb);
-  ERS_INFO("Found " << m_routers.size() << " Routers");
+  ERS_INFO("Found " << m_routers.get().size() << " Routers");
   ERS_INFO("Found " << m_sfebs.size()   << " SFEBs");
 
   // set number of iterations
@@ -95,7 +93,7 @@ void nsw::sTGCSFEBToRouter::unconfigure() {
 
 int nsw::sTGCSFEBToRouter::configure_routers() const {
     auto threads = std::make_unique<std::vector< std::future<int> > >();
-    for (auto & router : m_routers)
+    for (const auto & router : m_routers.get())
         threads->push_back( std::async(std::launch::async,
                                        &nsw::sTGCSFEBToRouter::configure_router,
                                        this,
@@ -203,7 +201,7 @@ int nsw::sTGCSFEBToRouter::router_watchdog(bool open, bool close) {
   // Be forewarned: this function reads Router SCA registers.
   // Dont race elsewhere.
   //
-  if (m_routers.size() == 0)
+  if (m_routers.get().size() == 0)
     return 0;
 
   // output file and announce
@@ -217,13 +215,13 @@ int nsw::sTGCSFEBToRouter::router_watchdog(bool open, bool close) {
   // read once
   auto threads = std::make_unique<std::vector< std::future<bool> > >();
   m_myfile << "Time " << nsw::calib::utils::strf_time() << std::endl;
-  for (const auto & router : m_routers)
+  for (const auto & router : m_routers.get())
     threads->push_back( std::async(std::launch::async,
                                    &nsw::sTGCSFEBToRouter::router_ClkReady,
                                    this,
                                    router) );
-  for (size_t ir = 0; ir < m_routers.size(); ir++) {
-    auto name = m_routers.at(ir).getConfig().getAddress();
+  for (size_t ir = 0; ir < m_routers.get().size(); ir++) {
+    auto name = m_routers.get().at(ir).getConfig().getAddress();
     auto val  = threads ->at(ir).get();
     m_myfile << name << " " << val << std::endl;
   }
@@ -255,7 +253,7 @@ size_t nsw::sTGCSFEBToRouter::count_ready_routers() const {
 
   // read the router GPIO
   auto threads = std::vector< std::future<bool> >();
-  for (const auto & router : m_routers) {
+  for (const auto & router : m_routers.get()) {
     threads.push_back( std::async(std::launch::async,
                                   &nsw::sTGCSFEBToRouter::router_ClkReady,
                                   this,

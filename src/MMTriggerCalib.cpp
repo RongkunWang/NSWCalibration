@@ -29,9 +29,10 @@ using boost::property_tree::ptree;
 using namespace std::chrono_literals;
 
 nsw::MMTriggerCalib::MMTriggerCalib(std::string calibType,
+                        const hw::DeviceManager& deviceManager,
                         std::string calibIsName,
                         const ISInfoDictionary& calibIsDict) :
-  CalibAlg(std::move(calibType)),
+  CalibAlg(std::move(calibType), deviceManager),
   m_isDbName(std::move(calibIsName)),
   m_isInfoDict(calibIsDict)
 {

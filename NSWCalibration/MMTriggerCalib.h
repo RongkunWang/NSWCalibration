@@ -34,7 +34,7 @@ namespace nsw {
   class MMTriggerCalib: public CalibAlg {
 
   public:
-    explicit MMTriggerCalib(std::string calibType, std::string calibIsName, const ISInfoDictionary& calibIsDict);
+    explicit MMTriggerCalib(std::string calibType, const hw::DeviceManager& deviceManager, std::string calibIsName, const ISInfoDictionary& calibIsDict);
 
     void setup(const std::string& db) override;
     void configure() override;

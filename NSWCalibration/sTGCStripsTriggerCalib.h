@@ -23,7 +23,7 @@ namespace nsw {
   class sTGCStripsTriggerCalib: public CalibAlg {
 
   public:
-    explicit sTGCStripsTriggerCalib(std::string calibType) : CalibAlg(std::move(calibType)) {};
+    sTGCStripsTriggerCalib(std::string calibType, const hw::DeviceManager& deviceManager) : CalibAlg(std::move(calibType), deviceManager) {};
 
     void setup(const std::string& db) override;
     void configure() override;

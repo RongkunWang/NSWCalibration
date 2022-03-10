@@ -27,7 +27,9 @@ namespace nsw {
   class sTGCTriggerCalib: public CalibAlg {
 
   public:
-    explicit sTGCTriggerCalib(const std::string& calibType) : CalibAlg(std::move(calibType)) {};
+    sTGCTriggerCalib(std::string calibType, const hw::DeviceManager& deviceManager) :
+      CalibAlg(std::move(calibType), deviceManager),
+      m_pts{getDeviceManager().getPadTriggers()} {};
 
     void setup(const std::string& db) override;
     void configure() override;
@@ -46,11 +48,11 @@ namespace nsw {
     void setLatencyScanNBC(int val)    {m_nbc_for_latency    = val;}
 
   private:
+    std::reference_wrapper<const std::vector<hw::PadTrigger>> m_pts;
     bool m_order_pfebs = true;
     int m_offset_for_latency = 0;
     int m_nbc_for_latency = 0;
     std::vector<nsw::FEBConfig> m_pfebs = {};
-    std::vector<nsw::hw::PadTrigger> m_pts = {};
     std::vector<std::string> m_pfebs_ordered = {};
 
   };
