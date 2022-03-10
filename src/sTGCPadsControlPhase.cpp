@@ -4,6 +4,7 @@
 #include "NSWConfiguration/ConfigReader.h"
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/I2cMasterConfig.h"
+#include "NSWConfiguration/hw/PadTrigger.h"
 #include <fmt/core.h>
 #include <ers/ers.h>
 #include <unistd.h>
@@ -174,7 +175,7 @@ std::pair<FebMask, FebMask> nsw::sTGCPadsControlPhase::getPadTriggerMask() const
 }
 
 void nsw::sTGCPadsControlPhase::setPadTriggerMask() const {
-  for (const auto& pt: m_pts) {
+  for (const auto& pt: m_pts.get()) {
     ERS_INFO(fmt::format("Configuring {}", pt.getName()));
     if (!simulation()) {
       pt.writeFPGARegister(nsw::padtrigger::REG_MASK_TO_0, m_mask_to_0.to_ulong());
@@ -186,7 +187,7 @@ void nsw::sTGCPadsControlPhase::setPadTriggerMask() const {
 std::uint32_t nsw::sTGCPadsControlPhase::getPadTriggerRate() const {
   std::uint32_t word{0}, triggers_here{0}, triggers_total{0};
   ERS_INFO(fmt::format("Collecting triggers for {} seconds...", nsw::padtrigger::NUM_TRIGGER_RATE_READS));
-  for (const auto& pt: m_pts) {
+  for (const auto& pt: m_pts.get()) {
     for (size_t it = 0; it < nsw::padtrigger::NUM_TRIGGER_RATE_READS; it++) {
       if (!simulation()) {
         nsw::snooze();
@@ -204,7 +205,7 @@ std::uint32_t nsw::sTGCPadsControlPhase::getPadTriggerRate() const {
 }
 
 void nsw::sTGCPadsControlPhase::fill() {
-  for (const auto& pt: m_pts) {
+  for (const auto& pt: m_pts.get()) {
     m_pt_name        = pt.getName();
     m_pt_opcserverip = pt.getName();
     m_pt_address     = pt.getName();
@@ -219,8 +220,7 @@ void nsw::sTGCPadsControlPhase::setup_objects(const std::string& db) {
   // pad trigger objects
   //
   ERS_INFO("Finding pad triggers...");
-  m_pts = nsw::ConfigReader::makeObjects<nsw::hw::PadTrigger>(db, "PadTrigger");
-  ERS_INFO(fmt::format("Found {} pad triggers", m_pts.size()));
+  ERS_INFO(fmt::format("Found {} pad triggers", m_pts.get().size()));
 
   //
   // pfeb objects
@@ -233,7 +233,7 @@ void nsw::sTGCPadsControlPhase::setup_objects(const std::string& db) {
   //
   // the calibration is per-sector
   //
-  if (m_pts.size() != std::size_t{1}) {
+  if (m_pts.get().size() != std::size_t{1}) {
     const auto msg = std::string("Only works with 1 pad trigger. Crashing.");
     nsw::NSWsTGCPadsControlPhaseIssue issue(ERS_HERE, msg.c_str());
     ers::fatal(issue);

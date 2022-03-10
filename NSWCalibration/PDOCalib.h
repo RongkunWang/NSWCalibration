@@ -23,7 +23,7 @@ namespace nsw {
   class PDOCalib : public CalibAlg
   {
     public:
-    PDOCalib(std::string calibType, std::string calibIsName, const ISInfoDictionary& calibIsDict);
+    PDOCalib(std::string calibType, const hw::DeviceManager& deviceManager, std::string calibIsName, const ISInfoDictionary& calibIsDict);
 
     /*!
      * \brief Obtains front-end configuration

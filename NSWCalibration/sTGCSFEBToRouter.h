@@ -32,7 +32,9 @@ namespace nsw {
   class sTGCSFEBToRouter: public CalibAlg {
 
   public:
-    explicit sTGCSFEBToRouter(std::string calibType) : CalibAlg(std::move(calibType)) {};
+    sTGCSFEBToRouter(std::string calibType, const hw::DeviceManager& deviceManager) :
+      CalibAlg(std::move(calibType), deviceManager),
+      m_routers{getDeviceManager().getRouters()} {};
 
     void setup(const std::string& db) override;
     void configure() override;
@@ -51,10 +53,10 @@ namespace nsw {
     bool router_ClkReady(const nsw::hw::Router& router) const;
 
   private:
+    std::reference_wrapper<const std::vector<hw::Router>> m_routers;
     boost::property_tree::ptree m_patterns;
     std::vector<std::string> m_sfebs_ordered = {};
     std::vector<nsw::FEBConfig> m_sfebs = {};
-    std::vector<nsw::hw::Router> m_routers = {};
     std::future<int> m_watchdog;
 
   private:

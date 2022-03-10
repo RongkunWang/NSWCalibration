@@ -6,6 +6,7 @@
 //
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <chrono>
 #include <vector>
@@ -14,12 +15,15 @@
 
 #include "NSWCalibration/Commands.h"
 
+#include "NSWConfiguration/hw/DeviceManager.h"
+
 namespace nsw {
 
   class CalibAlg {
 
   public:
-    explicit CalibAlg(std::string calibType) : m_calibType(std::move(calibType)) {};
+    CalibAlg(std::string calibType, const hw::DeviceManager& deviceManager) : m_calibType(std::move(calibType)), m_deviceManager{deviceManager} {};
+    CalibAlg(std::string, hw::DeviceManager&&) = delete;
     virtual ~CalibAlg() = default;
 
     /*!
@@ -95,6 +99,9 @@ namespace nsw {
     void setApplicationName(const std::string& name) {m_name = name;}
     void setRunNumber(const std::uint32_t val) {m_run_number = val;}
 
+  protected:
+    [[nodiscard]] const hw::DeviceManager& getDeviceManager() const { return m_deviceManager.get(); }
+
   private:
     // "progress bar"
     void setStartTime() {m_time_start = std::chrono::system_clock::now();}
@@ -111,6 +118,7 @@ namespace nsw {
     bool m_simulation{false};  //!< Calibration is simulated or not
 
   private:
+    std::reference_wrapper<const hw::DeviceManager> m_deviceManager;  //!< Device Manager
     std::uint32_t m_run_number{0};  //!< Calibration run number
     std::string m_name;             //!< Calibration application name
 

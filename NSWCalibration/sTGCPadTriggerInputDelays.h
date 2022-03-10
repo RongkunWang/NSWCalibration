@@ -37,7 +37,9 @@ namespace nsw {
   class sTGCPadTriggerInputDelays: public CalibAlg {
 
   public:
-    explicit sTGCPadTriggerInputDelays(std::string calibType) : CalibAlg(std::move(calibType)) {};
+    sTGCPadTriggerInputDelays(std::string calibType, const hw::DeviceManager& deviceManager) :
+      CalibAlg(std::move(calibType), deviceManager),
+      m_pts{getDeviceManager().getPadTriggers()} {};
 
     sTGCPadTriggerInputDelays(const sTGCPadTriggerInputDelays&) = delete;
     sTGCPadTriggerInputDelays& operator=(const sTGCPadTriggerInputDelays&) = delete;
@@ -57,6 +59,7 @@ namespace nsw {
     void fill();
 
   private:
+    std::reference_wrapper<const std::vector<hw::PadTrigger>> m_pts;
     /// output ROOT file
     uint32_t m_delay = 0;
     std::string m_now = "";
@@ -67,9 +70,6 @@ namespace nsw {
     std::unique_ptr< std::vector<uint32_t> > m_pfeb = std::make_unique< std::vector<uint32_t> >();
     std::unique_ptr<TFile> m_rfile;
     std::shared_ptr<TTree> m_rtree;
-
-  private:
-    std::vector<nsw::hw::PadTrigger> m_pts;
   };
 
 }

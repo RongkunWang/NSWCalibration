@@ -39,8 +39,9 @@ using namespace std::chrono_literals;
 template<typename Specialized>
 RocPhaseCalibrationBase<Specialized>::RocPhaseCalibrationBase(
   std::string outputFilenameBase,
+  const nsw::hw::DeviceManager& deviceManager,
   const std::vector<std::uint8_t>& values) :
-  nsw::CalibAlg("RocPhase"),
+  nsw::CalibAlg("RocPhase", deviceManager),
   m_initTime(nsw::calib::utils::strf_time()),
   m_outputPath(getOutputPath()),
   m_outputFilenameBase(std::move(outputFilenameBase)),
@@ -51,14 +52,8 @@ RocPhaseCalibrationBase<Specialized>::RocPhaseCalibrationBase(
 }
 
 template<typename Specialized>
-void RocPhaseCalibrationBase<Specialized>::setup(const std::string& db)
+void RocPhaseCalibrationBase<Specialized>::setup(const std::string& /*db*/)
 {
-  for (const auto* const type : {"MMFE8", "PFEB", "SFEB", "SFEB6", "SFEB8"}) {
-    const auto febs = nsw::ConfigReader::makeObjects<nsw::FEBConfig>(db, type);
-    for (const auto& feb : febs) {
-      m_rocs.emplace_back(feb);
-    }
-  }
   // look in header for documentation of executeFunc
   executeFunc([this](const nsw::hw::ROC& roc) {
     m_specialized.configure(roc);

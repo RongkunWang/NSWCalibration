@@ -38,7 +38,9 @@ namespace nsw {
     /**
      * \brief Simple constructor.
      */
-    explicit sTGCPadVMMTDSChannels(std::string calibType) : CalibAlg(std::move(calibType)) {};
+    sTGCPadVMMTDSChannels(std::string calibType, const hw::DeviceManager& deviceManager) :
+      CalibAlg(std::move(calibType), deviceManager),
+      m_pts{getDeviceManager().getPadTriggers()} {};
 
     /**
      * \brief Set up the calibration algorithm.
@@ -79,9 +81,8 @@ namespace nsw {
 
 
   private:
+    std::reference_wrapper<const std::vector<hw::PadTrigger>> m_pts;
     std::vector<nsw::FEBConfig> m_pfebs;
-    std::vector<nsw::hw::PadTrigger> m_pts;
-
   };
 
 }

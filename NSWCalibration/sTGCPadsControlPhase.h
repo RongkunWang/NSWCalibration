@@ -35,7 +35,9 @@ namespace nsw {
   class sTGCPadsControlPhase: public CalibAlg {
 
   public:
-    explicit sTGCPadsControlPhase(std::string calibType) : CalibAlg(std::move(calibType)) {};
+    sTGCPadsControlPhase(std::string calibType, const hw::DeviceManager& deviceManager) :
+      CalibAlg(std::move(calibType), deviceManager),
+      m_pts{getDeviceManager().getPadTriggers()} {};
 
     void setup(const std::string& db) override;
     void configure() override;
@@ -61,6 +63,7 @@ namespace nsw {
     FebMask m_mask_to_0;
     FebMask m_mask_to_1;
 
+    std::reference_wrapper<const std::vector<hw::PadTrigger>> m_pts;
     /// output ROOT file
     uint32_t m_delay{0};
     uint32_t m_pfeb_addr{0};
@@ -77,7 +80,6 @@ namespace nsw {
     std::shared_ptr<TTree> m_rtree{nullptr};
 
   private:
-    std::vector<nsw::hw::PadTrigger> m_pts{};
     std::vector<nsw::FEBConfig> m_pfebs{};
   };
 

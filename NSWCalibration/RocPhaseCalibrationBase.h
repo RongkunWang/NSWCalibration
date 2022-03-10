@@ -46,10 +46,12 @@ class RocPhaseCalibrationBase : public nsw::CalibAlg
    * \brief Constructor for a ROC base calibration object
    *
    * \param outputFilenameBase Prefix for output file
+   * \param deviceManager Device Manager
    * \param values Phases passed to the calibration (if empty: calibration will run over all
    * possible phases of a clock)
    */
   explicit RocPhaseCalibrationBase(std::string outputFilenameBase,
+                                   const nsw::hw::DeviceManager& deviceManager,
                                    const std::vector<std::uint8_t>& values = {});
 
   /**
@@ -72,7 +74,7 @@ class RocPhaseCalibrationBase : public nsw::CalibAlg
    *
    * \param db Configuration resource (json or db)
    */
-  void setup(const std::string& db) override;
+  void setup(const std::string& /*db*/) override;
 
   /**
    * \brief Get the list of commands to be executed by the AltiController
@@ -171,16 +173,17 @@ class RocPhaseCalibrationBase : public nsw::CalibAlg
   void executeFunc(const Func& func) const
   {
     std::vector<std::thread> threads;
-    threads.reserve(m_rocs.size());
-    for (const auto& roc : m_rocs) {
-      threads.push_back(std::thread(func, std::ref(roc)));
+    const auto& deviceManager = getDeviceManager();
+    const auto& febs = deviceManager.getFebs();
+    threads.reserve(std::size(febs));
+    for (const auto& feb : febs) {
+      threads.push_back(std::thread(func, std::ref(feb.getRoc())));
     }
     for (auto& thread : threads) {
       thread.join();
     }
   }
 
-  std::vector<nsw::hw::ROC> m_rocs{};
   std::string m_initTime{};
   std::string m_outputPath{};
   std::string m_outputFilenameBase{};

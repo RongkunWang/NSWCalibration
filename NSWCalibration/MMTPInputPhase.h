@@ -28,7 +28,7 @@ namespace nsw {
   class MMTPInputPhase: public CalibAlg {
 
   public:
-    explicit MMTPInputPhase(std::string calibType) : CalibAlg(std::move(calibType)) {};
+    MMTPInputPhase(std::string calibType, const hw::DeviceManager& deviceManager) : CalibAlg(std::move(calibType), deviceManager) {};
 
     void setup(const std::string& db) override;
     void configure() override;

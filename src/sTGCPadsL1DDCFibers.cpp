@@ -13,6 +13,23 @@
 #include "NSWConfiguration/ConfigReader.h"
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/I2cMasterConfig.h"
+#include "NSWConfiguration/hw/PadTrigger.h"
+
+nsw::sTGCPadsL1DDCFibers::sTGCPadsL1DDCFibers(std::string calibType,
+                                              const hw::DeviceManager& deviceManager) :
+  CalibAlg(std::move(calibType), deviceManager),
+  m_pt{[&deviceManager]() -> const hw::PadTrigger& {
+    ERS_INFO("Finding pad triggers...");
+    const auto& pts = deviceManager.getPadTriggers();
+    ERS_INFO(fmt::format("Found {} pad triggers", pts.size()));
+    if (pts.size() != std::size_t{1}) {
+      const auto msg = std::string("Only works with 1 pad trigger. Crashing.");
+      nsw::NSWsTGCPadsL1DDCFibersIssue issue(ERS_HERE, msg);
+      ers::fatal(issue);
+      throw issue;
+    }
+    return pts.at(0);
+  }()} {};
 
 void nsw::sTGCPadsL1DDCFibers::setup(const std::string& db) {
   ERS_INFO("setup " << db);
@@ -87,11 +104,11 @@ std::vector<std::uint32_t> nsw::sTGCPadsL1DDCFibers::getPadTriggerBCIDs() const 
   if (simulation()) {
     return std::vector<std::uint32_t>(nsw::padtrigger::NUM_PFEBS);
   }
-  return m_pt->readPFEBBCIDs();
+  return m_pt.get().readPFEBBCIDs();
 }
 
 void nsw::sTGCPadsL1DDCFibers::fill() {
-  m_pt_name = m_pt->getName();
+  m_pt_name = m_pt.get().getName();
   m_now     = nsw::calib::utils::strf_time();
   m_rtree->Fill();
 }
@@ -100,19 +117,7 @@ void nsw::sTGCPadsL1DDCFibers::setupObjects(const std::string& db) {
   //
   // pad trigger objects
   //
-  ERS_INFO("Finding pad triggers...");
-  const auto pts = nsw::ConfigReader::makeObjects<nsw::hw::PadTrigger>(db, "PadTrigger");
-  ERS_INFO(fmt::format("Found {} pad triggers", pts.size()));
-  if (pts.size() != std::size_t{1}) {
-    const auto msg = std::string("Only works with 1 pad trigger. Crashing.");
-    nsw::NSWsTGCPadsL1DDCFibersIssue issue(ERS_HERE, msg.c_str());
-    ers::fatal(issue);
-    throw issue;
-  }
-  for (const auto& cfg: pts) {
-    m_pt = std::make_unique<nsw::hw::PadTrigger>(cfg);
-    break;
-  }
+
 
   //
   // pfeb objects
