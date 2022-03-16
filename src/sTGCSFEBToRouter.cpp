@@ -105,10 +105,8 @@ int nsw::sTGCSFEBToRouter::configure_routers() const {
 
 int nsw::sTGCSFEBToRouter::configure_router(const nsw::hw::Router& router) const {
     ERS_INFO("Configuring " << router.getName());
-    constexpr std::chrono::seconds reset_hold{0};
-    constexpr std::chrono::seconds reset_sleep{1};
     if (!simulation()) {
-        router.writeSoftReset(reset_hold, reset_sleep);
+        router.writeSoftResetAndCheckGPIO();
     }
     return 0;
 }
