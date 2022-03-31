@@ -57,7 +57,7 @@ namespace nsw {
     void setVmmThresholds() const;
     void setVmmThreshold(const nsw::hw::FEB& dev) const;
     void checkThresholdAdjustment(std::uint32_t thr, int adj) const;
-    static constexpr std::array m_thresholdAdjustments{-20, -10, 0, 10, 20, 30, 40, 50, 60, 70, 80};
+    static constexpr std::array m_thresholdAdjustments{-30, -20, -10, 0, 10, 20, 30, 40, 50, 60, 70};
     static constexpr std::uint8_t m_regAddressChannelMask{0x2};
     std::size_t m_acquire_time{1};
 
