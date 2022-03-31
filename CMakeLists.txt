@@ -58,6 +58,7 @@ tdaq_add_library(nswcalib
     src/sTGCPadTriggerInputDelays.cpp
     src/sTGCPadsControlPhase.cpp
     src/sTGCPadsL1DDCFibers.cpp
+    src/sTGCPadsHitRateSca.cpp
     src/NSWCalibRc.cpp
     src/MMTPFeedback.cpp
     src/MMTPStatusRegisters.cpp
