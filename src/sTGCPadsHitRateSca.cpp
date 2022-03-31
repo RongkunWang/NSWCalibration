@@ -1,0 +1,189 @@
+#include "NSWCalibration/sTGCPadsHitRateSca.h"
+#include <fmt/core.h>
+#include <ers/ers.h>
+
+nsw::sTGCPadsHitRateSca::sTGCPadsHitRateSca(std::string calibType,
+                                            const hw::DeviceManager& deviceManager):
+  CalibAlg(std::move(calibType), deviceManager)
+{
+  m_acquire_time = getAcquireTime();
+  ERS_INFO(fmt::format("Acquire time: {} seconds", m_acquire_time));
+  const auto total =
+    m_thresholdAdjustments.size() * NTDSCHAN;
+  setTotal(total);
+}
+
+void nsw::sTGCPadsHitRateSca::configure() {
+  setCurrentMetadata();
+  if (updateVmmThresholds()) {
+    setVmmThresholds();
+  }
+  setCurrentTdsChannels();
+}
+
+void nsw::sTGCPadsHitRateSca::acquire() {
+  const auto currentMeta = getCurrentMetadata();
+  for (std::size_t it = 0; it < m_acquire_time; it++) {
+    nsw::snooze();
+    for (const auto& dev: getDeviceManager().getPadTriggers()) {
+      const auto name = dev.getName();
+      for (std::size_t pfeb = 0; pfeb < nsw::padtrigger::NUM_PFEBS; pfeb++) {
+        const auto value = (pfeb << 4) + currentMeta;
+        ERS_INFO(fmt::format("Write 0x{:08x} to {}/0x{:02x}", value, name, nsw::padtrigger::REG_CONTROL2));
+        dev.writeFPGARegister(nsw::padtrigger::REG_CONTROL2, value);
+        const auto rate = dev.readFPGARegister(nsw::padtrigger::REG_STATUS2);
+        ERS_INFO(fmt::format("Read {}: pfeb {} rate = {}", name, pfeb, rate));
+      }
+    }
+  }
+}
+
+void nsw::sTGCPadsHitRateSca::checkObjects() const {
+  const std::size_t npads = getDeviceManager().getPadTriggers().size();
+  const std::size_t nfebs = getDeviceManager().getFebs().size();
+
+  // pad trigger objects
+  ERS_INFO(fmt::format("Found {} pad triggers", npads));
+  if (npads != std::size_t{1}) {
+    const auto msg = std::string("Requires 1 pad trigger");
+    ers::error(nsw::NSWsTGCPadsHitRateScaIssue(ERS_HERE, msg));
+  }
+
+  // pfeb objects
+  ERS_INFO(fmt::format("Found {} PFEBs", nfebs));
+}
+
+void nsw::sTGCPadsHitRateSca::setCurrentMetadata() const {
+  // setCurrentPadTriggerPfeb(); // you gotta fix this babushka
+  // for (const auto& dev: getDeviceManager().getPadTriggers()) {
+  //   ERS_INFO(fmt::format("Set 'sector' {} in {}", getCurrentMetadata(), dev.getName()));
+  //   dev.writeFPGARegister(nsw::padtrigger::REG_CONTROL2, getCurrentMetadata());
+  // }
+}
+
+void nsw::sTGCPadsHitRateSca::setCurrentTdsChannels() const {
+  auto threads = std::vector< std::future<void> >();
+  for (const auto& dev: getDeviceManager().getFebs()) {
+    threads.push_back(std::async(std::launch::async, &nsw::sTGCPadsHitRateSca::setCurrentTdsChannel, this, dev));
+  }
+  for (auto& thread: threads) {
+    thread.get();
+  }
+  // const auto currentChan = getCurrentTdsChannel();
+  // const auto currentPfeb = getCurrentPadTriggerPfeb();
+  // const auto currentName = nsw::padtrigger::ORDERED_PFEBS.at(currentPfeb);
+  // for (const auto& dev: getDeviceManager().getFebs()) {
+  //   if (dev.getOpcNodeId().find(currentName) != std::string::npos) {
+  //     const bool big = currentChan >= NUM_BITS_IN_WORD64;
+  //     const std::uint64_t one{1};
+  //     const std::uint64_t lsbsNot = big ? 0 : (one << currentChan);
+  //     const std::uint64_t msbsNot = big ? (one << (currentChan - NUM_BITS_IN_WORD64)) : 0;
+  //     const std::uint64_t lsbs = ~lsbsNot;
+  //     const std::uint64_t msbs = ~msbsNot;
+  //     for (std::size_t it = 0; it < nsw::NUM_TDS_PER_PFEB; it++) {
+  //       ERS_INFO(fmt::format("Write {:016x}_{:016x} to {}/tds{}/{}",
+  //                            msbs, lsbs, dev.getOpcNodeId(), it, m_regAddressChannelMask));
+  //       dev.getTds(it).writeRegister(m_regAddressChannelMask,
+  //                                    nsw::constructUint128t(msbs, lsbs));
+  //     }
+  //     break;
+  //   }
+  // }
+}
+
+void nsw::sTGCPadsHitRateSca::setCurrentTdsChannel(const nsw::hw::FEB& dev) const {
+  if (nsw::getElementType(dev.getOpcNodeId()) != "PFEB") {
+    return;
+  }
+  const auto currentChan = getCurrentTdsChannel();
+  const bool big = currentChan >= NUM_BITS_IN_WORD64;
+  const std::uint64_t one{1};
+  const std::uint64_t lsbsNot = big ? 0 : (one << currentChan);
+  const std::uint64_t msbsNot = big ? (one << (currentChan - NUM_BITS_IN_WORD64)) : 0;
+  const std::uint64_t lsbs = ~lsbsNot;
+  const std::uint64_t msbs = ~msbsNot;
+  for (std::size_t it = 0; it < nsw::NUM_TDS_PER_PFEB; it++) {
+    ERS_INFO(fmt::format("Write {:016x}_{:016x} to {}/tds{}/{}",
+                         msbs, lsbs, dev.getOpcNodeId(), it, m_regAddressChannelMask));
+    dev.getTds(it).writeRegister(m_regAddressChannelMask,
+                                 nsw::constructUint128t(msbs, lsbs));
+  }
+}
+
+// void nsw::sTGCPadsHitRateSca::setCurrentPadTriggerPfeb() const {
+//   const auto currentPfeb = getCurrentPadTriggerPfeb() + 4;
+//   const auto currentMeta = getCurrentMetadata();
+//   const auto value = (currentPfeb << 4) + currentMeta;
+//   for (const auto& dev: getDeviceManager().getPadTriggers()) {
+//     ERS_INFO(fmt::format("Write 0x{:08x} to {}/0x{:02x}",
+//                          value, dev.getName(), nsw::padtrigger::REG_CONTROL2));
+//     dev.writeFPGARegister(nsw::padtrigger::REG_CONTROL2, value);
+//   }
+// }
+
+std::size_t nsw::sTGCPadsHitRateSca::getCurrentMetadata() const {
+  return counter() % 2;
+}
+
+std::size_t nsw::sTGCPadsHitRateSca::getCurrentVmmThreshold() const {
+  return counter() / NTDSCHAN;
+}
+
+// std::size_t nsw::sTGCPadsHitRateSca::getCurrentPadTriggerPfeb() const {
+//   return (counter() / NTDSCHAN) % NPFEB;
+// }
+
+std::size_t nsw::sTGCPadsHitRateSca::getCurrentTdsChannel() const {
+  return counter() % NTDSCHAN;
+}
+
+bool nsw::sTGCPadsHitRateSca::updateVmmThresholds() const {
+  // return counter() % (NPFEB * NTDSCHAN) == 0;
+  return counter() % NTDSCHAN == 0;
+}
+
+// bool nsw::sTGCPadsHitRateSca::updateCurrentPadTriggerPfeb() const {
+//   return counter() % NTDSCHAN == 0;
+// }
+
+void nsw::sTGCPadsHitRateSca::setVmmThresholds() const {
+  auto threads = std::vector< std::future<void> >();
+  for (const auto& dev: getDeviceManager().getFebs()) {
+    threads.push_back(std::async(std::launch::async, &nsw::sTGCPadsHitRateSca::setVmmThreshold, this, dev));
+  }
+  for (auto& thread: threads) {
+    thread.get();
+  }
+}
+
+void nsw::sTGCPadsHitRateSca::setVmmThreshold(const nsw::hw::FEB& dev) const {
+  if (nsw::getElementType(dev.getOpcNodeId()) != "PFEB") {
+    return;
+  }
+  const auto thrAdj = m_thresholdAdjustments.at(getCurrentVmmThreshold());
+  for (std::size_t it = nsw::PFEB_FIRST_PAD_VMM; it < nsw::NUM_VMM_PER_PFEB; it++) {
+    const auto& vmmDev = dev.getVmm(it);
+    auto vmmConf = nsw::VMMConfig{vmmDev.getConfig()};
+    const auto currentThreshold = vmmConf.getGlobalThreshold();
+    ERS_INFO(fmt::format("Setting threshold {} in {}/{}",
+                         currentThreshold + thrAdj, dev.getOpcNodeId(), vmmConf.getName()));
+    checkThresholdAdjustment(currentThreshold, thrAdj);
+    vmmConf.setGlobalThreshold(currentThreshold + thrAdj);
+    vmmDev.writeConfiguration(vmmConf);
+  }
+}
+
+void nsw::sTGCPadsHitRateSca::checkThresholdAdjustment(std::uint32_t thr, int adj) const {
+  if (adj < 0 and static_cast<std::uint32_t>(std::abs(adj)) > thr) {
+    const auto msg = fmt::format("Cannot adjust {} by {}", thr, adj);
+    throw std::runtime_error(msg);
+  }
+}
+
+std::size_t nsw::sTGCPadsHitRateSca::getAcquireTime() const {
+  const auto tokens = nsw::tokenizeString(m_calibType, "_");
+  if (std::size(tokens) == 1) {
+    return m_acquire_time;
+  }
+  return std::stoul(tokens.at(1));
+}
