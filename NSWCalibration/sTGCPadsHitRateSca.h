@@ -39,13 +39,17 @@ namespace nsw {
 
   public:
     sTGCPadsHitRateSca(std::string calibType, const hw::DeviceManager& deviceManager);
-    void setup(const std::string& db) override {};
+    void setup(const std::string& /* db */) override {};
     void configure() override;
     void acquire() override;
 
   private:
     std::size_t getAcquireTime() const;
     void checkObjects() const;
+    void setupTree();
+    void fillTree(const std::uint32_t pfeb,
+                  const std::uint32_t rate);
+    void closeTree();
     std::size_t getCurrentMetadata() const;
     std::size_t getCurrentVmmThreshold() const;
     // std::size_t getCurrentPadTriggerPfeb() const;
@@ -65,15 +69,23 @@ namespace nsw {
     /*   = {0, 10}; */
     std::size_t m_acquire_time{1};
 
-    const std::size_t NTDSCHAN{104};
-    // const std::size_t NPFEB{24};
-    // const std::size_t NTDSCHAN{5};
-    const std::size_t NPFEB{3};
+    /* const std::size_t NTDSCHAN{104}; */
+    /* // const std::size_t NPFEB{24}; */
+    /* // const std::size_t NTDSCHAN{5}; */
+    /* const std::size_t NPFEB{3}; */
     static constexpr std::uint8_t m_regAddressChannelMask{0x2};
 
     // ROOT output
+    std::string m_rname{""};
     std::unique_ptr<TFile> m_rfile{nullptr};
     std::shared_ptr<TTree> m_rtree{nullptr};
+    std::uint32_t m_tds_chan{0};
+    std::uint32_t m_pfeb{0};
+    std::uint32_t m_rate{0};
+    std::uint32_t m_runnumber{0};
+    std::string m_app_name{""};
+    std::string m_now{""};
+    std::string m_pt_name{""};
 
   };
 

@@ -1,6 +1,7 @@
 #include "NSWCalibration/sTGCPadsHitRateSca.h"
 #include <fmt/core.h>
 #include <ers/ers.h>
+#include "NSWCalibration/Utility.h"
 
 nsw::sTGCPadsHitRateSca::sTGCPadsHitRateSca(std::string calibType,
                                             const hw::DeviceManager& deviceManager):
@@ -8,9 +9,8 @@ nsw::sTGCPadsHitRateSca::sTGCPadsHitRateSca(std::string calibType,
 {
   m_acquire_time = getAcquireTime();
   ERS_INFO(fmt::format("Acquire time: {} seconds", m_acquire_time));
-  const auto total =
-    m_thresholdAdjustments.size() * NTDSCHAN;
-  setTotal(total);
+  setTotal(m_thresholdAdjustments.size() * nsw::tds::NUM_CH_PER_PAD_TDS);
+  setupTree();
 }
 
 void nsw::sTGCPadsHitRateSca::configure() {
@@ -22,19 +22,25 @@ void nsw::sTGCPadsHitRateSca::configure() {
 }
 
 void nsw::sTGCPadsHitRateSca::acquire() {
-  const auto currentMeta = getCurrentMetadata();
   for (std::size_t it = 0; it < m_acquire_time; it++) {
     nsw::snooze();
     for (const auto& dev: getDeviceManager().getPadTriggers()) {
-      const auto name = dev.getName();
-      for (std::size_t pfeb = 0; pfeb < nsw::padtrigger::NUM_PFEBS; pfeb++) {
-        const auto value = (pfeb << 4) + currentMeta;
-        ERS_INFO(fmt::format("Write 0x{:08x} to {}/0x{:02x}", value, name, nsw::padtrigger::REG_CONTROL2));
-        dev.writeFPGARegister(nsw::padtrigger::REG_CONTROL2, value);
-        const auto rate = dev.readFPGARegister(nsw::padtrigger::REG_STATUS2);
-        ERS_INFO(fmt::format("Read {}: pfeb {} rate = {}", name, pfeb, rate));
+      // const auto name = dev.getName();
+      // for (std::size_t pfeb = 0; pfeb < nsw::padtrigger::NUM_PFEBS; pfeb++) {
+      //   const auto value = (pfeb << 4);
+      //   ERS_INFO(fmt::format("Write 0x{:08x} to {}/0x{:02x}", value, name, nsw::padtrigger::REG_CONTROL2));
+      //   dev.writeFPGARegister(nsw::padtrigger::REG_CONTROL2, value);
+      //   const auto rate = dev.readFPGARegister(nsw::padtrigger::REG_STATUS2);
+      //   ERS_INFO(fmt::format("Read {}: pfeb {} rate = {}", name, pfeb, rate));
+      // }
+      const auto rates = dev.readPFEBRates();
+      for (std::size_t pfeb = 0; pfeb < rates.size(); pfeb++) {
+        fillTree(pfeb, rates.at(pfeb));
       }
     }
+  }
+  if (counter() == total() - 1) {
+    closeTree();
   }
 }
 
@@ -51,6 +57,40 @@ void nsw::sTGCPadsHitRateSca::checkObjects() const {
 
   // pfeb objects
   ERS_INFO(fmt::format("Found {} PFEBs", nfebs));
+}
+
+void nsw::sTGCPadsHitRateSca::setupTree() {
+  m_runnumber = runNumber();
+  m_app_name  = applicationName();
+  m_now = nsw::calib::utils::strf_time();
+  m_rname = fmt::format("{}.{}.{}.{}.root", m_calibType, m_runnumber, m_app_name, m_now);
+  m_rfile = std::make_unique< TFile >(m_rname.c_str(), "recreate");
+  m_rtree = std::make_shared< TTree >("nsw", "nsw");
+  m_rtree->Branch("runnumber",   &m_runnumber);
+  m_rtree->Branch("appname",     &m_app_name);
+  m_rtree->Branch("name",        &m_pt_name);
+  m_rtree->Branch("time",        &m_now);
+  m_rtree->Branch("rate",        &m_rate);
+  m_rtree->Branch("pfeb_addr",   &m_pfeb);
+  m_rtree->Branch("tds_chan",    &m_tds_chan);
+  for (const auto& dev: getDeviceManager().getPadTriggers()) {
+    m_pt_name = dev.getName();
+  }
+}
+
+void nsw::sTGCPadsHitRateSca::fillTree(const std::uint32_t pfeb,
+                                       const std::uint32_t rate) {
+  m_now = nsw::calib::utils::strf_time();
+  m_tds_chan = getCurrentTdsChannel();
+  m_pfeb = pfeb;
+  m_rate = rate;
+  m_rtree->Fill();
+}
+
+void nsw::sTGCPadsHitRateSca::closeTree() {
+  ERS_INFO("Closing TFile/TTree");
+  m_rtree->Write();
+  m_rfile->Close();
 }
 
 void nsw::sTGCPadsHitRateSca::setCurrentMetadata() const {
@@ -126,24 +166,24 @@ std::size_t nsw::sTGCPadsHitRateSca::getCurrentMetadata() const {
 }
 
 std::size_t nsw::sTGCPadsHitRateSca::getCurrentVmmThreshold() const {
-  return counter() / NTDSCHAN;
+  return counter() / nsw::tds::NUM_CH_PER_PAD_TDS;
 }
 
 // std::size_t nsw::sTGCPadsHitRateSca::getCurrentPadTriggerPfeb() const {
-//   return (counter() / NTDSCHAN) % NPFEB;
+//   return (counter() / nsw::tds::NUM_CH_PER_PAD_TDS) % NPFEB;
 // }
 
 std::size_t nsw::sTGCPadsHitRateSca::getCurrentTdsChannel() const {
-  return counter() % NTDSCHAN;
+  return counter() % nsw::tds::NUM_CH_PER_PAD_TDS;
 }
 
 bool nsw::sTGCPadsHitRateSca::updateVmmThresholds() const {
-  // return counter() % (NPFEB * NTDSCHAN) == 0;
-  return counter() % NTDSCHAN == 0;
+  // return counter() % (NPFEB * nsw::tds::NUM_CH_PER_PAD_TDS) == 0;
+  return counter() % nsw::tds::NUM_CH_PER_PAD_TDS == 0;
 }
 
 // bool nsw::sTGCPadsHitRateSca::updateCurrentPadTriggerPfeb() const {
-//   return counter() % NTDSCHAN == 0;
+//   return counter() % nsw::tds::NUM_CH_PER_PAD_TDS == 0;
 // }
 
 void nsw::sTGCPadsHitRateSca::setVmmThresholds() const {
