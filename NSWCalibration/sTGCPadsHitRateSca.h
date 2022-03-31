@@ -24,8 +24,6 @@
 #include <TTree.h>
 #include "NSWCalibration/CalibAlg.h"
 #include "NSWConfiguration/Constants.h"
-#include "NSWConfiguration/hw/PadTrigger.h"
-#include "NSWConfiguration/FEBConfig.h"
 
 ERS_DECLARE_ISSUE(nsw,
                   NSWsTGCPadsHitRateScaIssue,
@@ -50,30 +48,18 @@ namespace nsw {
     void fillTree(const std::uint32_t pfeb,
                   const std::uint32_t rate);
     void closeTree();
-    std::size_t getCurrentMetadata() const;
     std::size_t getCurrentVmmThreshold() const;
-    // std::size_t getCurrentPadTriggerPfeb() const;
     std::size_t getCurrentTdsChannel() const;
+    __uint128_t getCurrentTdsChannelMask() const;
     bool updateVmmThresholds() const;
-    // bool updateCurrentPadTriggerPfeb() const;
-    void setCurrentMetadata() const;
-    // void setCurrentPadTriggerPfeb() const;
     void setCurrentTdsChannels() const;
     void setCurrentTdsChannel(const nsw::hw::FEB& dev) const;
     void setVmmThresholds() const;
     void setVmmThreshold(const nsw::hw::FEB& dev) const;
     void checkThresholdAdjustment(std::uint32_t thr, int adj) const;
-    std::vector<int> m_thresholdAdjustments
-      = {-20, -10, 0, 10, 20, 30, 40, 50, 60, 70, 80};
-    /* std::vector<int> m_thresholdAdjustments */
-    /*   = {0, 10}; */
-    std::size_t m_acquire_time{1};
-
-    /* const std::size_t NTDSCHAN{104}; */
-    /* // const std::size_t NPFEB{24}; */
-    /* // const std::size_t NTDSCHAN{5}; */
-    /* const std::size_t NPFEB{3}; */
+    static constexpr std::array m_thresholdAdjustments{-20, -10, 0, 10, 20, 30, 40, 50, 60, 70, 80};
     static constexpr std::uint8_t m_regAddressChannelMask{0x2};
+    std::size_t m_acquire_time{1};
 
     // ROOT output
     std::string m_rname{""};
@@ -82,6 +68,7 @@ namespace nsw {
     std::uint32_t m_tds_chan{0};
     std::uint32_t m_pfeb{0};
     std::uint32_t m_rate{0};
+    std::uint32_t m_threshold{0};
     std::uint32_t m_runnumber{0};
     std::string m_app_name{""};
     std::string m_now{""};
