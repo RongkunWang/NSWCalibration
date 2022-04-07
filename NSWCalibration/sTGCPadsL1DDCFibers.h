@@ -35,28 +35,26 @@ namespace nsw {
 
   public:
     sTGCPadsL1DDCFibers(std::string calibType, const hw::DeviceManager& deviceManager);
-
-    void setup(const std::string& db) override;
+    void setup(const std::string& /* db */) override {};
     void configure() override;
     void unconfigure() override;
 
-    std::vector<std::uint32_t> getPadTriggerBCIDs() const;
-    void setROCPhase() const;
-    bool isLeft(const std::string& name) const;
-    bool isLeftStripped(const std::string& name) const;
-    void fill();
-
   private:
-    void setupObjects(const std::string& db);
+    void checkObjects() const;
     void setupTree();
     void closeTree();
+    void fillTree();
+    void setPhases();
+    void setROCPhases() const;
+    void setROCPhase(const nsw::hw::FEB& feb) const;
+    std::vector<std::uint32_t> getPadTriggerBCIDs() const;
+    bool isLeft(const std::string& name) const;
+    bool isLeftStripped(const std::string& name) const;
     bool existsInDB(const std::string& name) const;
-    const std::string the_reg{"reg096ePllTdc"};
-    const std::string the_subreg{"ePllPhase40MHz_0"};
-    static constexpr std::uint32_t phase_step{4};
-    static constexpr std::uint32_t num_reads{nsw::padtrigger::NUM_PFEB_BCID_READS/10};
+    const std::string m_reg{"ePllTdc.ePllPhase40MHz_0"};
+    static constexpr std::uint32_t m_phaseStep{4};
+    static constexpr std::uint32_t m_numReads{nsw::padtrigger::NUM_PFEB_BCID_READS/10};
 
-    std::reference_wrapper<const hw::PadTrigger> m_pt;
     /// output ROOT file
     std::uint32_t m_step{0};
     std::uint32_t m_reads{0};
@@ -69,12 +67,10 @@ namespace nsw {
     std::string m_pt_name{""};
     std::unique_ptr<TFile> m_rfile{nullptr};
     std::shared_ptr<TTree> m_rtree{nullptr};
-    std::unique_ptr< std::vector<std::uint32_t> > m_pfeb{nullptr};
-    std::unique_ptr< std::vector<std::uint32_t> > m_bcid{nullptr};
-    std::unique_ptr< std::vector<bool> >          m_mask{nullptr};
-    std::unique_ptr< std::vector<bool> >          m_left{nullptr};
-
-    std::vector<nsw::FEBConfig> m_pfebs{};
+    std::vector<std::uint32_t> m_pfeb{};
+    std::vector<std::uint32_t> m_bcid{};
+    std::vector<bool>          m_mask{};
+    std::vector<bool>          m_left{};
   };
 
 }
