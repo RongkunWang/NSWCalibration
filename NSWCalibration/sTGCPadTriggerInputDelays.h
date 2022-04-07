@@ -17,12 +17,8 @@
 
 #include <string>
 #include <vector>
-
 #include "NSWCalibration/CalibAlg.h"
-#include "NSWConfiguration/hw/PadTrigger.h"
-
 #include "ers/Issue.h"
-
 #include "TFile.h"
 #include "TTree.h"
 
@@ -37,37 +33,28 @@ namespace nsw {
   class sTGCPadTriggerInputDelays: public CalibAlg {
 
   public:
-    sTGCPadTriggerInputDelays(std::string calibType, const hw::DeviceManager& deviceManager) :
-      CalibAlg(std::move(calibType), deviceManager),
-      m_pts{getDeviceManager().getPadTriggers()} {};
-
+    sTGCPadTriggerInputDelays(std::string calibType, const hw::DeviceManager& deviceManager);
     sTGCPadTriggerInputDelays(const sTGCPadTriggerInputDelays&) = delete;
     sTGCPadTriggerInputDelays& operator=(const sTGCPadTriggerInputDelays&) = delete;
-    void setup(const std::string& db) override;
+    void setup(const std::string& /* db */) override {};
     void configure() override;
     void unconfigure() override;
 
   private:
-    void setup_type();
-    void setup_objects(const std::string& db);
-    void setup_tree();
-    void close_tree();
+    void checkObjects();
+    void setupTree();
+    void closeTree();
+    void setDelays(const nsw::hw::PadTrigger& pt) const;
+    void fillTree();
 
-  public:
-    void set_delays(const nsw::hw::PadTrigger& pt);
-    void read_bcids(const nsw::hw::PadTrigger& pt);
-    void fill();
-
-  private:
-    std::reference_wrapper<const std::vector<hw::PadTrigger>> m_pts;
     /// output ROOT file
-    uint32_t m_delay = 0;
+    std::uint32_t m_delay = 0;
     std::string m_now = "";
     std::string m_rname = "";
     std::string m_opcserverip = "";
     std::string m_address = "";
-    std::unique_ptr< std::vector<uint32_t> > m_bcid = std::make_unique< std::vector<uint32_t> >();
-    std::unique_ptr< std::vector<uint32_t> > m_pfeb = std::make_unique< std::vector<uint32_t> >();
+    std::vector<std::uint32_t> m_bcid{};
+    std::vector<std::uint32_t> m_pfeb{};
     std::unique_ptr<TFile> m_rfile;
     std::shared_ptr<TTree> m_rtree;
   };
