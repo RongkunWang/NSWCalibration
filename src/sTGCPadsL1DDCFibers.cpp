@@ -1,69 +1,31 @@
 #include "NSWCalibration/sTGCPadsL1DDCFibers.h"
-
-#include <unistd.h>
 #include <stdexcept>
-#include <future>
-
 #include <fmt/core.h>
-
 #include <ers/ers.h>
-
 #include "NSWCalibration/Utility.h"
-#include "NSWConfiguration/Constants.h"
-#include "NSWConfiguration/ConfigReader.h"
-#include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/I2cMasterConfig.h"
-#include "NSWConfiguration/hw/PadTrigger.h"
 
-nsw::sTGCPadsL1DDCFibers::sTGCPadsL1DDCFibers(std::string calibType, const hw::DeviceManager& deviceManager) :
-  CalibAlg(std::move(calibType), deviceManager),
-  m_pt{[&deviceManager]() -> const hw::PadTrigger& {
-    ERS_INFO("Finding pad triggers...");
-    const auto& pts = deviceManager.getPadTriggers();
-    ERS_INFO(fmt::format("Found {} pad triggers", pts.size()));
-    if (pts.size() != std::size_t{1}) {
-      const auto msg = std::string("Only works with 1 pad trigger. Crashing.");
-      nsw::NSWsTGCPadsL1DDCFibersIssue issue(ERS_HERE, msg);
-      ers::fatal(issue);
-      throw issue;
-    }
-    return pts.at(0);
-  }()} {};
+nsw::sTGCPadsL1DDCFibers::sTGCPadsL1DDCFibers(std::string calibType,
+                                              const hw::DeviceManager& deviceManager) :
+  CalibAlg(std::move(calibType), deviceManager)
+{
+  checkObjects();
 
-void nsw::sTGCPadsL1DDCFibers::setup(const std::string& db) {
-  ERS_INFO("setup " << db);
-
-  //
-  // make objects and outputs
-  //
-  setupObjects(db);
-  setupTree();
-
-  //
   // set number of iterations
   // N(phases per L-side) * N(phases per R-side)
-  //
-  setTotal(nsw::roc::NUM_PHASES_EPLL_TDS_40MHZ / phase_step *
-           nsw::roc::NUM_PHASES_EPLL_TDS_40MHZ / phase_step);
-
-  //
-  // other settings
-  //
-
-  nsw::snooze();
+  setTotal(nsw::roc::NUM_PHASES_EPLL_TDS_40MHZ / m_phaseStep *
+           nsw::roc::NUM_PHASES_EPLL_TDS_40MHZ / m_phaseStep);
 }
 
 void nsw::sTGCPadsL1DDCFibers::configure() {
-  m_phase_L = (counter() / (nsw::roc::NUM_PHASES_EPLL_TDS_40MHZ / phase_step)) * phase_step;
-  m_phase_R = (counter() % (nsw::roc::NUM_PHASES_EPLL_TDS_40MHZ / phase_step)) * phase_step;
-  setROCPhase();
-  nsw::snooze(std::chrono::milliseconds(100));
-  for (auto i = num_reads; i > 0; i--) {
-    m_bcid->clear();
-    for (const auto bcid: getPadTriggerBCIDs()) {
-      m_bcid->push_back(bcid);
-    }
-    fill();
+  if (counter() == 0) {
+    setupTree();
+  }
+  setPhases();
+  setROCPhases();
+  for (auto i = m_numReads; i > 0; i--) {
+    m_bcid = getPadTriggerBCIDs();
+    fillTree();
   }
 }
 
@@ -73,57 +35,65 @@ void nsw::sTGCPadsL1DDCFibers::unconfigure() {
   }
 }
 
-void nsw::sTGCPadsL1DDCFibers::setROCPhase() const {
+void nsw::sTGCPadsL1DDCFibers::setPhases() {
+  m_phase_L = (counter() / (nsw::roc::NUM_PHASES_EPLL_TDS_40MHZ / m_phaseStep)) * m_phaseStep;
+  m_phase_R = (counter() % (nsw::roc::NUM_PHASES_EPLL_TDS_40MHZ / m_phaseStep)) * m_phaseStep;
+}
 
-  auto cs = std::make_unique<nsw::ConfigSender>();
-  ERS_INFO(fmt::format("Configuring L-(R-)side PFEBs {}/{} with {} ({})",
-                       the_reg, the_subreg, m_phase_L, m_phase_R));
+void nsw::sTGCPadsL1DDCFibers::setROCPhases() const {
+  ERS_INFO(fmt::format("Config L-(R-)side PFEBs {} with {} ({})", m_reg, m_phase_L, m_phase_R));
+  auto threads = std::vector< std::future<void> >();
+  for (const auto& feb: getDeviceManager().getFebs()) {
+    threads.push_back(
+      std::async(std::launch::async, &nsw::sTGCPadsL1DDCFibers::setROCPhase, this, feb)
+    );
+  }
+  for (auto& thr: threads) {
+    thr.get();
+  }
+}
 
-  for (const auto& feb: m_pfebs) {
+void nsw::sTGCPadsL1DDCFibers::setROCPhase(const nsw::hw::FEB& feb) const {
+  if (feb.getOpcNodeId().find("PFEB") == std::string::npos) {
+    return;
+  }
 
-    // feb address
-    const auto opc_ip      = feb.getOpcServerIp();
-    const auto sca_address = feb.getAddress();
-    const auto is_left     = isLeft(feb.getAddress());
-    const auto phase       = is_left ? m_phase_L : m_phase_R;
-    const auto side        = is_left ? "L" : "R";
-    ERS_INFO(fmt::format("Configuring {} ({}-side)",
-                         sca_address, side));
-
-    // set phase
-    auto roc_analog = I2cMasterConfig(feb.getRocAnalog());
-    roc_analog.setRegisterValue(the_reg, the_subreg, phase);
-    if (!simulation()) {
-      cs->sendI2cMasterSingle(opc_ip, sca_address, roc_analog, the_reg);
-    }
+  // bookkeeping
+  const auto name    = feb.getOpcNodeId();
+  const auto is_left = isLeft(name);
+  const auto phase   = is_left ? m_phase_L : m_phase_R;
+  const auto side    = is_left ? "L" : "R";
+  ERS_INFO(fmt::format("Configuring {} ({}-side)", name, side));
+  
+  // set phase
+  if (not simulation()) {
+    feb.getRoc().writeValue(m_reg, phase);
   }
 }
 
 std::vector<std::uint32_t> nsw::sTGCPadsL1DDCFibers::getPadTriggerBCIDs() const {
-  if (simulation()) {
-    return std::vector<std::uint32_t>(nsw::padtrigger::NUM_PFEBS);
+  if (not simulation()) {
+    for (const auto& pt: getDeviceManager().getPadTriggers()) {
+      return pt.readPFEBBCIDs();
+    }
   }
-  return m_pt.get().readPFEBBCIDs();
+  return std::vector<std::uint32_t>(nsw::padtrigger::NUM_PFEBS);
 }
 
-void nsw::sTGCPadsL1DDCFibers::fill() {
-  m_pt_name = m_pt.get().getName();
-  m_now     = nsw::calib::utils::strf_time();
+void nsw::sTGCPadsL1DDCFibers::fillTree() {
+  m_now = nsw::calib::utils::strf_time();
   m_rtree->Fill();
 }
 
-void nsw::sTGCPadsL1DDCFibers::setupObjects(const std::string& db) {
-  //
-  // pad trigger objects
-  //
-
-
-  //
-  // pfeb objects
-  //
-  ERS_INFO("Finding PFEBs...");
-  m_pfebs = nsw::ConfigReader::makeObjects<nsw::FEBConfig>(db, "PFEB");
-  ERS_INFO(fmt::format("Found {} PFEBs", m_pfebs.size()));
+void nsw::sTGCPadsL1DDCFibers::checkObjects() const {
+  const auto npts  = getDeviceManager().getPadTriggers().size();
+  const auto nfebs = getDeviceManager().getFebs().size();
+  ERS_INFO(fmt::format("Found {} pad triggers", npts));
+  ERS_INFO(fmt::format("Found {} FEBs", nfebs));
+  if (npts > 1) {
+    const auto msg = fmt::format("sTGCPadTriggerInputDelays only works with 1 PT");
+    ers::error(nsw::NSWsTGCPadsL1DDCFibersIssue(ERS_HERE, msg));
+  }
 }
 
 bool nsw::sTGCPadsL1DDCFibers::isLeft(const std::string& name) const {
@@ -132,9 +102,12 @@ bool nsw::sTGCPadsL1DDCFibers::isLeft(const std::string& name) const {
 }
 
 bool nsw::sTGCPadsL1DDCFibers::isLeftStripped(const std::string& name) const {
-  for (const auto& feb: m_pfebs) {
-    if (feb.getAddress().find(name) != std::string::npos) {
-      return isLeft(feb.getAddress());
+  for (const auto& feb: getDeviceManager().getFebs()) {
+    if (feb.getOpcNodeId().find("PFEB") == std::string::npos) {
+      continue;
+    }
+    if (feb.getOpcNodeId().find(name) != std::string::npos) {
+      return isLeft(feb.getOpcNodeId());
     }
   }
   return false;
@@ -144,16 +117,16 @@ void nsw::sTGCPadsL1DDCFibers::setupTree() {
   m_runnumber = runNumber();
   m_app_name  = applicationName();
   m_now = nsw::calib::utils::strf_time();
-  m_reads = num_reads;
-  m_step  = phase_step;
+  m_reads = m_numReads;
+  m_step  = m_phaseStep;
   m_rname = fmt::format("{}.{}.{}.{}.root",
             m_calibType, m_runnumber, m_app_name, m_now);
   m_rfile = std::make_unique< TFile >(m_rname.c_str(), "recreate");
   m_rtree = std::make_shared< TTree >("nsw", "nsw");
-  m_pfeb  = std::make_unique< std::vector<std::uint32_t> >();
-  m_bcid  = std::make_unique< std::vector<std::uint32_t> >();
-  m_mask  = std::make_unique< std::vector<bool> >();
-  m_left  = std::make_unique< std::vector<bool> >();
+  m_pfeb  = std::vector<std::uint32_t>();
+  m_bcid  = std::vector<std::uint32_t>();
+  m_mask  = std::vector<bool>();
+  m_left  = std::vector<bool>();
   m_rtree->Branch("runnumber",   &m_runnumber);
   m_rtree->Branch("appname",     &m_app_name);
   m_rtree->Branch("name",        &m_pt_name);
@@ -162,20 +135,27 @@ void nsw::sTGCPadsL1DDCFibers::setupTree() {
   m_rtree->Branch("phase_step",  &m_step);
   m_rtree->Branch("phase_L",     &m_phase_L);
   m_rtree->Branch("phase_R",     &m_phase_R);
-  m_rtree->Branch("pfeb_bcid",    m_bcid.get());
-  m_rtree->Branch("pfeb_index",   m_pfeb.get());
-  m_rtree->Branch("pfeb_mask",    m_mask.get());
-  m_rtree->Branch("pfeb_left",    m_left.get());
+  m_rtree->Branch("pfeb_bcid",   &m_bcid);
+  m_rtree->Branch("pfeb_index",  &m_pfeb);
+  m_rtree->Branch("pfeb_mask",   &m_mask);
+  m_rtree->Branch("pfeb_left",   &m_left);
+  for (const auto& pt: getDeviceManager().getPadTriggers()) {
+    m_pt_name = pt.getName();
+    break;
+  }
   for (const auto name: nsw::padtrigger::ORDERED_PFEBS) {
-    m_pfeb->push_back(m_pfeb->size());
-    m_mask->push_back(existsInDB(std::string(name)));
-    m_left->push_back(isLeftStripped(std::string(name)));
+    m_pfeb.push_back(m_pfeb.size());
+    m_mask.push_back(existsInDB(std::string(name)));
+    m_left.push_back(isLeftStripped(std::string(name)));
   }
 }
 
 bool nsw::sTGCPadsL1DDCFibers::existsInDB(const std::string& name) const {
-  for (const auto& feb: m_pfebs) {
-    if (feb.getAddress().find(name) != std::string::npos) {
+  for (const auto& feb: getDeviceManager().getFebs()) {
+    if (feb.getOpcNodeId().find("PFEB") == std::string::npos) {
+      continue;
+    }
+    if (feb.getOpcNodeId().find(name) != std::string::npos) {
       return true;
     }
   }
