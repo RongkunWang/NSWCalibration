@@ -1,5 +1,5 @@
 ---
-Checks:          '-*,boost*,bugprone*,clang*,concurrency-*,cppcore*,hicpp*,llvm-*,-llvm-include-order,misc*,modernize*,-modernize-use-trailing-return-type,performance*,portability*,readability*'
+Checks:          '-*,boost*,bugprone*,-bugprone-easily-swappable-parameters,clang*,concurrency-*,cppcore*,-cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp*,-hicpp-no-array-decay,llvm-*,-llvm-include-order,misc*,modernize*,-modernize-use-trailing-return-type,performance*,portability*,readability*'
 WarningsAsErrors: ''
 HeaderFilterRegex: ''
 AnalyzeTemporaryDtors: false

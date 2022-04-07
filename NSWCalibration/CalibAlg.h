@@ -9,21 +9,23 @@
 #include <functional>
 #include <string>
 #include <chrono>
+#include <filesystem>
 #include <vector>
-
-#include <RunControl/Common/RunControlCommands.h>
 
 #include "NSWCalibration/Commands.h"
 
 #include "NSWConfiguration/hw/DeviceManager.h"
+
+class ISInfoDictionary;
 
 namespace nsw {
 
   class CalibAlg {
 
   public:
-    CalibAlg(std::string calibType, const hw::DeviceManager& deviceManager) : m_calibType(std::move(calibType)), m_deviceManager{deviceManager} {};
+    CalibAlg(std::string calibType, const hw::DeviceManager& deviceManager);
     CalibAlg(std::string, hw::DeviceManager&&) = delete;
+
     virtual ~CalibAlg() = default;
 
     /*!
@@ -71,6 +73,17 @@ namespace nsw {
     virtual nsw::commands::Commands getAltiSequences() const {return {};};
 
     /*!
+     * \brief Implements a method to extract calibration parameters from IS
+     *
+     * Will be called during the \c reset UserCmd, which is executed
+     * prior to starting any calibration loop.
+     *
+     * \param is_dictionary Reference to the ISInfoDictionary from the RC application
+     * \param is_db_name Name of the IS server storing the parameters
+     */
+    virtual void setCalibParamsFromIS(const ISInfoDictionary& is_dictionary, const std::string& is_db_name);
+
+    /*!
      * \brief Increments the iteration counter and checks if there are
      *        more iterations to do
      *
@@ -99,8 +112,45 @@ namespace nsw {
     void setApplicationName(const std::string& name) {m_name = name;}
     void setRunNumber(const std::uint32_t val) {m_run_number = val;}
 
+    /*!
+     * \brief Obtain the current run number, start of run time, and set the run
+     *        string based on the RunParams ISInfoDictionary
+     *
+     * Sets m_run_string to either the current run number (m_run_number)
+     * in the format runXXXXXXXX, or the start of run time (m_run_start)
+     * in the format YY_mm_dd_HHhMMmSSs
+     */
+    void setCurrentRunParameters(const std::pair<std::uint32_t, std::time_t>& params);
+
   protected:
     [[nodiscard]] const hw::DeviceManager& getDeviceManager() const { return m_deviceManager.get(); }
+
+    /*!
+     * \brief Construct the output path for calibration output files for a given run
+     *
+     * The format will be the base output directory taken from OKS
+     * (m_out_path), the calibration type (m_calibType), and the run
+     * identifier (m_run_string)
+     *
+     * \returns std::filesystem::path corresponding to the location
+     *          output files will be written for this run
+     */
+    [[nodiscard]]
+    std::filesystem::path getOutputDir() const { return std::filesystem::path(m_out_path) / std::filesystem::path(m_calibType) / std::filesystem::path(m_run_string); }
+
+    /*!
+     * \brief Construct the full path for an output file
+     *
+     * The format will be the base output directory taken from OKS
+     * (m_out_path), the calibration type (m_calibType), the run
+     * identifier (m_run_string), and finally the filename (fname)
+     *
+     * \param fname Name of the output file
+     *
+     * \returns std::filesystem::path corresponding to the output file
+     */
+    [[nodiscard]]
+    std::filesystem::path getOutputPath(const std::string& fname) const { return getOutputDir()/fname;}
 
   private:
     // "progress bar"
@@ -116,11 +166,14 @@ namespace nsw {
     std::size_t m_total{1};    //!< Total number of iterations in the calibration loop
     bool m_wait4swrod{false};  //!< Calibration interacts with SwRod for processing
     bool m_simulation{false};  //!< Calibration is simulated or not
+    std::uint32_t m_run_number{0};  //!< Calibration run number from partition
+    std::time_t m_run_start{};      //!< Calibration run start from partition
+    std::string m_run_string;       //!< String representation of the run number or timestamp
 
   private:
     std::reference_wrapper<const hw::DeviceManager> m_deviceManager;  //!< Device Manager
-    std::uint32_t m_run_number{0};  //!< Calibration run number
-    std::string m_name;             //!< Calibration application name
+    std::string m_name;      //!< Calibration application nam
+    std::string m_out_path;  //!< Calibration output base path, taken from OKS
 
     std::chrono::time_point<std::chrono::system_clock> m_time_start;  //!< Calibration start time
     std::chrono::duration<double> m_elapsed_seconds{0};  //!< Duration of the calibration

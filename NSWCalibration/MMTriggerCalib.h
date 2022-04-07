@@ -20,9 +20,6 @@
 
 #include "ers/Issue.h"
 
-#include <ipc/partition.h>
-#include <is/infodictionary.h>
-
 ERS_DECLARE_ISSUE(nsw,
                   NSWMMTriggerCalibIssue,
                   message,
@@ -34,7 +31,7 @@ namespace nsw {
   class MMTriggerCalib: public CalibAlg {
 
   public:
-    explicit MMTriggerCalib(std::string calibType, const hw::DeviceManager& deviceManager, std::string calibIsName, const ISInfoDictionary& calibIsDict);
+    MMTriggerCalib(std::string calibType, const hw::DeviceManager& deviceManager);
 
     void setup(const std::string& db) override;
     void configure() override;
@@ -42,6 +39,7 @@ namespace nsw {
     void unconfigure() override;
     [[nodiscard]]
     nsw::commands::Commands getAltiSequences() const override;
+    void setCalibParamsFromIS(const ISInfoDictionary& is_dictionary, const std::string& is_db_name) override;
 
   public:
     boost::property_tree::ptree patterns() const;
@@ -54,7 +52,6 @@ namespace nsw {
     int configure_art_input_phase(nsw::ADDCConfig addc, uint phase) const;
     int configure_tps(const boost::property_tree::ptree& tr);
     int addc_tp_watchdog();
-    std::string trackPatternFileFromIS();
 
     //
     // Read the hit counters of all ART ASICs.
@@ -73,8 +70,6 @@ namespace nsw {
     int announce(const std::string& name, const boost::property_tree::ptree& tr, bool unmask) const;
 
   private:
-    std::string                    m_isDbName;
-    const ISInfoDictionary&        m_isInfoDict;
     std::string                    m_trackPatternFile;
     std::vector<nsw::FEBConfig>    m_febs   = {};
     std::vector<nsw::ADDCConfig>   m_addcs  = {};

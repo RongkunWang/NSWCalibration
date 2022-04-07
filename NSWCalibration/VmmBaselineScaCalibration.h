@@ -18,13 +18,13 @@ namespace nsw {
     public:
     // public functions exposed to callers
     // Construct a calibration for all VMMs on this FEB
-    explicit VmmBaselineScaCalibration(nsw::FEBConfig feb,
-                                       std::string outpath,
-                                       std::size_t nSamples,
-                                       std::size_t rmsFactor,
-                                       std::size_t sector,
-                                       int wheel,
-                                       bool debug);
+    VmmBaselineScaCalibration(nsw::FEBConfig feb,
+                              std::string outpath,
+                              std::size_t nSamples,
+                              std::size_t rmsFactor,
+                              std::size_t sector,
+                              int wheel,
+                              bool debug);
 
     void runCalibration() final;
     private:

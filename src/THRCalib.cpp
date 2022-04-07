@@ -17,12 +17,10 @@
 
 #include <ers/ers.h>
 
-#include <is/infodictionary.h>
 #include <is/infodynany.h>
+#include <is/infodictionary.h>
 
-#include <RunControl/RunControl.h>
 #include <RunControl/Common/OnlineServices.h>
-#include <RunControl/Common/RunControlCommands.h>
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -47,13 +45,8 @@ namespace fs = std::filesystem;
 
 using namespace std::chrono_literals;
 
-nsw::THRCalib::THRCalib(std::string calibType,
-                        const hw::DeviceManager& deviceManager,
-                        std::string calibIsName,
-                        const ISInfoDictionary& calibIsDict) :
-  CalibAlg(std::move(calibType), deviceManager),
-  m_isDbName(std::move(calibIsName)),
-  m_isInfoDict(calibIsDict)
+nsw::THRCalib::THRCalib(std::string calibType, const hw::DeviceManager& deviceManager) :
+  CalibAlg(std::move(calibType), deviceManager)
 {}
 
 void nsw::THRCalib::setup(const std::string& db)
@@ -116,30 +109,12 @@ void nsw::THRCalib::setup(const std::string& db)
 
   ERS_INFO(fmt::format("Calibration Application name is {} |Wheel={}|sector={}|", m_app_name, m_wheel, m_sector));
 
-  try {
-    ISInfoDynAny runPar;
-    m_isInfoDict.getValue("RunParams.RumParams", runPar);
-    m_run_nr = runPar.getAttributeValue<std::uint32_t>("run_number");
-    ERS_INFO(fmt::format( "Run number is: {}", m_run_nr));
-  } catch (const daq::is::Exception& e) {
-    ers::warning(
-      nsw::THRCalibIssue(ERS_HERE, fmt::format("Could not find RUN number because: {}", e.what())));
-    m_run_nr = 0;
-  }
-
-  if (m_run_nr != 0) {
-    m_run_string = std::to_string(m_run_nr);
-  } else {
-    m_run_string = nsw::calib::utils::strf_time();
-    ERS_LOG(fmt::format("Using run number timestamp={}", m_run_string));
-  }
-
+  // FIXME TODO move this to configure, since this needs to be done for *every* START transition
   m_output_path = fmt::format("{}/{}", calibOutPath, m_run_string);
   ERS_INFO(fmt::format("Calibration data will be written to: {}/{}", m_output_path, m_run_string));
   fs::create_directories(fs::path(m_output_path));
 
   std::this_thread::sleep_for(2000ms);
-  get_setup_from_IS();
 
   ERS_INFO(fmt::format("Threshold calibration type - {}", m_run_type));
 }
@@ -282,20 +257,19 @@ void nsw::THRCalib::merge_json()
   pt::write_json(write_this_json, prev_conf);
 }
 
-void nsw::THRCalib::get_setup_from_IS()
+void nsw::THRCalib::setCalibParamsFromIS(const ISInfoDictionary& is_dictionary,
+                                         const std::string& is_db_name)
 {
-  std::string sca_read_params;
-  const auto calibParamsIsName = fmt::format("{}.Calib.calibParams", m_isDbName);
-  if (m_isInfoDict.contains(calibParamsIsName)) {
-    ISInfoDynAny calibParamsFromIS;
-    m_isInfoDict.getValue(calibParamsIsName, calibParamsFromIS);
-    sca_read_params = calibParamsFromIS.getAttributeValue<std::string>(0);
-    ERS_INFO(fmt::format("Calibration Parameters from IS: {}", sca_read_params));
-    std::this_thread::sleep_for(2000ms);
+  const auto calib_param_is_name = fmt::format("{}.Calib.calibParams", is_db_name);
+  if (is_dictionary.contains(calib_param_is_name)) {
+    ISInfoDynAny calib_params_from_is;
+    is_dictionary.getValue(calib_param_is_name, calib_params_from_is);
+    const auto calibParams = calib_params_from_is.getAttributeValue<std::string>(0);
+    ERS_INFO(fmt::format("Calibration Parameters from IS: {}", calibParams));
 
-    const auto type = sca_read_params.substr(0, 3);
-    const auto run_params = sca_read_params.substr(4, sca_read_params.length());
-    int dflag = 0;
+    const auto type = calibParams.substr(0, 3);
+    const auto run_params = calibParams.substr(4, calibParams.length());
+    int dflag{0};
 
     sscanf(run_params.c_str(), "%zu,%zu,%d", &m_n_samples, &m_rms_factor, &dflag);
     ERS_DEBUG(2, fmt::format("Check: {}--{}--{}", m_n_samples, m_rms_factor, dflag));
@@ -317,14 +291,11 @@ void nsw::THRCalib::get_setup_from_IS()
       m_run_type = "thresholds";
     }
   } else {
-    const auto is_cmd = fmt::format(
-      "is_write -p ${{TDAQ_PARTITION}} -n {} -t String  -v '<params>' -i 0", calibParamsIsName);
-    ers::warning(nsw::calib::IsParameterNotFound(ERS_HERE, "calibParams", is_cmd));
-    ers::warning(nsw::THRCalibIssue(ERS_HERE,
-                                    "Calibration parameters were not specified - "
-                                    "using default n_sample(100/chan)/m_rms_factor(x6)/ settings"));
+    const auto is_cmd = fmt::format("is_write -p ${{TDAQ_PARTITION}} -n {} -t String -v Type,samples,xRMS,debug -i 0", calib_param_is_name);
+    nsw::calib::IsParameterNotFoundUseDefault issue(ERS_HERE, "calibParams", is_cmd, "Running a threshold scan using default n_sample(100/chan)/m_rms_factor(x6)/ settings");
+    ers::warning(issue);
     m_run_type = "thresholds";
   }
   ERS_INFO(fmt::format("Run type - {}", m_run_type));
-  std::this_thread::sleep_for(2000ms);
+  std::this_thread::sleep_for(500ms);
 }

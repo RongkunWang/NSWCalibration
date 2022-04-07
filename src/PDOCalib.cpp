@@ -9,15 +9,10 @@
 #include <fmt/core.h>
 #include <fmt/chrono.h>
 
-#include <is/info.h>
-#include <is/infoT.h>
-#include <is/infostream.h>
-#include <is/infodynany.h>
-
 #include <ers/ers.h>
 
-#include <RunControl/RunControl.h>
-#include <RunControl/Common/RunControlCommands.h>
+#include <is/infodynany.h>
+#include <is/infodictionary.h>
 
 // FIXME TODO only used for nsw::ref constant inclusion
 #include "NSWCalibration/CalibrationMath.h"
@@ -29,13 +24,8 @@
 
 using namespace std::chrono_literals;
 
-nsw::PDOCalib::PDOCalib(std::string calibType,
-                        const hw::DeviceManager& deviceManager,
-                        std::string calibIsName,
-                        const ISInfoDictionary& calibIsDict) :
+nsw::PDOCalib::PDOCalib(std::string calibType, const hw::DeviceManager& deviceManager) :
   CalibAlg(std::move(calibType), deviceManager),
-  m_isDbName(std::move(calibIsName)),
-  m_isInfoDict(calibIsDict),
   m_trecord(8000)
 {
   m_pdo_flag = [&]() {
@@ -64,7 +54,6 @@ void nsw::PDOCalib::setup(const std::string& db)
   ERS_INFO(fmt::format("Reading frontend configuration - {}", db));
 
   // needs input from IS entry - calibParams
-  get_calib_params_IS(m_calibRegs, m_numChPerGroup);
 
   ERS_INFO("Checking parameter input from IS");
   ERS_INFO(fmt::format("Number of params to loop for = {})", m_calibRegs.size()));
@@ -100,12 +89,6 @@ void nsw::PDOCalib::setup(const std::string& db)
   if (!m_calibRegs.empty()) {
     resetCalibLoop();
   }
-
-  // FIXME TODO argument of this function is an std::size_t
-  // (unsigned), what is `-1` being passed for?
-  // updating triggerCalibrationKey and after n sec sleep
-  // reading it back from swrod
-  push_to_swrod(static_cast<std::size_t>(-1));
 }
 
 void nsw::PDOCalib::configure()
@@ -117,8 +100,6 @@ void nsw::PDOCalib::configure()
   } else {
     ERS_INFO(fmt::format("Calibrating TDO with delay = {} [ns]", m_currentCalibReg * nsw::ref::TP_DELAY_STEP));
   }
-  push_to_swrod(m_currentCalibReg);  // updating triggerCalibrationKey and after n sec
-  // sleep reading it back from swrod
 
   ERS_INFO("Unmasking channels to be pulsed, setting registers");
   send_pulsing_configs(m_currentCalibReg, m_currentChannel, true);
@@ -173,6 +154,7 @@ nsw::commands::Commands nsw::PDOCalib::getAltiSequences() const
     {nsw::commands::actionStopPG}    // after (before unconfigure)
   };
 }
+
 void nsw::PDOCalib::resetCalibLoop()
 {
   m_chanIterStart = std::chrono::high_resolution_clock::now();
@@ -377,45 +359,40 @@ void nsw::PDOCalib::toggle_channels(nsw::FEBConfig feb,
   }
 }
 
-void nsw::PDOCalib::push_to_swrod(const std::size_t i_par)
+void nsw::PDOCalib::setCalibParamsFromIS(const ISInfoDictionary& is_dictionary,
+                                         const std::string& is_db_name)
 {
-  m_isInfoDict.checkin(m_calibCounterTck, ISInfoInt(i_par));
+  std::vector<int> reg_values{};
 
-  ERS_INFO("Publishing following parameter to swrod plugin >>" << i_par);
-
-  std::this_thread::sleep_for(2000ms);
-  ISInfoInt swrod_trigger_par;
-  try {
-    m_isInfoDict.getValue(m_calibCounterTck_readback, swrod_trigger_par);
-    ERS_INFO("Reading back updated triggerCalibrationKey is >> " << swrod_trigger_par);
-  } catch (daq::is::Exception& ex) {
-    ers::error(ex);
-  }
-}
-
-void nsw::PDOCalib::get_calib_params_IS(std::vector<int>& reg_values, int& group)
-{
-  const auto calibParamsIsName = fmt::format("{}.Calib.calibParams", m_isDbName);
-  if (m_isInfoDict.contains(calibParamsIsName)) {
-    ISInfoDynAny calibParamsFromIS;
-    m_isInfoDict.getValue(calibParamsIsName, calibParamsFromIS);
-    const std::string params = calibParamsFromIS.getAttributeValue<std::string>(0);
+  const auto calib_param_is_name = fmt::format("{}.Calib.calibParams", is_db_name);
+  if (is_dictionary.contains(calib_param_is_name)) {
+    ISInfoDynAny calib_params_from_is;
+    is_dictionary.getValue(calib_param_is_name, calib_params_from_is);
+    const auto calibParams = calib_params_from_is.getAttributeValue<std::string>(0);
+    ERS_INFO(fmt::format("Calibration parameters from IS: {}", calibParams));
 
     // channel groups to pulse come as first arg in the string
-    const auto gr = params.substr(0, 1);
-    const auto regs = params.substr(2, params.length());
-    group = std::stoi(gr);
-    ERS_INFO(fmt::format("Found entries {} CHAN-GR= [{}] REGS= [{}]", params, gr, regs));
+    // FIXME super unsafe, only assumes (gets first) character
+    const auto gr = calibParams.substr(0, 1);
+    const auto regs = calibParams.substr(1, calibParams.length());
+    ERS_DEBUG(2,fmt::format("Found calibration parameters {}: Chanel groups= [{}], registers= [{}]", calibParams, gr, regs));
+
+    try {
+      m_numChPerGroup = std::stoi(gr);
+    } catch (const std::exception& ex) {
+      m_numChPerGroup = 8;
+      ERS_LOG(fmt::format("Unable to parse channel group parameter {}, using default {}: {}", gr, m_numChPerGroup, ex.what()));
+    }
+
     std::stringstream instream(regs);
 
     // Parse the remainder of the input to extract time and DAC/delay values
-    int iter = 0;
     while (instream.good()) {
-      std::string sub;
+      std::string sub{};
       getline(instream, sub, ',');
       if (sub.at(0) == '*' && sub.at(sub.length() - 1) == '*') {
         // time setting is denoted in IS as *####* ms
-        std::string time;
+        std::string time{};
         for (std::size_t c = 0; c < sub.length(); c++) {
           if (sub[c] != '*') {
             time += sub[c];
@@ -423,19 +400,29 @@ void nsw::PDOCalib::get_calib_params_IS(std::vector<int>& reg_values, int& group
             continue;
           }
         }
-        m_trecord = std::chrono::milliseconds(std::stoi(time));
-        ERS_INFO(fmt::format("Found new recording time => {} [ms]", m_trecord));
+        try {
+          m_trecord = std::chrono::milliseconds(std::stoi(time));
+          ERS_LOG(fmt::format("Found new recording time => {}", m_trecord));
+        } catch (const std::out_of_range& ex) {
+          m_trecord = std::chrono::milliseconds(8000);
+          ERS_LOG(fmt::format("Unable to parse time parameter {}, using default {}: {}", time, m_trecord, ex.what()));
+        }
       } else {
         // if sub is not starting/ending with * - it's a pulser
         // DAC/delay setting
-        reg_values.push_back(std::atoi(sub.c_str()));
+        try {
+          reg_values.push_back(std::stoi(sub));
+        } catch (const std::out_of_range& ex) {
+          ERS_LOG(fmt::format("{} is out of range for {}", sub, ex.what()));
+        } catch (const std::invalid_argument& ex) {
+          ERS_LOG(fmt::format("Unable to parse parameter {}: {}", sub, ex.what()));
+        }
       }
-      iter++;
     }
   } else {
-    // in case calibParams does not exist, the following settings are used
+    // in case calibParams does not exist, the following default settings are used
     m_trecord = std::chrono::milliseconds(8000);
-    group = 8;
+    m_numChPerGroup = 8;
 
     const auto msg = [this, &reg_values]() -> std::string {
       if (m_pdo_flag) {
@@ -450,12 +437,11 @@ void nsw::PDOCalib::get_calib_params_IS(std::vector<int>& reg_values, int& group
       }
     }();
 
-    const auto is_cmd = fmt::format(
-      "is_write -p ${{TDAQ_PARTITION}} -n {} -t String  -v '<params>' -i 0", calibParamsIsName);
-    ers::warning(nsw::calib::IsParameterNotFound(ERS_HERE, "calibParams", is_cmd));
     nsw::PDOCalibIssue issue(ERS_HERE, msg);
     ers::warning(issue);
   }
+
+  m_calibRegs = std::move(reg_values);
 }
 
 void nsw::PDOCalib::check_roc()

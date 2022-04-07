@@ -50,9 +50,9 @@ class RocPhaseCalibrationBase : public nsw::CalibAlg
    * \param values Phases passed to the calibration (if empty: calibration will run over all
    * possible phases of a clock)
    */
-  explicit RocPhaseCalibrationBase(std::string outputFilenameBase,
-                                   const nsw::hw::DeviceManager& deviceManager,
-                                   const std::vector<std::uint8_t>& values = {});
+  RocPhaseCalibrationBase(std::string outputFilenameBase,
+                          const nsw::hw::DeviceManager& deviceManager,
+                          const std::vector<std::uint8_t>& values = {});
 
   /**
    * \brief Configure ROC phase value for current iteration of phase loop

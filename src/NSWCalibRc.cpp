@@ -149,7 +149,8 @@ void nsw::NSWCalibRc::user(const daq::rc::UserCmd& usrCmd) {
     calib->next();
   } else if (usrCmd.commandName() == "reset") {
     calib->setCounter(0);
-    calib->setRunNumber(runNumberFromIS());
+    calib->setCurrentRunParameters(runParamsFromIS());
+    calib->setCalibParamsFromIS(*is_dictionary, m_is_db_name);
   } else {
     nsw::NSWCalibIssue issue(ERS_HERE, fmt::format("Unrecognized UserCmd specified {}", usrCmd.commandName()));
     ers::warning(issue);
@@ -211,9 +212,9 @@ void nsw::NSWCalibRc::handler() {
       m_calibType=="MMARTPhase" ||
       m_calibType=="MML1ALatency" ||
       m_calibType=="MMStaircase") {
-    calib = std::make_unique<MMTriggerCalib>(m_calibType, deviceManager, m_is_db_name, *is_dictionary);
+    calib = std::make_unique<MMTriggerCalib>(m_calibType, deviceManager);
   } else if (m_calibType=="MMTrackPulserTest") {
-    calib = std::make_unique<MMTriggerCalib>(m_calibType, deviceManager, m_is_db_name, *is_dictionary);
+    calib = std::make_unique<MMTriggerCalib>(m_calibType, deviceManager);
   } else if (m_calibType=="MMTPInputPhase") {
     calib = std::make_unique<MMTPInputPhase>(m_calibType, deviceManager);
   } else if (m_calibType=="sTGCPadConnectivity" ||
@@ -237,10 +238,10 @@ void nsw::NSWCalibRc::handler() {
   } else if (m_calibType=="sTGCPadsL1DDCFibers") {
     calib = std::make_unique<sTGCPadsL1DDCFibers>(m_calibType, deviceManager);
   } else if (m_calibType=="THRCalib"){
-    calib = std::make_unique<THRCalib>(m_calibType, deviceManager, m_is_db_name, *is_dictionary);
+    calib = std::make_unique<THRCalib>(m_calibType, deviceManager);
   } else if (m_calibType=="PDOCalib" ||
              m_calibType=="TDOCalib"){
-    calib = std::make_unique<PDOCalib>(m_calibType, deviceManager, m_is_db_name, *is_dictionary);
+    calib = std::make_unique<PDOCalib>(m_calibType, deviceManager);
   } else if (m_calibType=="RocPhase40MHzCore") {
     calib = std::make_unique<RocPhaseCalibrationBase<RocPhase40MhzCore>>(m_calibType, deviceManager);
   } else if (m_calibType == "RocPhase160MHzCore") {
@@ -258,7 +259,6 @@ void nsw::NSWCalibRc::handler() {
   alti_setup();
   // FIXME: Alex will remove it in another MR
   calib->setApplicationName(m_appname);
-  calib->setRunNumber(runNumberFromIS());  
   calib->setSimulation(m_simulation);
   calib->setup(m_dbcon);
   ERS_INFO("calib counter:    " << calib->counter());
@@ -497,13 +497,21 @@ bool nsw::NSWCalibRc::simulationFromIS() {
   return false;
 }
 
-uint32_t nsw::NSWCalibRc::runNumberFromIS() {
+std::pair<std::uint32_t, std::time_t> nsw::NSWCalibRc::runParamsFromIS() {
+  ISInfoDynAny runParams;
+  is_dictionary->getValue("RunParams.RunParams", runParams);
+  std::uint32_t runNumber{0};
+  std::time_t runStartTime{};
   try {
-    ISInfoDynAny runParams;
-    is_dictionary->getValue("RunParams.RunParams", runParams);
-    return runParams.getAttributeValue<uint32_t>("run_number");
+    runNumber = runParams.getAttributeValue<std::uint32_t>("run_number");
   } catch(daq::is::Exception& ex) {
     ers::error(ex);
   }
-  return 0;
+  try {
+    runStartTime = (runParams.getAttributeValue<OWLTime>("timeSOR")).c_time();
+  } catch(daq::is::Exception& ex) {
+    ers::error(ex);
+  }
+
+  return {runNumber, runStartTime};
 }

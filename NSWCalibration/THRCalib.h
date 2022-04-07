@@ -10,9 +10,6 @@
 
 #include <boost/property_tree/ptree.hpp>
 
-#include <ipc/partition.h>
-#include <is/infodictionary.h>
-
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/FEBConfig.h"
 
@@ -35,7 +32,7 @@ namespace nsw {
   class THRCalib : public CalibAlg
   {
     public:
-    THRCalib(std::string calibType, const hw::DeviceManager& deviceManager, std::string calibIsName, const ISInfoDictionary& calibIsDict);
+    THRCalib(std::string calibType, const hw::DeviceManager& deviceManager);
 
     /*!
      * \brief Get main calibration parameters for the run
@@ -75,9 +72,21 @@ namespace nsw {
     void merge_json();
 
     /*!
-     * \brief Collects input data from Information Server
+     * \copydoc CalibAlg::setCalibParamsFromIS
+     *
+     *  The input for a baselines calibration should look like this:
+     *   - ``is_write -p <part-name> -n NswParams.calibParams -t String -v BLN,10,9,0 -i 0``
+     *  indicating that it is going to execute a baseline calibration
+     *  with 10 samples per channel, an RMS factor of 9, and debug
+     *  mode false
+     *
+     *  The input for a trimmers calibration should look like this:
+     *   - ``is_write -p <part-name> -n NswParams.calibParams -t String -v THR,10,9,0 -i 0``
+     *  indicating that it is going to execute a trimmer calibration with
+     *  with 10 samples per channel, an RMS factor of 9, and debug
+     *  mode false
      */
-    void get_setup_from_IS();
+    void setCalibParamsFromIS(const ISInfoDictionary& is_dictionary, const std::string& is_db_name) override;
 
     private:
     /*!
@@ -110,9 +119,6 @@ namespace nsw {
     }
 
     private:
-    std::string m_isDbName;  //!< Name of the IS info DB
-    const ISInfoDictionary& m_isInfoDict;  //!< Instance of the IS dictionary
-
     std::string m_configFile;  //!< Configuration source from the dbConnection xml attribute
     boost::property_tree::ptree m_config;  //!< Configuration read in from \c m_configFile
 
@@ -127,7 +133,7 @@ namespace nsw {
     std::string m_run_type;        //!< run type obtained from IS
     std::string m_output_path;     //!< output directory for calibration data
     std::string m_app_name;
-    std::string m_run_string;
+    // FIXME REMOVE MOVED TO CalibAlg // std::string m_run_string;
 
     std::size_t m_sector;  //!< sector (1 to 16)
     int m_wheel;   //!< side (A or C)

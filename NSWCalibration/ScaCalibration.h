@@ -53,13 +53,13 @@ namespace nsw {
   class ScaCalibration
   {
   public:
-    explicit ScaCalibration(nsw::FEBConfig feb,
-                            std::string outpath,
-                            std::size_t nSamples,
-                            std::size_t rmsFactor,
-                            std::size_t sector,
-                            int wheel,
-                            bool debug);
+    ScaCalibration(nsw::FEBConfig feb,
+                   std::string outpath,
+                   std::size_t nSamples,
+                   std::size_t rmsFactor,
+                   std::size_t sector,
+                   int wheel,
+                   bool debug);
 
     virtual ~ScaCalibration() = default;
 
