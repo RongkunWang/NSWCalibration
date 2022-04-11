@@ -71,7 +71,7 @@ def plot(ttree, ofile):
     # create histogram
     #
     print("Creating histogram...")
-    hist = ROOT.TH2D(name, ";ROC/TDS TTC control phase;;Triggers",
+    hist = ROOT.TH2D(name, ";ROC/TDS TTC control phase;;PFEB hit rate",
                      int(NPHASES), -0.5, NPHASES-0.5,
                      int(NPFEBS),  -0.5, NPFEBS-0.5,
                      )
@@ -88,14 +88,14 @@ def plot(ttree, ofile):
         #
         delay     = int(ttree.delay)
         pfeb_addr = int(ttree.pfeb_addr)
-        triggers  = int(ttree.triggers)
+        pfeb_rate = int(ttree.pfeb_rate)
 
         #
         # fill
         #
         xbin = hist.GetXaxis().FindBin(delay)
         ybin = hist.GetYaxis().FindBin(pfeb_addr)
-        hist.SetBinContent(xbin, ybin, triggers)
+        hist.SetBinContent(xbin, ybin, pfeb_rate)
 
     #
     # bin labels
