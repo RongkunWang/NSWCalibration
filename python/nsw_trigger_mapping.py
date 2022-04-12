@@ -10,22 +10,22 @@ def fatal(msg):
     sys.exit("Error: %s" % (msg))
 
 def addc2layer(addc):
-    if "ADDC_L1P6_IPR" in addc: return 0
-    if "ADDC_L1P3_IPL" in addc: return 0
-    if "ADDC_L1P6_IPL" in addc: return 1
-    if "ADDC_L1P3_IPR" in addc: return 1
-    if "ADDC_L4P6_IPR" in addc: return 2
-    if "ADDC_L4P3_IPL" in addc: return 2
-    if "ADDC_L4P6_IPL" in addc: return 3
-    if "ADDC_L4P3_IPR" in addc: return 3
-    if "ADDC_L4P6_HOR" in addc: return 4
-    if "ADDC_L4P3_HOL" in addc: return 4
-    if "ADDC_L4P6_HOL" in addc: return 5
-    if "ADDC_L4P3_HOR" in addc: return 5
-    if "ADDC_L1P6_HOR" in addc: return 6
-    if "ADDC_L1P3_HOL" in addc: return 6
-    if "ADDC_L1P6_HOL" in addc: return 7
-    if "ADDC_L1P3_HOR" in addc: return 7
+    if "ADDC_L1P6_IPR" in addc or "L0/O" in addc: return 0
+    if "ADDC_L1P3_IPL" in addc or "L0/E" in addc: return 0
+    if "ADDC_L1P6_IPL" in addc or "L1/O" in addc: return 1
+    if "ADDC_L1P3_IPR" in addc or "L1/E" in addc: return 1
+    if "ADDC_L4P6_IPR" in addc or "L2/O" in addc: return 2
+    if "ADDC_L4P3_IPL" in addc or "L2/E" in addc: return 2
+    if "ADDC_L4P6_IPL" in addc or "L3/O" in addc: return 3
+    if "ADDC_L4P3_IPR" in addc or "L3/E" in addc: return 3
+    if "ADDC_L4P6_HOR" in addc or "L4/O" in addc: return 4
+    if "ADDC_L4P3_HOL" in addc or "L4/E" in addc: return 4
+    if "ADDC_L4P6_HOL" in addc or "L5/O" in addc: return 5
+    if "ADDC_L4P3_HOR" in addc or "L5/E" in addc: return 5
+    if "ADDC_L1P6_HOR" in addc or "L6/O" in addc: return 6
+    if "ADDC_L1P3_HOL" in addc or "L6/E" in addc: return 6
+    if "ADDC_L1P6_HOL" in addc or "L7/O" in addc: return 7
+    if "ADDC_L1P3_HOR" in addc or "L7/E" in addc: return 7
 
 def artchannel2localvmm(channel):
     # from:
@@ -45,26 +45,26 @@ def artchannel2globalvmm(addc, art, channel):
     addc    = str(addc)
     art     = str(art)
     channel = int(channel)
-    if any([name in addc for name in ["ADDC_L1P6_IPR", "ADDC_L4P6_HOR",
-                                      "ADDC_L4P6_IPL", "ADDC_L1P6_HOL"]]):
+    if any([name in addc for name in ["ADDC_L1P6_IPR", "L0/O", "ADDC_L4P6_HOR", "L4/O",
+                                      "ADDC_L4P6_IPL", "L3/O", "ADDC_L1P6_HOL", "L7/O"]]):
         if "0" in art:
             return NVMM_PER_FEB + artchannel2localvmm(channel)
         else:
             return artchannel2globalvmm(addc, "art0", channel) + NVMM_PER_HALFLAYER
-    if any([name in addc for name in ["ADDC_L1P3_IPL", "ADDC_L4P3_HOL",
-                                      "ADDC_L4P3_IPR", "ADDC_L1P3_HOR"]]):
+    if any([name in addc for name in ["ADDC_L1P3_IPL", "L0/E", "ADDC_L4P3_HOL", "L4/E",
+                                      "ADDC_L4P3_IPR", "L3/E", "ADDC_L1P3_HOR", "L7/E"]]):
         if "0" in art:
             return NVMM_PER_LAYER - 1 - NVMM_PER_FEB - artchannel2localvmm(channel)
         else:
             return artchannel2globalvmm(addc, "art0", channel) - NVMM_PER_HALFLAYER
-    if any([name in addc for name in ["ADDC_L1P6_IPL", "ADDC_L4P6_HOL",
-                                      "ADDC_L4P6_IPR", "ADDC_L1P6_HOR"]]):
+    if any([name in addc for name in ["ADDC_L1P6_IPL", "L1/O", "ADDC_L4P6_HOL", "L5/O",
+                                      "ADDC_L4P6_IPR", "L2/O", "ADDC_L1P6_HOR", "L6/O"]]):
         if "0" in art:
             return NVMM_PER_LAYER - 1 - artchannel2localvmm_febreversed(channel)
         else:
             return artchannel2globalvmm(addc, "art0", channel) - NVMM_PER_HALFLAYER
-    if any([name in addc for name in ["ADDC_L1P3_IPR", "ADDC_L4P3_HOR",
-                                      "ADDC_L4P3_IPL", "ADDC_L1P3_HOL"]]):
+    if any([name in addc for name in ["ADDC_L1P3_IPR", "L1/E", "ADDC_L4P3_HOR", "L5/E",
+                                      "ADDC_L4P3_IPL", "L2/E", "ADDC_L1P3_HOL", "L6/E"]]):
         if "0" in art:
             return artchannel2localvmm_febreversed(channel)
         else:
