@@ -80,8 +80,9 @@ def output():
     ops = options()
     if not ops.o:
         (lab, sector, run) = labSectorRun()
+        daq = "L1A" if isL1A(ops.i) else "SCA"
         dname = os.path.join(EOS, f"{run}")
-        bname = f"sTGCPadsHitRate.{NOW}.{lab}.{sector}.{run}.canv.root"
+        bname = f"sTGCPadsHitRate.{daq}.{NOW}.{lab}.{sector}.{run}.canv.root"
         if not os.path.isdir(dname):
             os.makedirs(dname)
         return os.path.join(dname, bname)
@@ -122,7 +123,8 @@ def plot(ttree, ofile):
     ops = options()
     ents = ttree.GetEntries()
     (lab, sector, run) = labSectorRun()
-    name = f"sTGCPadsHitRate_{sector}_{run}"
+    daq = "L1A" if isL1A(ops.i) else "SCA"
+    name = f"sTGCPadsHitRate_{daq}_{sector}_{run}"
 
     #
     # get n(channels) per pfeb
@@ -184,7 +186,7 @@ def plot(ttree, ofile):
         style(hist[key])
         hist[key].SetMaximum(10e6)
         hist[key].SetMinimum(0.1)
-        canv[key] = ROOT.TCanvas(f"canv_{key}", f"canv_{key}", 400, 400)
+        canv[key] = ROOT.TCanvas(f"canv_{daq}_{key}", f"canv_{daq}_{key}", 400, 400)
         canv[key].Draw()
         hist[key].Draw("histesame")
         canv[key].SetLogy()
@@ -231,7 +233,7 @@ def plot(ttree, ofile):
     style(hist2d)
     hist2d.GetYaxis().SetLabelSize(0.0)
     hist2d.GetYaxis().SetTickLength(0.0)
-    canv2d = ROOT.TCanvas(f"canv_{sector}", f"canv_{sector}", 800, 800)
+    canv2d = ROOT.TCanvas(f"canv_{daq}_{sector}", f"canv_{daq}_{sector}", 800, 800)
     canv2d.Draw()
     hist2d.SetMaximum(1e7)
     hist2d.SetMinimum(0.1)
