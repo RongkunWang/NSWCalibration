@@ -51,7 +51,7 @@ void nsw::sTGCPadsControlPhase::maskPFEBs() const {
 }
 
 void nsw::sTGCPadsControlPhase::maskPFEB(const nsw::hw::FEB& feb) const {
-  const auto name = feb.getOpcNodeId();
+  const auto name = feb.getScaAddress();
   if (name.find("PFEB") == std::string::npos) {
     return;
   }
@@ -79,7 +79,7 @@ void nsw::sTGCPadsControlPhase::setROCPhases() const {
 }
 
 void nsw::sTGCPadsControlPhase::setROCPhase(const nsw::hw::FEB& feb) const {
-  const auto name = feb.getOpcNodeId();
+  const auto name = feb.getScaAddress();
   if (name.find("PFEB") == std::string::npos) {
     return;
   }

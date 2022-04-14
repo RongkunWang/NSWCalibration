@@ -98,7 +98,7 @@ void nsw::sTGCPadsHitRateSca::setCurrentTdsChannels() const {
 }
 
 void nsw::sTGCPadsHitRateSca::setCurrentTdsChannel(const nsw::hw::FEB& dev) const {
-  if (nsw::getElementType(dev.getOpcNodeId()) != "PFEB") {
+  if (nsw::getElementType(dev.getScaAddress()) != "PFEB") {
     return;
   }
   for (std::size_t it = 0; it < nsw::NUM_TDS_PER_PFEB; it++) {
@@ -140,7 +140,7 @@ void nsw::sTGCPadsHitRateSca::setVmmThresholds() const {
 }
 
 void nsw::sTGCPadsHitRateSca::setVmmThreshold(const nsw::hw::FEB& dev) const {
-  if (nsw::getElementType(dev.getOpcNodeId()) != "PFEB") {
+  if (nsw::getElementType(dev.getScaAddress()) != "PFEB") {
     return;
   }
   const auto thrAdj = m_thresholdAdjustments.at(getCurrentVmmThreshold());
@@ -148,7 +148,7 @@ void nsw::sTGCPadsHitRateSca::setVmmThreshold(const nsw::hw::FEB& dev) const {
     auto vmmConf = nsw::VMMConfig{vmmDev.getConfig()};
     const auto currentThreshold = vmmConf.getGlobalThreshold();
     ERS_INFO(fmt::format("Setting threshold {} in {}/{}",
-                         currentThreshold + thrAdj, dev.getOpcNodeId(), vmmConf.getName()));
+                         currentThreshold + thrAdj, dev.getScaAddress(), vmmConf.getName()));
     checkThresholdAdjustment(currentThreshold, thrAdj);
     vmmConf.setGlobalThreshold(currentThreshold + thrAdj);
     vmmDev.writeConfiguration(vmmConf);
