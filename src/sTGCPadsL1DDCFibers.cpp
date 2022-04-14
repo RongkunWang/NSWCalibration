@@ -54,12 +54,12 @@ void nsw::sTGCPadsL1DDCFibers::setROCPhases() const {
 }
 
 void nsw::sTGCPadsL1DDCFibers::setROCPhase(const nsw::hw::FEB& feb) const {
-  if (feb.getOpcNodeId().find("PFEB") == std::string::npos) {
+  if (feb.getScaAddress().find("PFEB") == std::string::npos) {
     return;
   }
 
   // bookkeeping
-  const auto name    = feb.getOpcNodeId();
+  const auto name    = feb.getScaAddress();
   const auto is_left = isLeft(name);
   const auto phase   = is_left ? m_phase_L : m_phase_R;
   const auto side    = is_left ? "L" : "R";
@@ -103,11 +103,11 @@ bool nsw::sTGCPadsL1DDCFibers::isLeft(const std::string& name) const {
 
 bool nsw::sTGCPadsL1DDCFibers::isLeftStripped(const std::string& name) const {
   for (const auto& feb: getDeviceManager().getFebs()) {
-    if (feb.getOpcNodeId().find("PFEB") == std::string::npos) {
+    if (feb.getScaAddress().find("PFEB") == std::string::npos) {
       continue;
     }
-    if (feb.getOpcNodeId().find(name) != std::string::npos) {
-      return isLeft(feb.getOpcNodeId());
+    if (feb.getScaAddress().find(name) != std::string::npos) {
+      return isLeft(feb.getScaAddress());
     }
   }
   return false;
@@ -152,10 +152,10 @@ void nsw::sTGCPadsL1DDCFibers::setupTree() {
 
 bool nsw::sTGCPadsL1DDCFibers::existsInDB(const std::string& name) const {
   for (const auto& feb: getDeviceManager().getFebs()) {
-    if (feb.getOpcNodeId().find("PFEB") == std::string::npos) {
+    if (feb.getScaAddress().find("PFEB") == std::string::npos) {
       continue;
     }
-    if (feb.getOpcNodeId().find(name) != std::string::npos) {
+    if (feb.getScaAddress().find(name) != std::string::npos) {
       return true;
     }
   }

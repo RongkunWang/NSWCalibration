@@ -175,7 +175,7 @@ std::string RocPhaseCalibrationBase<Specialized>::getOutputPath() const
 template<typename Specialized>
 std::string RocPhaseCalibrationBase<Specialized>::getFileName(const nsw::hw::ROC& roc) const
 {
-  auto name = roc.getName();
+  auto name = roc.getScaAddress();
   const auto replace_all = [] (std::string& inout, std::string_view what, std::string_view with)
   {
       std::size_t count{};
