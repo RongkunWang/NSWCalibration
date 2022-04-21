@@ -152,7 +152,6 @@ void nsw::NSWCalibRc::user(const daq::rc::UserCmd& usrCmd) {
   } else if (usrCmd.commandName() == "reset") {
     calib->setCounter(0);
     calib->setCurrentRunParameters(runParamsFromIS());
-    calib->setCalibParamsFromIS(*is_dictionary, m_is_db_name);
   } else {
     nsw::NSWCalibIssue issue(ERS_HERE, fmt::format("Unrecognized UserCmd specified {}", usrCmd.commandName()));
     ers::warning(issue);
@@ -266,6 +265,7 @@ void nsw::NSWCalibRc::handler() {
   // FIXME: Alex will remove it in another MR
   calib->setApplicationName(m_appname);
   calib->setSimulation(m_simulation);
+  calib->setCalibParamsFromIS(*is_dictionary, m_is_db_name);
   calib->setup(m_dbcon);
   ERS_INFO("calib counter:    " << calib->counter());
   ERS_INFO("calib total:      " << calib->total());
