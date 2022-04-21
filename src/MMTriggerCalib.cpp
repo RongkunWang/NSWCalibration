@@ -32,17 +32,6 @@ using namespace std::chrono_literals;
 nsw::MMTriggerCalib::MMTriggerCalib(std::string calibType, const hw::DeviceManager& deviceManager) :
   CalibAlg(std::move(calibType), deviceManager)
 {
-  ROOT::EnableThreadSafety();
-}
-
-void nsw::MMTriggerCalib::setup(const std::string& db) {
-  ERS_INFO("setup " << db);
-
-  m_dry_run   = false;
-  m_reset_vmm = false;
-  m_threads = std::make_unique< std::vector< std::future<int> > >();
-  m_threads->clear();
-
   if (m_calibType=="MMARTConnectivityTest" ||
       m_calibType=="MMARTConnectivityTestAllChannels") {
     m_phases = {-1};
@@ -89,6 +78,17 @@ void nsw::MMTriggerCalib::setup(const std::string& db) {
   } else {
     throw std::runtime_error("Unknown calibration request. Can't set up MMTriggerCalib: " + m_calibType);
   }
+  ROOT::EnableThreadSafety();
+}
+
+void nsw::MMTriggerCalib::setup(const std::string& db) {
+  ERS_INFO("setup " << db);
+
+  m_dry_run   = false;
+  m_reset_vmm = false;
+  m_threads = std::make_unique< std::vector< std::future<int> > >();
+  m_threads->clear();
+
 
   m_patterns = patterns();
   write_json("test.json", m_patterns);
@@ -210,8 +210,18 @@ int nsw::MMTriggerCalib::configure_febs_from_ptree(const ptree& tr, bool unmask)
     announce(febpatt_n, febtr, unmask);
     for (auto febkv : febtr) {
       for (auto & feb : m_febs) {
-        if (febkv.first != feb.getAddress())
-          continue;
+        // if new matching "geo_name" doesn't exist, look at old matching, continue if no match.
+        // if new matching "geo_name" exist, look at either old matching or new matching, continue if both not match
+        std::string addr = feb.getAddress();
+        if (febkv.second.count("geo_name") == 0) {
+          if (febkv.first != addr) continue;
+        } else {
+          std::string geo_name = febkv.second.get<std::string>("geo_name");
+          if (febkv.first != addr && 
+              addr.compare(addr.size() - geo_name.size(), geo_name.size(), geo_name) != 0 
+              )
+            continue;
+        }
         m_threads->push_back(std::async(std::launch::async,
                                         &nsw::MMTriggerCalib::configure_vmms, this,
                                         feb, febkv.second, unmask));
@@ -224,9 +234,12 @@ int nsw::MMTriggerCalib::configure_febs_from_ptree(const ptree& tr, bool unmask)
 }
 
 int nsw::MMTriggerCalib::configure_addcs_from_ptree(const ptree& tr) {
-  std::string name = tr.count("addc") ? tr.get<std::string>("addc") : "";
-  if (name != "")
-    ERS_INFO("Configuring " << name);
+  std::string name_old = tr.count("addc_old") ? tr.get<std::string>("addc_old") : "";
+  std::string name_geo = tr.count("addc_geo") ? tr.get<std::string>("addc_geo") : "";
+  if (name_old != "")
+    ERS_INFO("Configuring(Old name):" << name_old);
+  if (name_geo != "")
+    ERS_INFO("Configuring(New Name):" << name_geo);
   auto phase = tr.get<int>("art_input_phase");
   if (phase != -1) {
     if (m_phases.size() > 0 && phase == m_phases.front())
@@ -235,7 +248,8 @@ int nsw::MMTriggerCalib::configure_addcs_from_ptree(const ptree& tr) {
     if (m_phases.size() > 0 && phase == m_phases.back())
       std::cout << std::endl;
     for (auto & addc : m_addcs)
-      if (name == "" || addc.getAddress() == name)
+      if (name_old == "" || name_geo == "" || addc.getAddress() == name_old || 
+          addc.getAddress().find(name_geo) != std::string::npos)
         m_threads->push_back(std::async(std::launch::async,
                                         &nsw::MMTriggerCalib::configure_art_input_phase, this,
                                         addc, phase));
@@ -267,6 +281,7 @@ int nsw::MMTriggerCalib::announce(const std::string& name, const ptree& tr, bool
   for (auto febkv : tr) {
     std::cout << "  " << febkv.first;
     for (auto vmmkv : febkv.second) {
+      if (vmmkv.first == "geo_name") continue;
       std::cout << " " << vmmkv.first;
       for (auto chkv : vmmkv.second)
         std::cout << "/" << chkv.second.get<unsigned>("");
@@ -289,6 +304,7 @@ int nsw::MMTriggerCalib::configure_vmms(nsw::FEBConfig feb, const ptree& febpatt
   int vmmid, chan;
   std::set<int> vmmids = {};
   for (auto vmmkv : febpatt) {
+    if (vmmkv.first == "geo_name") continue;
     for (auto chkv : vmmkv.second) {
       vmmid = std::stoi(vmmkv.first);
       chan  = chkv.second.get<int>("");
@@ -387,7 +403,8 @@ ptree nsw::MMTriggerCalib::patterns() const {
     for (auto & addc: nsw::mmtp::ORDERED_ADDCS) {
       ptree feb_patt;
       ptree top_patt;
-      top_patt.put("addc", std::string(addc));
+      top_patt.put("addc_old", std::string(addc.first));
+      top_patt.put("addc_geo", std::string(addc.second));
       top_patt.put("tp_latency", -1);
       top_patt.put("art_input_phase", 0xf);
       top_patt.add_child("febpattern_" + std::to_string(ifebpatt), feb_patt);
@@ -426,23 +443,42 @@ ptree nsw::MMTriggerCalib::patterns() const {
         if (m_calibType == "MMARTPhase"            && chan % 10 != 0)
           continue;
         ptree feb_patt;
-        for (auto name : {
-              "MMFE8_L1P" + pcbstr       + "_HO" + (even ? "R" : "L"),
-              "MMFE8_L2P" + pcbstr       + "_HO" + (even ? "L" : "R"),
-              "MMFE8_L3P" + pcbstr       + "_HO" + (even ? "R" : "L"),
-              "MMFE8_L4P" + pcbstr       + "_HO" + (even ? "L" : "R"),
-              "MMFE8_L4P" + pcbstr       + "_IP" + (even ? "R" : "L"),
-              "MMFE8_L3P" + pcbstr       + "_IP" + (even ? "L" : "R"),
-              "MMFE8_L2P" + pcbstr       + "_IP" + (even ? "R" : "L"),
-              "MMFE8_L1P" + pcbstr       + "_IP" + (even ? "L" : "R"),
-              "MMFE8_L1P" + pcbstr_plus4 + "_HO" + (even ? "R" : "L"),
-              "MMFE8_L2P" + pcbstr_plus4 + "_HO" + (even ? "L" : "R"),
-              "MMFE8_L3P" + pcbstr_plus4 + "_HO" + (even ? "R" : "L"),
-              "MMFE8_L4P" + pcbstr_plus4 + "_HO" + (even ? "L" : "R"),
-              "MMFE8_L4P" + pcbstr_plus4 + "_IP" + (even ? "R" : "L"),
-              "MMFE8_L3P" + pcbstr_plus4 + "_IP" + (even ? "L" : "R"),
-              "MMFE8_L2P" + pcbstr_plus4 + "_IP" + (even ? "R" : "L"),
-              "MMFE8_L1P" + pcbstr_plus4 + "_IP" + (even ? "L" : "R"),
+        /* 
+         * \\ to convert to \ after c++ string, and then \/ to escape / in regex
+         * */
+        for (auto && [name, geoName] : std::map<std::string, std::string>{
+             { "MMFE8_L1P" + pcbstr       + "_HO" + (even ? "R" : "L"), 
+               fmt::format("L7/R{}", pos)},
+             { "MMFE8_L2P" + pcbstr       + "_HO" + (even ? "L" : "R"), 
+               fmt::format("L6/R{}", pos)},
+             { "MMFE8_L3P" + pcbstr       + "_HO" + (even ? "R" : "L"), 
+               fmt::format("L5/R{}", pos)},
+             { "MMFE8_L4P" + pcbstr       + "_HO" + (even ? "L" : "R"), 
+               fmt::format("L4/R{}", pos)},
+             { "MMFE8_L4P" + pcbstr       + "_IP" + (even ? "R" : "L"), 
+               fmt::format("L3/R{}", pos)},
+             { "MMFE8_L3P" + pcbstr       + "_IP" + (even ? "L" : "R"), 
+               fmt::format("L2/R{}", pos)},
+             { "MMFE8_L2P" + pcbstr       + "_IP" + (even ? "R" : "L"), 
+               fmt::format("L1/R{}", pos)},
+             { "MMFE8_L1P" + pcbstr       + "_IP" + (even ? "L" : "R"), 
+               fmt::format("L0/R{}", pos)},
+             { "MMFE8_L1P" + pcbstr_plus4 + "_HO" + (even ? "R" : "L"), 
+               fmt::format("L7/R{}", pos+8)},
+             { "MMFE8_L2P" + pcbstr_plus4 + "_HO" + (even ? "L" : "R"), 
+               fmt::format("L6/R{}", pos+8)},
+             { "MMFE8_L3P" + pcbstr_plus4 + "_HO" + (even ? "R" : "L"), 
+               fmt::format("L5/R{}", pos+8)},
+             { "MMFE8_L4P" + pcbstr_plus4 + "_HO" + (even ? "L" : "R"), 
+               fmt::format("L4/R{}", pos+8)},
+             { "MMFE8_L4P" + pcbstr_plus4 + "_IP" + (even ? "R" : "L"), 
+               fmt::format("L3/R{}", pos+8)},
+             { "MMFE8_L3P" + pcbstr_plus4 + "_IP" + (even ? "L" : "R"), 
+               fmt::format("L2/R{}", pos+8)},
+             { "MMFE8_L2P" + pcbstr_plus4 + "_IP" + (even ? "R" : "L"), 
+               fmt::format("L1/R{}", pos+8)},
+             { "MMFE8_L1P" + pcbstr_plus4 + "_IP" + (even ? "L" : "R"), 
+               fmt::format("L0/R{}", pos+8)},
               }) {
           ptree febtree;
           for (size_t vmmid = 0; vmmid < nsw::MAX_NUMBER_OF_VMM; vmmid++) {
@@ -457,6 +493,7 @@ ptree nsw::MMTriggerCalib::patterns() const {
             chantree.put("", chan);
             vmmtree.push_back(std::make_pair("", chantree));
             febtree.add_child(std::to_string(vmmid), vmmtree);
+            febtree.put("geo_name", geoName);
           }
           feb_patt.add_child(name, febtree);
         }
@@ -754,6 +791,7 @@ std::vector<uint32_t> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConf
 void nsw::MMTriggerCalib::setCalibParamsFromIS(const ISInfoDictionary& is_dictionary,
                                                const std::string& is_db_name)
 {
+  if(!m_tracks) return;
   const auto calib_param_is_name = fmt::format("{}.Calib.trackPatternFile", is_db_name);
   if (is_dictionary.contains(calib_param_is_name)) {
     ISInfoDynAny calib_params_from_is;
