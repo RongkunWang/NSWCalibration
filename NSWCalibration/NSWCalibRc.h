@@ -65,16 +65,8 @@ class NSWCalibRc: public daq::rc::Controllable {
     std::pair<std::uint32_t, std::time_t> runParamsFromIS();
     void handler();
     void loop_content();
-    void alti_setup();
-    void alti_count();
     void publish4swrod();
     void wait4swrod();
-    void alti_callback(ISCallbackInfo* isc);
-    uint64_t alti_pg_duration(bool refresh = false);
-    uint64_t alti_pg_multiplicity(std::string line);
-    std::string alti_pg_file();
-    std::string alti_monitoring(bool refresh = false);
-    enum alti_pg_enum {pg_orb, pg_creq, pg_ttyp, pg_bgo, pg_l1a_ttr, pg_mult, pg_size};
 
  private:
 
@@ -83,8 +75,6 @@ class NSWCalibRc: public daq::rc::Controllable {
     std::string m_calibCounter          = "Monitoring.NSWCalibration.triggerCalibrationKey";
     std::string m_calibCounter_readback = "Monitoring.NSWCalibration.swrodCalibrationKey";
     std::string m_appname = "";
-    uint64_t m_alti_pg_duration = 0;
-    std::string m_alti_monitoring = "";
 
     const nsw::dal::NSWCalibApplication* m_nswApp;
 
@@ -99,7 +89,6 @@ class NSWCalibRc: public daq::rc::Controllable {
     std::string                 m_is_db_name;
     IPCPartition                m_ipcpartition;
     std::unique_ptr<ISInfoDictionary> is_dictionary;
-    std::unique_ptr<ISInfoReceiver>   m_rec;
 
 };
 }  // namespace nsw
