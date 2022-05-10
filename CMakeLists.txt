@@ -20,6 +20,7 @@ tdaq_add_scripts(bin/nsw_plot_art_hits.py               python/nsw_plot_art_hits
 tdaq_add_scripts(bin/nsw_padtrigger_inputdelays.py      python/nsw_padtrigger_inputdelays.py)
 tdaq_add_scripts(bin/nsw_pads_hit_rate.py               python/nsw_pads_hit_rate.py)
 tdaq_add_scripts(bin/nsw_trigger_mapping.py             python/nsw_trigger_mapping.py)
+tdaq_add_scripts(bin/nsw_add_pad_trigger_in_json.py     python/nsw_add_pad_trigger_in_json.py)
 
 find_package(ROOT REQUIRED COMPONENTS Core Tree RIO)
 
