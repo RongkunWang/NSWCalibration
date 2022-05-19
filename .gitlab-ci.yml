@@ -18,10 +18,8 @@ include:
   - project: 'atlas-muon-nsw-daq/nsw-build-scripts'
     ref: master
     file:
-      - '.gitlab/ci/build.yml'
       - '.gitlab/ci/code-quality.yml'
-      ## Not currently implemented
-      # - .gitlab/ci/test.yml
+      - '.gitlab/ci/build-and-test.yml'
 
 workflow:
   rules:

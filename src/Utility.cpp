@@ -1,20 +1,14 @@
 #include "NSWCalibration/Utility.h"
 
 #include <ctime>
-#include <iostream>
-#include <iomanip>
 #include <numeric>
-#include <sstream>
 
 #include <fmt/core.h>
+#include <fmt/chrono.h>
 
 std::string nsw::calib::utils::strf_time()
 {
-  std::stringstream ss;
-  auto              result = std::time(nullptr);
-  auto              tm     = *std::localtime(&result);
-  ss << std::put_time(&tm, "%Y_%m_%d_%Hh%Mm%Ss");
-  return ss.str();
+  return fmt::format("{:%Y_%m_%d_%Hh%Mm%Ss}", fmt::localtime(std::time(nullptr)));
 }
 
 std::string nsw::calib::utils::serializeCommands(

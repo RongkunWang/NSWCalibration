@@ -5,11 +5,13 @@
 #include <string>
 #include <vector>
 
-#include "NSWConfiguration/FEBConfig.h"
+#include "NSWConfiguration/hw/FEB.h"
 
 #include "NSWCalibration/CalibAlg.h"
 
 ERS_DECLARE_ISSUE(nsw, PDOCalibIssue, message, ((std::string)message))
+
+ERS_DECLARE_ISSUE(nsw, PDOParameterIssue, message, ((std::string)message))
 
 namespace nsw {
 
@@ -21,6 +23,14 @@ namespace nsw {
   class PDOCalib : public CalibAlg
   {
     public:
+
+    struct RunParameters
+    {
+      std::chrono::milliseconds trecord{};
+      std::vector<std::size_t> values{};
+      std::size_t channels{};
+    };
+
     PDOCalib(std::string calibType, const hw::DeviceManager& deviceManager);
 
     /*!
@@ -76,8 +86,6 @@ namespace nsw {
     [[nodiscard]]
     nsw::commands::Commands getAltiSequences() const override;
 
-  public:
-
     /*!
      * \brief Resets m_loopCalibRegs to m_calibRegs and increments the current channel counter
      *
@@ -87,16 +95,6 @@ namespace nsw {
      *  and are ready to move on to the next.
      */
     void resetCalibLoop();
-
-    /*!
-     * \brief Reads and sorts the front-end configuration
-     *
-     *  Reads the configuration JSON file from ``dbcon`` and assembles
-     *  the vector of \ref FEBConfig class objects
-     *
-     *  \param dbcon path to configuration JSON file
-     */
-    std::vector<nsw::FEBConfig> read_pulsing_config(const std::string& dbcon);
 
     /*!
      * \brief Handler of starting the configuration sending threads
@@ -120,12 +118,12 @@ namespace nsw {
      *      pulser DAC or pulse delay register values depending on pdo/tdo flags
      *  At the end, the function sends the resulting configuration to the front-end boards
      *
-     *  \param feb front-end configuration
+     *  \param feb front-end board device
      *  \param first_chan corresponding to the first channel in a channel group to unmask/enable
      *  \param i_par pulser DAC or pulse delay value
      *  \param toggle flag to either mask (false) or enable (true) channels
      */
-    void toggle_channels(nsw::FEBConfig feb,
+    void toggle_channels(const nsw::hw::FEB& feb,
                          std::size_t first_chan,
                          std::size_t i_par,
                          bool toggle);
@@ -137,7 +135,7 @@ namespace nsw {
      *  following information (comma separated):
      *   - channel group to be pulsed
      *   - calibration parameters (DACs/delays)
-     *   - pulsing/recording time in milliseconds (separated by *)
+     *   - pulsing/recording time in milliseconds (surrounded by *)
      *
      *  The input should look like this :
      *   - ``is_write -p <part-name> -n NswParams.calibParams -t String -v 8,100,200,300,*6000* -i 0``
@@ -148,31 +146,37 @@ namespace nsw {
     void setCalibParamsFromIS(const ISInfoDictionary& is_dictionary, const std::string& is_db_name) override;
 
     /*!
-     * \brief Reads ROC digital register error status
+     * \brief Parse the IS string containing the calibration parameters
      *
-     *  The main purpose is the debug of the ROC state and readout quality
+     * \param calibParams is the string retrieved from IS containing the calibration parameters
+     *
+     * \throws nsw::PDOParameterIssue when the extraction of calib parameters fails
      */
-    void check_roc();
+    static RunParameters parseCalibParams(const std::string& calibParams);
 
     private:
+    std::reference_wrapper<const std::vector<hw::FEB>> m_febs;  //!< vector of front-end hw interfaces
+
     std::chrono::milliseconds m_trecord;  //!< Waiting time to record data in [ms]
 
-    bool m_pdo_flag;  //!< Flag stating the type of calibration PDO/TDO
+    bool m_pdo_flag{};  //!< Flag stating the type of calibration PDO/TDO
 
-    std::vector<nsw::FEBConfig> m_feconfigs = {};  //!< vector of front-end configurations
-
-    std::vector<int> m_calibRegs;      //!< Vector of calibration register values
-    std::vector<int> m_loopCalibRegs;  //!< Vector of calibration register values inside the loop
-    std::size_t m_currentChannel;      //!< Current channel in the calibration loop
-    int m_currentCalibReg;             //!< Current calibration register in the calibration loop
-    int m_numChPerGroup;               //!< Number of channels to pulse for each iteration
+    std::vector<std::size_t> m_calibRegs{};      //!< Vector of calibration register values
+    std::vector<std::size_t> m_loopCalibRegs{};  //!< Vector of calibration register values inside the loop
+    std::size_t m_currentChannel{};              //!< Current channel in the calibration loop
+    std::size_t m_currentCalibReg{};             //!< Current calibration register in the calibration loop
+    std::size_t m_numChPerGroup{};               //!< Number of channels to pulse for each iteration
 
     // Timekeeping
-    std::chrono::time_point<std::chrono::system_clock> m_chanIterStart;  //!< Start time for current channel iteration
-    std::chrono::time_point<std::chrono::system_clock> m_calibStart;  //!< Start time for calibration
-    std::chrono::time_point<std::chrono::system_clock> m_calibStop;   //!< Stop time for calibration
+    std::chrono::time_point<std::chrono::system_clock> m_chanIterStart{};  //!< Start time for current channel iteration
+    std::chrono::time_point<std::chrono::system_clock> m_calibStart{};  //!< Start time for calibration
+    std::chrono::time_point<std::chrono::system_clock> m_calibStop{};   //!< Stop time for calibration
 
-    std::vector<std::thread> m_conf_threads = {};  //!< Per front-end board configuration thread
+    std::vector<std::thread> m_conf_threads{};  //!< Per front-end board configuration thread
+
+    public:
+    static constexpr auto DEFAULT_TRECORD{std::chrono::milliseconds(8000)};
+    static constexpr std::size_t DEFAULT_NUM_CH_PER_GROUP{8};
   };
 
 }  // namespace nsw

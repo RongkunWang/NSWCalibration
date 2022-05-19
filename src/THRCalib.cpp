@@ -25,11 +25,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
-#include "NSWCalibrationDal/NSWCalibApplication.h"
-
 #include "NSWConfiguration/ConfigReader.h"
-#include "NSWConfiguration/ConfigSender.h"
-#include "NSWConfiguration/FEBConfig.h"
 #include "NSWConfiguration/Constants.h"
 
 #include "NSWCalibration/CalibrationMath.h"
@@ -46,20 +42,15 @@ namespace fs = std::filesystem;
 using namespace std::chrono_literals;
 
 nsw::THRCalib::THRCalib(std::string calibType, const hw::DeviceManager& deviceManager) :
-  CalibAlg(std::move(calibType), deviceManager)
+  CalibAlg(std::move(calibType), deviceManager),
+  m_febs{getDeviceManager().getFebs()}
 {}
 
 void nsw::THRCalib::setup(const std::string& db)
 {
   m_configFile = db;
-  read_config(m_configFile);
 
   auto& runCtlOnlServ = daq::rc::OnlineServices::instance();
-  const auto& rcBase = runCtlOnlServ.getApplication();
-  const auto* calibApp = rcBase.cast<nsw::dal::NSWCalibApplication>();
-
-  const auto calibOutPath = calibApp->get_CalibOutput();
-  // const auto ipcpartition = runCtlOnlServ.getIPCPartition();
 
   m_app_name = runCtlOnlServ.applicationName();
 
@@ -107,20 +98,22 @@ void nsw::THRCalib::setup(const std::string& db)
   }
   m_sector = std::stoull(sector);
 
-  ERS_INFO(fmt::format("Calibration Application name is {} |Wheel={}|sector={}|", m_app_name, m_wheel, m_sector));
-
-  // FIXME TODO move this to configure, since this needs to be done for *every* START transition
-  m_output_path = fmt::format("{}/{}", calibOutPath, m_run_string);
-  ERS_INFO(fmt::format("Calibration data will be written to: {}/{}", m_output_path, m_run_string));
-  fs::create_directories(fs::path(m_output_path));
-
-  std::this_thread::sleep_for(2000ms);
+  ERS_DEBUG(2,fmt::format("Calibration Application name is {} |Wheel={}|sector={}|", m_app_name, m_wheel, m_sector));
 
   ERS_INFO(fmt::format("Threshold calibration type - {}", m_run_type));
 }
 
 void nsw::THRCalib::configure()
 {
+  // FIXME TODO move this to a generic location that occurs after
+  // setCurrentRunParameters, since output locations should *only* be
+  // updated when the run number is obtained.
+  // At this point (`configure`) it works, but only as long as this
+  // calibration does not change to have multiple iterations.
+  m_output_path = getOutputDir().string();
+  ERS_INFO(fmt::format("Calibration data will be written to: {}", m_output_path));
+  fs::create_directories(fs::path(m_output_path));
+
   if (m_run_type == "baselines") {
     launch_feb_calibration<nsw::VmmBaselineScaCalibration>();
     std::this_thread::sleep_for(2000ms);
@@ -134,50 +127,21 @@ void nsw::THRCalib::configure()
   ERS_INFO(fmt::format("{} done!", m_run_type));
 }
 
-void nsw::THRCalib::read_config(const std::string& config_db)
-{
-  nsw::ConfigReader reader(config_db);
-  try {
-    m_config = reader.readConfig();
-  } catch (const std::exception& e) {
-    nsw::THRCalibIssue issue(ERS_HERE, fmt::format("Can't read config file due to : {}", e.what()));
-    ers::fatal(issue);
-    throw issue;
-  }
-
-  ERS_DEBUG(2, fmt::format("Reading configuration for full set of FEBs specified by {}", config_db));
-
-  for (const auto& name : reader.getAllElementNames()) {
-    try {
-      m_feconfigs.emplace_back(reader.readConfig(name));
-      m_fenames.emplace(m_feconfigs.back().getAddress());
-    } catch (const std::exception& e) {
-      nsw::THRCalibIssue issue(
-        ERS_HERE,
-        fmt::format(
-          "Skipping FE {}! - Problem constructing configuration due to : [{}]", name, e.what()));
-      ers::error(issue);
-      // FIXME throw?
-      // throw issue;
-    }
-  }
-}
-
 void nsw::THRCalib::merge_json()
 {
   ERS_INFO("Merging generated common configuration trees");
 
-  ERS_INFO(fmt::format("Run number string = {}", m_run_string));
+  ERS_LOG(fmt::format("Run number string = {}", m_run_string));
 
   const auto in_files = [this]() {
-    std::vector<std::string> tmp_files;
+    std::vector<std::string> tmp_files{};
     const fs::path dir{m_output_path};
     if (fs::exists(dir)) {
       for (auto const& ent : fs::directory_iterator{dir}) {
         const std::string file_n = ent.path().filename();
         if (file_n.find("partial_config") != std::string::npos) {
           tmp_files.push_back(file_n);
-          ERS_INFO(fmt::format("Found partial config [ {} ]", file_n));
+          ERS_LOG(fmt::format("Found partial config [ {} ]", file_n));
         }
       }
     }
@@ -187,115 +151,169 @@ void nsw::THRCalib::merge_json()
     return tmp_files;
   }();
 
-  ERS_INFO(fmt::format("JSON directory has [{}] files, found: {}", in_files.size(), m_configFile));
+  ERS_LOG(fmt::format("JSON directory has [{}] files, found: {}", in_files.size(), m_configFile));
 
-  const auto start_configuration = m_configFile.erase(0, 7);
-  ERS_INFO(fmt::format("Modified config-filename: {}", m_configFile));
+  ERS_DEBUG(2, "Reading initial config file into ptree");
+  pt::ptree prev_conf = [this]() {
+    try {
+      nsw::ConfigReader reader(m_configFile);
+      return reader.readConfig();
+    } catch (const std::exception& e) {
+      nsw::THRCalibIssue issue(ERS_HERE, fmt::format("Can't read initial config file due to: {}", e.what()));
+      ers::fatal(issue);
+      throw issue;
+    }}();
+  ERS_DEBUG(2, "Successfully read initial config file into ptree");
 
-  ERS_DEBUG(2, fmt::format("Start config - {}", start_configuration));
-
-  std::ifstream json_check;
-
-  json_check.open(start_configuration, std::ios::in);
-  if (json_check.peek() == std::ifstream::traits_type::eof()) {
-    ERS_INFO(fmt::format("Config file: {} is empty!", start_configuration));
-  } else {
-    ERS_INFO(fmt::format("Config file: {} is OK", start_configuration));
-  }
-
-  ERS_DEBUG(2, "Reading config file into ptree");
-  auto& prev_conf = m_config;
-  ERS_DEBUG(2, "Read config file into ptree");
-
-  std::unordered_map<std::string, std::size_t> feb_vmms;
-
-  for (const auto& feb : m_feconfigs) {
-    feb_vmms.insert_or_assign(feb.getAddress(), feb.getVmms().size());
-    ERS_DEBUG(2, fmt::format("FEB - {} has {} VMMs", feb.getAddress(), feb.getVmms().size()));
-  }
-
-  ERS_DEBUG(2, fmt::format("partial config directory has |{}| files", in_files.size()));
-  pt::ptree mmfe_conf;
   for (const auto& in_file : in_files) {
     const auto in_file_path = fmt::format("{}/{}", m_output_path, in_file);
+
+    // FIXME TODO REMOVE or is this necessary?
     std::ifstream in_file_check;
     in_file_check.open(in_file_path, std::ios::in);
 
     if (in_file_check.peek() == std::ifstream::traits_type::eof()) {
-      ERS_DEBUG(2, fmt::format("FILE({}) is EMPTY", in_file));
+      ERS_DEBUG(2, fmt::format("File: {} is empty", in_file));
       in_file_check.close();
       continue;
     } else {
-      ERS_DEBUG(2, fmt::format("File: {} is OK", in_file));
+      ERS_DEBUG(2, fmt::format("File: {} has data", in_file));
+      in_file_check.close();
     }
 
-    in_file_check.close();
-    ERS_DEBUG(3, fmt::format("FILE({}) has data", in_file));
-    pt::read_json(in_file_path, mmfe_conf);
-    const auto fename = mmfe_conf.get<std::string>("OpcNodeId");
+    pt::ptree trimmer_conf{};
+    pt::read_json(in_file_path, trimmer_conf);
 
-    for (std::size_t nth_vmm = 0; nth_vmm < feb_vmms.at(fename); nth_vmm++) {
-      const auto vmm = fmt::format("vmm{}", nth_vmm);
-      const auto child_name = fmt::format("{}.{}", fename, vmm);
-      ERS_DEBUG(2, fmt::format("Looking for node: {}", vmm));
-      if (mmfe_conf.count(vmm) == 0) {
-        ERS_DEBUG(2, "Failed");
-        continue;
-      } else {
-        ERS_DEBUG(2, "Success");
-      }
-      prev_conf.add_child(child_name, mmfe_conf.get_child(vmm));
-      ERS_DEBUG(2, fmt::format("Added {} VMM{} node", fename, nth_vmm));
-    }
+    updatePtreeWithFeb(prev_conf, trimmer_conf);
   }
 
   const auto editedconfig =
-    fmt::format("run_{}_config_wsdsm_RMSx{}.json", m_run_string, m_rms_factor);
+    fmt::format("run_config_wsdsm_RMSx{}.json", m_rms_factor);
   ERS_LOG(fmt::format("New config file name: {}", editedconfig));
 
-  const auto write_this_json = fmt::format("{}/{}", m_output_path, editedconfig);
-  pt::write_json(write_this_json, prev_conf);
+  pt::write_json(fmt::format("{}/{}", m_output_path, editedconfig), prev_conf);
+}
+
+// pt::ptree updatePtreeWithFeb(pt::ptree input, pt::ptree update)
+void nsw::THRCalib::updatePtreeWithFeb(pt::ptree& input, pt::ptree update)
+{
+  const auto fename = update.get<std::string>("OpcNodeId");
+
+  // Find the key in the original JSON corresponding to this SCA address
+  const auto initial_key = [&input, &fename]() {
+    for (const auto& node : input) {
+      const auto key = node.first;
+      const auto address = node.second.get_optional<std::string>("OpcNodeId");
+      if (address != boost::none) {
+        if (address == fename) {
+          return key;
+        }
+      }
+    }
+    throw nsw::THRCalibIssue(ERS_HERE,
+                             fmt::format("Unable to find a node with an SCA address {} in "
+                                         "initial config: this should not be possible!",
+                                         fename));
+  }();
+
+  // Select the FEB we are updating
+  auto& original_feb = input.get_child(initial_key);
+
+  for (std::size_t nth_vmm{0}; nth_vmm < nsw::NUM_VMM_PER_SFEB; ++nth_vmm) {
+    const auto vmm = fmt::format("vmm{}", nth_vmm);
+    const auto child_name = fmt::format("{}.{}", fename, vmm);
+
+    ERS_DEBUG(2, fmt::format("Looking for node: {}", vmm));
+    if (update.count(vmm) == 0) {
+      continue;
+    }
+
+    if (original_feb.count(vmm) == 0) {
+      original_feb.add_child(vmm, update.get_child(vmm));
+    } else {
+      auto& original_vmm = original_feb.get_child(vmm);
+      const auto& updated_vmm = update.get_child(vmm);
+      // iterate over keys to update
+      for (const auto& node : updated_vmm) {
+        // if update has a matching key, update
+        if (node.first.find("channel_") == std::string::npos) {
+          original_vmm.put(node.first, node.second.data());
+        } else {
+          // channel settings may be arrays
+          original_vmm.put_child(node.first, node.second);
+        }
+      }
+    }
+    ERS_DEBUG(2, fmt::format("Added {} VMM{} node", fename, nth_vmm));
+  }
+
+  // // TODO or this is taken by non-const reference and modified in place
+  // return input;
 }
 
 void nsw::THRCalib::setCalibParamsFromIS(const ISInfoDictionary& is_dictionary,
                                          const std::string& is_db_name)
 {
   const auto calib_param_is_name = fmt::format("{}.Calib.calibParams", is_db_name);
-  if (is_dictionary.contains(calib_param_is_name)) {
+
+  try {
+    if (not is_dictionary.contains(calib_param_is_name)) {
+      throw nsw::THRParameterIssue(ERS_HERE, fmt::format("Unable to find {} in IS", calib_param_is_name));
+    }
+
     ISInfoDynAny calib_params_from_is;
     is_dictionary.getValue(calib_param_is_name, calib_params_from_is);
     const auto calibParams = calib_params_from_is.getAttributeValue<std::string>(0);
     ERS_INFO(fmt::format("Calibration Parameters from IS: {}", calibParams));
 
-    const auto type = calibParams.substr(0, 3);
-    const auto run_params = calibParams.substr(4, calibParams.length());
-    int dflag{0};
+    const auto run_params{nsw::THRCalib::parseCalibParams(calibParams)};
 
-    sscanf(run_params.c_str(), "%zu,%zu,%d", &m_n_samples, &m_rms_factor, &dflag);
-    ERS_DEBUG(2, fmt::format("Check: {}--{}--{}", m_n_samples, m_rms_factor, dflag));
-
-    m_debug = static_cast<bool>(dflag);
-
-    if (type == "BLN") {
-      m_run_type = "baselines";
-      ERS_INFO(fmt::format("Setting up BASELINE run |{}", m_run_type));
-    } else if (type == "THR") {
-      m_run_type = "thresholds";
-      ERS_INFO(fmt::format("Setting up THRESHOLD run |", m_run_type));
-    } else {
-      ers::warning(
-        nsw::THRCalibIssue(ERS_HERE,
-                           "Calibration parameters were not specified "
-                           "(nedd char B (baseline) or T (threshold)) or not entered correctly - "
-                           "defaulting to threshold type"));
-      m_run_type = "thresholds";
-    }
-  } else {
+    m_n_samples = run_params.samples;
+    m_rms_factor = run_params.factor;
+    m_run_type = run_params.type;
+    m_debug = run_params.debug;
+  } catch (const nsw::THRParameterIssue& is) {
     const auto is_cmd = fmt::format("is_write -p ${{TDAQ_PARTITION}} -n {} -t String -v Type,samples,xRMS,debug -i 0", calib_param_is_name);
     nsw::calib::IsParameterNotFoundUseDefault issue(ERS_HERE, "calibParams", is_cmd, "Running a threshold scan using default n_sample(100/chan)/m_rms_factor(x6)/ settings");
+    ers::warning(is);
     ers::warning(issue);
     m_run_type = "thresholds";
   }
   ERS_INFO(fmt::format("Run type - {}", m_run_type));
   std::this_thread::sleep_for(500ms);
+}
+
+nsw::THRCalib::RunParameters nsw::THRCalib::parseCalibParams(const std::string& calibParams)
+{
+  const auto tokens{nsw::tokenizeString(calibParams, ",")};
+  constexpr std::size_t NUM_THR_PARAMS{4};
+  if (tokens.size() != NUM_THR_PARAMS) {
+    throw nsw::THRParameterIssue(ERS_HERE, fmt::format("Expected to parse {} parameters from {}", NUM_THR_PARAMS, calibParams));
+  }
+
+  nsw::THRCalib::RunParameters run_params{};
+  try {
+    const auto n_samples{std::stoull(tokens.at(1))};
+    const auto rms_factor{std::stoull(tokens.at(2))};
+    const auto dflag{std::stoi(tokens.back())};
+
+    ERS_DEBUG(2, fmt::format("Check: {}--{}--{}", n_samples, rms_factor, dflag));
+
+    run_params.samples = static_cast<std::size_t>(n_samples);
+    run_params.factor  = static_cast<std::size_t>(rms_factor);
+    run_params.debug = static_cast<bool>(dflag);
+  } catch (const std::exception& ex) {
+    throw nsw::THRParameterIssue(ERS_HERE, fmt::format("Error parsing parameters: {}", ex.what()));
+  }
+
+  const auto type = tokens.front();
+  if (type == "BLN") {
+    run_params.type = "baselines";
+  } else if (type == "THR") {
+    run_params.type = "thresholds";
+  } else {
+    throw nsw::THRParameterIssue(ERS_HERE,
+                                 fmt::format("Invalid calibration type specified: {} (expected BLN or THR)", type));
+  }
+  return run_params;
 }

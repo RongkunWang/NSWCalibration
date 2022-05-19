@@ -10,17 +10,16 @@
 
 #include <boost/property_tree/ptree.hpp>
 
-#include "NSWConfiguration/ConfigSender.h"
-#include "NSWConfiguration/FEBConfig.h"
+#include "NSWConfiguration/hw/FEB.h"
 
 #include "NSWCalibration/CalibAlg.h"
 #include "NSWCalibration/CalibTypes.h"
 
 #include "NSWCalibration/ScaCalibration.h"
-// #include "NSWCalibration/VmmTrimmerScaCalibration.h"
-// #include "NSWCalibration/VmmBaselineScaCalibration.h"
 
 ERS_DECLARE_ISSUE(nsw, THRCalibIssue, message, ((std::string)message))
+
+ERS_DECLARE_ISSUE(nsw, THRParameterIssue, message, ((std::string)message))
 
 namespace nsw {
   // class VmmTrimmerScaCalibration;
@@ -32,6 +31,15 @@ namespace nsw {
   class THRCalib : public CalibAlg
   {
     public:
+
+    struct RunParameters
+    {
+      std::size_t samples{};
+      std::size_t factor{};
+      std::string type{};
+      bool debug{};
+    };
+
     THRCalib(std::string calibType, const hw::DeviceManager& deviceManager);
 
     /*!
@@ -53,18 +61,6 @@ namespace nsw {
      *  mainly started by per-front-end threads
      */
     void configure() override;
-
-    public:
-    /*!
-     * \brief Reads base configuration to write to the front-end boards
-     *
-     * Input string from dbConnection is obtained and stored as the
-     * configuration json for selected front-ends. Later
-     * is used to put them into configuration vector \ref m_feconfigs
-     *
-     * \param config_db front-end configuration
-     */
-    void read_config(const std::string& config_db);
 
     /*!
      * \brief Merges recorded partial json configs into a single file
@@ -88,6 +84,32 @@ namespace nsw {
      */
     void setCalibParamsFromIS(const ISInfoDictionary& is_dictionary, const std::string& is_db_name) override;
 
+    /*!
+     * \brief Updates an input config file with per FEB information stored in a separate JSON
+     *
+     *  The update JSON contains the VMM blocks and one `OpcNodeId`
+     *  key, and the function searches the input ptree for a node
+     *  matching the same `OpcNodeId` and inserts/updates the `vmmX`
+     *  blocks
+     *
+     * \param[in,out] input the ptree that is to be updated 9should
+     *                correspond to the usual config JSON file.
+     * \param update the ptree that contains the updated FEB information
+
+     * \throws [set exception type here] when the update ptree
+     *         contains an `OpcNodeId` not matching any key in the input ptree
+     */
+    static void updatePtreeWithFeb(boost::property_tree::ptree& input, boost::property_tree::ptree update);
+
+    /*!
+     * \brief Parse the IS string containing the calibration parameters
+     *
+     * \param calibParams is the string retrieved from IS containing the calibration parameters
+     *
+     * \throws nsw::THRParameterIssue when the extraction of calib parameters fails
+     */
+    static RunParameters parseCalibParams(const std::string& calibParams);
+
     private:
     /*!
      * \brief Wrapper around common usage pattern to launch threads.
@@ -100,8 +122,7 @@ namespace nsw {
       static_assert(std::is_base_of_v<nsw::ScaCalibration, Calibration>,
                     "Invalid calibration type, must specify a derivative of nsw::ScaCalibration!");
       std::vector<std::thread> threads;
-      for (const auto& feb : m_feconfigs) {
-        // FIXME TODO pass other parameters to the calibration
+      for (const auto& feb : m_febs.get()) {
         threads.emplace_back([this, feb] () {
           Calibration calibration(feb, m_output_path, m_n_samples, m_rms_factor, m_sector, m_wheel, m_debug);
           calibration.runCalibration();
@@ -120,21 +141,19 @@ namespace nsw {
 
     private:
     std::string m_configFile;  //!< Configuration source from the dbConnection xml attribute
-    boost::property_tree::ptree m_config;  //!< Configuration read in from \c m_configFile
 
-    std::vector<nsw::FEBConfig> m_feconfigs = {};  //!< vector of front-end configurations
-    std::set<std::string> m_fenames = {};          //!< set of front-end names
+    std::reference_wrapper<const std::vector<hw::FEB>> m_febs;  //!< vector of front-end hw interfaces
 
-    bool m_debug = false;       //!< general debug flag
+    bool m_debug{false};       //!< general debug flag
 
-    std::size_t m_n_samples = 10;  //!< number of samples per channel can be modified from IS
-    std::size_t m_rms_factor = 9;  //!< RMS factor for threshold calibration can be modified from IS
+    std::size_t m_n_samples{10};  //!< number of samples per channel can be modified from IS
+    std::size_t m_rms_factor{9};  //!< RMS factor for threshold calibration can be modified from IS
 
     std::string m_run_type;        //!< run type obtained from IS
     std::string m_output_path;     //!< output directory for calibration data
     std::string m_app_name;
-    // FIXME REMOVE MOVED TO CalibAlg // std::string m_run_string;
 
+    // TODO FIXME obtain from GeoID
     std::size_t m_sector;  //!< sector (1 to 16)
     int m_wheel;   //!< side (A or C)
     std::size_t m_run_nr;  //!< run number from partition

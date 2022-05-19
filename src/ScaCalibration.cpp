@@ -5,19 +5,21 @@
 #include <fmt/core.h>
 
 #include "NSWCalibration/CalibrationMath.h"
+#include "NSWCalibration/Utility.h"
 
 using namespace std::chrono_literals;
 
-nsw::ScaCalibration::ScaCalibration(nsw::FEBConfig feb,
+nsw::ScaCalibration::ScaCalibration(std::reference_wrapper<const hw::FEB> feb,
                                     std::string outpath,
                                     const std::size_t nSamples,
                                     const std::size_t rmsFactor,
                                     const std::size_t sector,
                                     const int wheel,
                                     const bool debug) :
-  m_feb(std::move(feb)),
-  m_feName(m_feb.getAddress()),
-  m_isStgc(m_feName.find("FEB") != std::string::npos),
+  m_feb(feb),
+  m_feName(feb.get().getScaAddress()),
+  m_boardName(feb.get().getFilenameCompatibleGeoId()),
+  m_isStgc(m_feName.find("FEB") != std::string::npos || m_feName.find("sTGC") != std::string::npos),
   m_debug(debug),
   m_outPath(std::move(outpath)),
   m_nSamples(nSamples),
@@ -25,21 +27,22 @@ nsw::ScaCalibration::ScaCalibration(nsw::FEBConfig feb,
   m_wheel(wheel),
   m_sector(sector)
 {
-  const auto [n_vmms, firstVmm, quarterOfFebChannels] = getBoardVmmConstants(m_feb);
+  const auto [n_vmms, firstVmm, quarterOfFebChannels] = getBoardVmmConstants();
 
   m_nVmms = n_vmms;
   m_firstVmm = firstVmm;
   m_quarterOfFebChannels = quarterOfFebChannels;
 }
 
-nsw::calib::VMMSampleVector nsw::ScaCalibration::getVmmPdoSamples(const std::size_t vmmId,
+nsw::calib::VMMSampleVector nsw::ScaCalibration::getVmmPdoSamples(const VMMConfig& config,
+                                                                  const std::size_t vmmId,
                                                                   const std::size_t samplingFactor)
 {
-  nsw::calib::VMMSampleVector results;
+  nsw::calib::VMMSampleVector results{};
 
   for (std::size_t itry{1}; itry <= nsw::MAX_ATTEMPTS; ++itry) {
     try {
-      results = m_sender.readVmmPdoConsecutiveSamples(m_feb, vmmId, m_nSamples * samplingFactor);
+      results = m_feb.get().getVmm(vmmId).samplePdoMonitoringOutput(config, m_nSamples * samplingFactor);
 
       if (results.size() == m_nSamples * samplingFactor) {
         return results;
@@ -72,23 +75,20 @@ nsw::calib::VMMSampleVector nsw::ScaCalibration::getVmmPdoSamples(const std::siz
     nsw::MAX_ATTEMPTS,
     "The connection to the front-end was probably lost. Please check the state of the readout");
   ers::error(issue);
-  // FIXME TODO Should we throw?
-  // throw issue;
-  // FIXME TODO Might return partial results?
-  // results.clear();
   return results;
 }
 
 
-// FIXME TODO for thresholds, add an RM check and if too large, resample
+// FIXME TODO for thresholds, add an RMS check and if too large, resample
 nsw::calib::VMMSampleVector nsw::ScaCalibration::sampleVmmChMonDac(const std::size_t vmmId,
                                                                    const std::size_t channelId,
                                                                    const std::size_t samplingFactor)
 {
-  m_feb.getVmm(vmmId).setMonitorOutput(static_cast<std::uint32_t>(channelId), nsw::vmm::ChannelMonitor);
-  m_feb.getVmm(vmmId).setChannelMOMode(static_cast<std::uint32_t>(channelId), nsw::vmm::ChannelAnalogOutput);
+  auto config = m_feb.get().getVmm(vmmId).getConfig();
+  config.setMonitorOutput(static_cast<std::uint32_t>(channelId), nsw::vmm::ChannelMonitor);
+  config.setChannelMOMode(static_cast<std::uint32_t>(channelId), nsw::vmm::ChannelAnalogOutput);
 
-  return getVmmPdoSamples(vmmId, samplingFactor);
+  return getVmmPdoSamples(config, vmmId, samplingFactor);
 }
 
 nsw::calib::VMMSampleVector nsw::ScaCalibration::sampleVmmChTrimDac(const std::size_t vmmId,
@@ -97,47 +97,48 @@ nsw::calib::VMMSampleVector nsw::ScaCalibration::sampleVmmChTrimDac(const std::s
                                                                     const std::size_t trimDac,
                                                                     const std::size_t samplingFactor)
 {
-  m_feb.getVmm(vmmId).setMonitorOutput(static_cast<std::uint32_t>(channelId), nsw::vmm::ChannelMonitor);
-  m_feb.getVmm(vmmId).setChannelMOMode(static_cast<std::uint32_t>(channelId), nsw::vmm::ChannelTrimmedThreshold);
-  m_feb.getVmm(vmmId).setChannelTrimmer(static_cast<std::uint32_t>(channelId), static_cast<std::uint32_t>(trimDac));
-  m_feb.getVmm(vmmId).setGlobalThreshold(static_cast<std::uint32_t>(thrDac));
+  auto config = m_feb.get().getVmm(vmmId).getConfig();
+  config.setMonitorOutput(static_cast<std::uint32_t>(channelId), nsw::vmm::ChannelMonitor);
+  config.setChannelMOMode(static_cast<std::uint32_t>(channelId), nsw::vmm::ChannelTrimmedThreshold);
+  config.setChannelTrimmer(static_cast<std::uint32_t>(channelId), static_cast<std::uint32_t>(trimDac));
+  config.setGlobalThreshold(static_cast<std::uint32_t>(thrDac));
 
-  return getVmmPdoSamples(vmmId, samplingFactor);
+  return getVmmPdoSamples(config, vmmId, samplingFactor);
 }
 
 nsw::calib::VMMSampleVector nsw::ScaCalibration::sampleVmmChThreshold(const std::size_t vmmId,
                                                                       const std::size_t channelId)
 {
-  m_feb.getVmm(vmmId).setMonitorOutput(static_cast<std::uint32_t>(channelId), nsw::vmm::ChannelMonitor);
-  m_feb.getVmm(vmmId).setChannelMOMode(static_cast<std::uint32_t>(channelId), nsw::vmm::ChannelTrimmedThreshold);
+  auto config = m_feb.get().getVmm(vmmId).getConfig();
+  config.setMonitorOutput(static_cast<std::uint32_t>(channelId), nsw::vmm::ChannelMonitor);
+  config.setChannelMOMode(static_cast<std::uint32_t>(channelId), nsw::vmm::ChannelTrimmedThreshold);
 
-  return getVmmPdoSamples(vmmId);
+  return getVmmPdoSamples(config, vmmId);
 }
 
 nsw::calib::VMMSampleVector nsw::ScaCalibration::sampleVmmThDac(const std::size_t vmmId,
                                                                 const std::size_t dacValue,
                                                                 const std::size_t samplingFactor)
 {
-  m_feb.getVmm(vmmId).setMonitorOutput(nsw::vmm::ThresholdDAC, nsw::vmm::CommonMonitor);
-  m_feb.getVmm(vmmId).setGlobalThreshold(static_cast<std::uint32_t>(dacValue));
+  auto config = m_feb.get().getVmm(vmmId).getConfig();
+  config.setMonitorOutput(nsw::vmm::ThresholdDAC, nsw::vmm::CommonMonitor);
+  config.setGlobalThreshold(static_cast<std::uint32_t>(dacValue));
 
-  return getVmmPdoSamples(vmmId, samplingFactor);
+  return getVmmPdoSamples(config, vmmId, samplingFactor);
 }
 
 nsw::calib::VMMSampleVector nsw::ScaCalibration::sampleVmmTpDac(const std::size_t vmmId,
                                                                 const std::size_t dacValue,
                                                                 const std::size_t samplingFactor)
 {
-  m_feb.getVmm(vmmId).setMonitorOutput(nsw::vmm::TestPulseDAC, nsw::vmm::CommonMonitor);
-  m_feb.getVmm(vmmId).setTestPulseDAC(static_cast<std::uint32_t>(dacValue));
+  auto config = m_feb.get().getVmm(vmmId).getConfig();
+  config.setMonitorOutput(nsw::vmm::TestPulseDAC, nsw::vmm::CommonMonitor);
+  config.setTestPulseDAC(static_cast<std::uint32_t>(dacValue));
 
-  return getVmmPdoSamples(vmmId, samplingFactor);
+  return getVmmPdoSamples(config, vmmId, samplingFactor);
 }
 
 
-// FIXME TODO potentially static functions
-
-// FIXME make static somewhere else, accesses m_sector
 bool nsw::ScaCalibration::checkIfUnconnected(const std::string& feName,
                                              const std::size_t vmmId,
                                              const std::size_t channelId) const
@@ -170,8 +171,11 @@ bool nsw::ScaCalibration::checkIfUnconnected(const std::string& feName,
   //       const auto side = side.at(2); // L/R ??
 
   if (feName.length() != 14) {
-    ers::warning(nsw::ScaFebCalibrationIssue(
-      ERS_HERE, feName, "Does not fit the format [MMFE8_L#P#_(HO/IP)(L/R)]"));
+    ERS_LOG(fmt::format("{} VMM{}, channel {}: FEB name does not fit the format "
+                        "[MMFE8_L#P#_(HO/IP)(L/R)], unable to check for unconnected channels.",
+                        feName,
+                        vmmId,
+                        channelId));
     return false;
   }
 
@@ -221,7 +225,6 @@ bool nsw::ScaCalibration::checkIfUnconnected(const std::string& feName,
   ERS_DEBUG(2,
             fmt::format("{} parameters : VMM{} mapped chan={} and layer={}", feName, vmmId, i, L));
 
-  // FIXME TODO only use of a member variable preventing this from being a static function
   if (m_sector % 2 == 0) {
     if ((L == 0 || L == 1 || L == 6 || L == 7) &&
         (i < 42 || (i > 5078 && i < 5149) || i > 8160)) {
@@ -246,11 +249,10 @@ bool nsw::ScaCalibration::checkIfUnconnected(const std::string& feName,
   return false;
 }
 
-// FIXME make static somewhere else?
-nsw::calib::FEBVMMConstants nsw::ScaCalibration::getBoardVmmConstants(const nsw::FEBConfig& feb)
+nsw::calib::FEBVMMConstants nsw::ScaCalibration::getBoardVmmConstants()
 {
-  const std::string feName = feb.getAddress();
-  const auto nVmms = feb.getVmms().size();
+  const std::string feName = m_feb.get().getScaAddress();
+  const auto nVmms = m_feb.get().getNumVmms();
   if (nVmms == nsw::ref::NUM_VMM_SFEB6) {
     return {nsw::NUM_VMM_PER_SFEB,
             nsw::SFEB6_FIRST_VMM,
@@ -267,9 +269,6 @@ nsw::calib::FEBVMMConstants nsw::ScaCalibration::getBoardVmmConstants(const nsw:
       feName,
       fmt::format("Unrealistic number of VMMs in the configuration [{}]", nVmms));
     ers::error(issue);
-    // FIXME TODO Should we throw?
-    // throw issue;
-    // FIXME TODO Or return nonsense?
     return {0,0,0};
   }
 }

@@ -2,11 +2,11 @@
 
 std::size_t nsw::CalibrationMath::mVtoSample(const float mV_read, const bool stgc)
 {
-  float val = mV_read * nsw::ref::MV_PER_SAMPLE;
+  auto val = mV_read * nsw::ref::MV_PER_SAMPLE;
   if (!stgc) {
     val /= nsw::ref::MM_RESISTOR_FACTOR;
   }
-  return std::size_t{val};
+  return static_cast<std::size_t>(val);
 }
 
 
@@ -17,21 +17,22 @@ bool nsw::CalibrationMath::checkChannel(const float ch_baseline_rms, const bool 
 }
 
 
-std::pair<float,float> nsw::CalibrationMath::getSlopes(const float ch_lo,
-                                                       const float ch_mid,
-                                                       const float ch_hi,
-                                                       const int trim_hi,
-                                                       const int trim_mid,
-                                                       const int trim_lo)
-{
-  const float m1 = (ch_hi - ch_mid)/(trim_hi-trim_mid);
-  const float m2 = (ch_mid - ch_lo)/(trim_mid-trim_lo);
-  return std::make_pair(m1,m2);
-}
-
-
 bool nsw::CalibrationMath::checkSlopes(const float m1, const float m2, const float slope_check_val)
 {
   // FIXME TODO adapt for both MM and sTGC
   return (std::abs(m1 - m2) < slope_check_val);
+}
+
+std::pair<float, float> nsw::CalibrationMath::getSlopes(
+  const std::pair<float, int>& points_trim_low,
+  const std::pair<float, int>& points_trim_mid,
+  const std::pair<float, int>& points_trim_hi)
+{
+  const auto m1 =
+    (points_trim_hi.first - points_trim_mid.first) /
+    (static_cast<float>(points_trim_hi.second) - static_cast<float>(points_trim_mid.second));
+  const auto m2 =
+    (points_trim_mid.first - points_trim_low.first) /
+    (static_cast<float>(points_trim_mid.second) - static_cast<float>(points_trim_low.second));
+  return std::make_pair(m1, m2);
 }

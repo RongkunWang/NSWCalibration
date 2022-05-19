@@ -18,7 +18,7 @@ namespace nsw {
     public:
     // public functions exposed to callers
     // Construct a calibration for all VMMs on this FEB
-    VmmBaselineScaCalibration(nsw::FEBConfig feb,
+    VmmBaselineScaCalibration(std::reference_wrapper<const hw::FEB> feb,
                               std::string outpath,
                               std::size_t nSamples,
                               std::size_t rmsFactor,

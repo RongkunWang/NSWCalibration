@@ -52,13 +52,12 @@ namespace nsw {
     // Per-VMM channel objects
     nsw::calib::FebChannelMap<std::size_t> baselineMed;     //!< Per-channel baseline median
     nsw::calib::FebChannelMap<float> baselineRms;     //!< Per-channel baseline rms
-    nsw::calib::FebChannelMap<float> maxEffThresh;    //<! Per-channel effective threshold at trimmer maximum position
-    nsw::calib::FebChannelMap<float> minEffThresh;    //<! Per-channel effective threshold at trimmer minimum position
-    nsw::calib::FebChannelMap<float> midEffThresh;    //<! Per-channel effective threshold at trimmer middle position
+    nsw::calib::FebChannelMap<int> maxEffThresh;    //<! Per-channel effective threshold ADC counts at trimmer maximum position
+    nsw::calib::FebChannelMap<int> minEffThresh;    //<! Per-channel effective threshold ADC counts at trimmer minimum position
+    nsw::calib::FebChannelMap<int> midEffThresh;    //<! Per-channel effective threshold ADC counts at trimmer middle position
     nsw::calib::FebChannelMap<float> effThreshSlope;  //<! Per-channel trimmer DAC slope at the linear region
     nsw::calib::FebChannelMap<std::size_t> trimmerMax;//<! Per-channel maximum trimmer DAC operational register values
 
-    // FIXME Tricky, really don't want these here, but they're used semi-globally...
     nsw::calib::FebChannelMap<float> eff_thr_w_best_trim;
     nsw::calib::FebChannelMap<std::size_t> best_channel_trim;
     nsw::calib::FebChannelMap<float> channel_trimmed_thr;
@@ -73,12 +72,12 @@ namespace nsw {
    */
   struct FebTrimmerData {
     // Per-VMM objects
-    nsw::calib::FebVmmMap<float> baselineMed;   //<! Per VMM baseline median
+    nsw::calib::FebVmmMap<std::size_t> baselineMed;   //<! Per VMM baseline median
     nsw::calib::FebVmmMap<float> baselineRms;   //<! Per VMM baseline RMS
-    nsw::calib::FebVmmMap<std::size_t> thDacValues;   //<! Per VMM threshold DAC value (FIXME REDUNDANT part of thDacConstants)
-    nsw::calib::FebVmmMap<float> midTrimMed;    //<! Per VMM global threshold median at trimmer middle position
-    nsw::calib::FebVmmMap<float> midEffThresh;  //<! Per VMM global effective thresholds at trimmer middle position
-    nsw::calib::FebVmmMap<std::size_t> baselines_above_threshold;  //<! Per VMM the number of channels with baselines above threshold
+    nsw::calib::FebVmmMap<std::size_t> thDacValues;   //<! Per VMM final threshold DAC value (initial value part of thDacConstants)
+    nsw::calib::FebVmmMap<int> midTrimMed;    //<! Per VMM global threshold ADC counts median at trimmer middle position
+    nsw::calib::FebVmmMap<int> midEffThresh;  //<! Per VMM global effective thresholds ADC counts at trimmer middle position
+    nsw::calib::FebVmmMap<std::size_t> baselinesOverThresh;  //<! Per VMM the number of channels with baselines above threshold
 
     nsw::calib::FebVmmMap<nsw::calib::GlobalThrConstants> thDacConstants;          //<!
     nsw::calib::FebVmmMap<nsw::calib::VMMChannelSummary> channelInfo;              //<!
@@ -91,13 +90,29 @@ namespace nsw {
    * \brief Class controlling the VMM trim calibration for a single FEB
    *
    * Inherits from the ScaCalibration (or template instantiates an instance of?)
+   *
+   * The trimmer calibration consists of several steps. In the first
+   * step, the function VmmTrimmerScaCalibration::readThresholds is
+   * called to measure the per-channel thresholds in the default
+   * setting. No member variables are updated, and the result is an
+   * output text file.
+   *
+   * The second step is the trimming. In this phase, the first step is
+   * to call VmmTrimmerScaCalibration::getUnconnectedChannels to
+   * determine which channels are not connected/reachable.
+   *
+   * In the case that all channels are disconnected, or the sampling
+   * returned an empty vector, the output for that VMM would consist
+   * of default values.
+   *
+   *
    */
   class VmmTrimmerScaCalibration : public ScaCalibration
   {
   public:
     // public functions exposed to callers
     // Construct a calibration for all VMMs on this FEB
-    VmmTrimmerScaCalibration(nsw::FEBConfig feb,
+    VmmTrimmerScaCalibration(std::reference_wrapper<const hw::FEB> feb,
                              std::string outpath,
                              std::size_t nSamples,
                              std::size_t rmsFactor,
@@ -178,22 +193,20 @@ namespace nsw {
      * \brief Determine the number of unconnected channels, and the number of
      *        sampling outliers when reading the baselines.
      *
-     * \ingroup thresholds
-     *
      * \param vmmId FEB VMM index
      *
-     * \returns nsw::calib::VMMDisconnectedChannelInfo an object
-     *          containing a vector containing the baseline samples
-     *          for all channels, the number of not connected
-     *          channels, and a vector with one entry per channel of
-     *          the number of baseline samples that were far outliers.
+     * \returns nsw::calib::VMMDisconnectedChannelInfo an object containing:
+     *          - a vector containing the median baseline for each channel
+     *          - a vector containing the RMS of the baseline samples for each channel
+     *          - a vector containing the baseline samples for all channels
+     *          - the total number of disconnected channels for this VMM
+     *          - a vector containing the number of baseline samples that were far
+     *            outliers for each channel.
      */
     nsw::calib::VMMDisconnectedChannelInfo getUnconnectedChannels(std::size_t vmmId);
 
     /*!
      * \brief Reads the baseline of the VMM
-     *
-     * \ingroup thresholds
      *
      *  Reads the baseline of one VMM channel a defined number of times (n_samples x 10)
      *  and fills the results in a per-channel map of floats for later calculations
@@ -346,8 +359,8 @@ namespace nsw {
      *
      * \param vmmId FEB VMM index
      * \param channelId VMM channel index
-     * \param thDac threshold DAC value (TODO FIXME per VMM, could be member variable)
-     * \param thDacSlope slope of the fitted threshold DAC for the given VMM (TODO FIXME per VMM, ibid)
+     * \param thDac threshold DAC value
+     * \param thDacSlope slope of the fitted threshold DAC for the given VMM
      * \param recalc flag signifying that certain channels at best trimmer setting (default is false)
      */
     void analyseTrimmers(std::size_t vmmId,
@@ -377,7 +390,7 @@ namespace nsw {
      *
      * \param vmmId FEB VMM index
      * \param channelId VMM channel index
-     * \param thdac threshold DAC value (TODO FIXME per VMM, could be member variable)
+     * \param thdac threshold DAC value
      * \param recalc flag signifying that certain channels at best trimmer setting
      */
     void analyseChannelTrimmers(std::size_t vmmId,

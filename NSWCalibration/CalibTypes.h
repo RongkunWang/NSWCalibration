@@ -90,7 +90,7 @@ namespace nsw {
      *
      * \param float the calibrated threshold DAC slope
      * \param float the calibrated threshold DAC offset
-     * \param int the calibrated threshold DAC
+     * \param std::size_t the calibrated threshold DAC TODO clamped to VMM DAC range 0x3ff?
      */
     using GlobalThrConstants = std::tuple<float, float, std::size_t>;
 
@@ -102,8 +102,8 @@ namespace nsw {
     /*!
      * \brief VMMDisconnectedChannelInfo defines an `std::tuple` that stores:
      *
-     * \param std::vector<std::size_t> The per-channel median of the pruned baseline sampling data for all channels on this VMM
-     * \param std::vector<std::size_t> The per-channel RMS of the pruned baseline sampling data for all channels on this VMM
+     * \param std::vector<float> The per-channel median of the pruned baseline sampling data for all channels on this VMM
+     * \param std::vector<float> The per-channel RMS of the pruned baseline sampling data for all channels on this VMM
      * \param std::vector<std::size_t> The pruned baseline sampling data for all channels on this VMM
      * \param std::vector<std::size_t> The baseline sampling data for all channels on this VMM
      * \param std::size_t The number of disconnected channels
@@ -111,8 +111,8 @@ namespace nsw {
      *
      * \todo Rename this as it is nominally an object storing the baseline information
      */
-    using VMMDisconnectedChannelInfo = std::tuple<std::vector<std::size_t>,
-                                                  std::vector<std::size_t>,
+    using VMMDisconnectedChannelInfo = std::tuple<std::vector<float>,
+                                                  std::vector<float>,
                                                   std::vector<std::size_t>,
                                                   std::size_t,
                                                   std::vector<std::size_t>>;

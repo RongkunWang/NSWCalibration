@@ -178,7 +178,7 @@ void nsw::NSWCalibRc::subTransition(const daq::rc::SubTransitionCmd& cmd) {
 }
 
 void nsw::NSWCalibRc::publish() {
-  ERS_INFO("Publishing information to IS");
+  ERS_LOG("Publishing information to IS");
   for (const auto& [key, commands] :
        calib->getAltiSequences().getCommands()) {
     for (const auto& command : commands) {
