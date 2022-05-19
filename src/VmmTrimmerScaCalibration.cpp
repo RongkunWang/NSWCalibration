@@ -6,6 +6,7 @@
 
 #include <fmt/core.h>
 #include <fmt/chrono.h>
+#include <fmt/ranges.h>
 
 #include <boost/property_tree/json_parser.hpp>
 
@@ -17,21 +18,21 @@ namespace cm = nsw::CalibrationMath;
 
 using namespace std::chrono_literals;
 
-nsw::VmmTrimmerScaCalibration::VmmTrimmerScaCalibration(nsw::FEBConfig feb,
+nsw::VmmTrimmerScaCalibration::VmmTrimmerScaCalibration(std::reference_wrapper<const hw::FEB> feb,
                                                         std::string outpath,
                                                         const std::size_t nSamples,
                                                         const std::size_t rmsFactor,
                                                         const std::size_t sector,
                                                         const int wheel,
                                                         const bool debug) :
-  nsw::ScaCalibration::ScaCalibration(std::move(feb),
+  nsw::ScaCalibration::ScaCalibration(feb,
                                       std::move(outpath),
                                       nSamples,
                                       rmsFactor,
                                       sector,
                                       wheel,
                                       debug),
-  m_chCalibData(fmt::format("{}/{}_calibration_data.txt", m_outPath, m_feName))
+  m_chCalibData(fmt::format("{}/{}_calibration_data_RMSx{}.txt", m_outPath, m_boardName, m_rmsFactor))
 {}
 
 void nsw::VmmTrimmerScaCalibration::runCalibration()
@@ -45,7 +46,7 @@ void nsw::VmmTrimmerScaCalibration::runCalibration()
 
 void nsw::VmmTrimmerScaCalibration::readThresholds()
 {
-  std::ofstream thr_test(fmt::format("{}/{}_thresholds.txt", m_outPath, m_feName));
+  std::ofstream thr_test(fmt::format("{}/{}_thresholds_RMSx{}.txt", m_outPath, m_boardName, m_rmsFactor));
   thr_test.is_open();
 
   std::size_t bad_thr_tot{0};
@@ -54,14 +55,14 @@ void nsw::VmmTrimmerScaCalibration::readThresholds()
     std::size_t dev_thr{0};
 
     for (std::size_t channelId{0}; channelId < nsw::vmm::NUM_CH_PER_VMM; channelId++) {
-      std::vector<short unsigned int> results;
+      std::vector<short unsigned int> results{};
       try {
         results = sampleVmmChThreshold(vmmId, channelId);
       } catch (const std::runtime_error& e) {
         nsw::VmmTrimmerScaCalibrationIssue issue(
           ERS_HERE,
-          fmt::format("Skipping {} VMM{} Channel {} because threshold could not be sampled, "
-                      "reason: ![{}]! Check status of the readout!",
+          fmt::format("{} VMM{}: channel {} Skipping because threshold could not be sampled, "
+                      "reason: [{}]. Check status of the readout!",
                       m_feName,
                       vmmId,
                       channelId,
@@ -71,13 +72,7 @@ void nsw::VmmTrimmerScaCalibration::readThresholds()
         continue;
       }
 
-      const auto sum = std::accumulate(results.begin(), results.end(), 0.f);
-      const auto mean = [&sum, &results]() {
-        if (!results.empty()) {
-          return sum / static_cast<float>(results.size());
-        }
-        return sum;
-      }();
+      const auto mean = cm::takeMean(results);
 
       const auto strong_dev_samp =
         std::count_if(std::cbegin(results), std::cend(results), [&mean](const auto result) {
@@ -87,7 +82,7 @@ void nsw::VmmTrimmerScaCalibration::readThresholds()
       if (cm::sampleTomV(mean, m_isStgc) < nsw::ref::THR_DEAD_CUTOFF) {
         nsw::VmmTrimmerScaCalibrationIssue issue(
           ERS_HERE,
-          fmt::format("{} VMM{} channel - {} -> threshold might be dead = [{} mV]",
+          fmt::format("{} VMM{}: channel {} threshold might be dead = [{:2.4f} mV]",
                       m_feName,
                       vmmId,
                       channelId,
@@ -96,9 +91,8 @@ void nsw::VmmTrimmerScaCalibration::readThresholds()
       }
 
       // Searching for max and min deviation in samples
-      std::sort(results.begin(), results.end());
-
       const auto [max_dev, min_dev] = [&results]() -> std::tuple<std::size_t, std::size_t> {
+        std::sort(results.begin(), results.end());
         if (results.empty()) {
           return {0, 0};
         }
@@ -111,8 +105,8 @@ void nsw::VmmTrimmerScaCalibration::readThresholds()
           static_cast<std::size_t>(strong_dev_samp) > (m_nSamples * nsw::ref::BASELINE_SAMP_FACTOR / 4)) {
         nsw::VmmTrimmerScaCalibrationIssue issue(
           ERS_HERE,
-          fmt::format("{} VMM{} channel - {} -> high threshold deviation = [{} mV] from sample "
-                      "mean={} mV), samples out of range = {}/{}",
+          fmt::format("{} VMM{}: channel {} has high threshold deviation = [{:2.4f} mV] from sample "
+                      "mean={:2.4f} mV), samples out of range = {}/{}",
                       m_feName,
                       vmmId,
                       channelId,
@@ -122,7 +116,7 @@ void nsw::VmmTrimmerScaCalibration::readThresholds()
                       m_nSamples * nsw::ref::BASELINE_SAMP_FACTOR));
         ers::warning(issue);
 
-        dev_thr++;
+        ++dev_thr;
       }
 
       std::stringstream outline;
@@ -148,7 +142,7 @@ void nsw::VmmTrimmerScaCalibration::readThresholds()
     nsw::VmmTrimmerScaCalibrationIssue issue(
       ERS_HERE,
       fmt::format(
-        "Large number of strongly deviating thresholds for {} => ({})!", m_feName, bad_thr_tot));
+        "{}: Large number of strongly deviating thresholds: {}!", m_feName, bad_thr_tot));
     ers::warning(issue);
   }
   thr_test.close();
@@ -158,7 +152,7 @@ void nsw::VmmTrimmerScaCalibration::scaCalib()
 {
   const auto start = std::chrono::high_resolution_clock::now();
 
-  m_febOutJson.put("OpcServerIp", m_feb.getOpcServerIp());
+  m_febOutJson.put("OpcServerIp", "Dummy");
   m_febOutJson.put("OpcNodeId", m_feName);
 
   m_chCalibData.is_open();
@@ -175,7 +169,7 @@ void nsw::VmmTrimmerScaCalibration::scaCalib()
 
   const auto finish = std::chrono::high_resolution_clock::now();
   const auto elapsed = finish - start;
-  ERS_DEBUG(2, fmt::format("Elapsed time: {:%M:%S} [min]", elapsed));
+  ERS_DEBUG(2, fmt::format("{}: Elapsed time: {:%M:%S} [min]", m_feName, elapsed));
 
   ERS_INFO(fmt::format("{}: All thresholds calibrated", m_feName));
 }
@@ -184,13 +178,13 @@ void nsw::VmmTrimmerScaCalibration::calibrateVmm(const std::size_t vmmId)
 {
   const nsw::calib::FebVmmPair feb_vmm{m_feName, vmmId};
 
-  ERS_DEBUG(2, fmt::format("{} VMM{}: Calibrating baseline", m_feName, vmmId));
+  ERS_LOG(fmt::format("{} VMM{}: Calibrating baseline", m_feName, vmmId));
 
   const auto [vmm_median_samples, vmm_rms_samples, vmm_samples, ch_not_connected, n_over_cut] = getUnconnectedChannels(vmmId);
 
-  ERS_INFO(fmt::format(" {} VMM{}: Number of unconnected channels={}", m_feName, vmmId, ch_not_connected));
+  ERS_INFO(fmt::format(" {} VMM{}: {} unconnected channels", m_feName, vmmId, ch_not_connected));
 
-  ERS_LOG(fmt::format("{} VMM{} samples collected {}", m_feName, vmmId, vmm_samples.size()));
+  ERS_LOG(fmt::format("{} VMM{}: samples collected {}", m_feName, vmmId, vmm_samples.size()));
 
   if ((ch_not_connected == nsw::vmm::NUM_CH_PER_VMM) or vmm_samples.empty()) {
     // Write the output for a fully disconnected VMM
@@ -198,24 +192,23 @@ void nsw::VmmTrimmerScaCalibration::calibrateVmm(const std::size_t vmmId)
     setChTrimAndMask(vmmId, true);
     ERS_LOG(fmt::format("{} VMM{}: all channels not connected or empty sample vector, masking VMM", m_feName, vmmId));
   } else {
-    const auto tmp_median = cm::takeMedian(vmm_samples);
+    const auto tmp_median = cm::takeMedian(vmm_samples);  // median of all channel baseline samples
+    const auto mean_bad_bl_samples = cm::takeMean(n_over_cut); // average number of baselines over cut per channel
+    const auto median_bad_bl_samples = cm::takeMedian(n_over_cut); // median number of baselines over cut per channel
 
-    const auto mean_bad_bl_samples =
-      std::accumulate(std::cbegin(n_over_cut), std::cend(n_over_cut), 0.f) /
-      static_cast<float>(n_over_cut.size());
-    const auto median_bad_bl_samples = cm::takeMedian(n_over_cut);
-
-    ERS_LOG(fmt::format("{} VMM{} samples over RMS cutoff -> | MEAN: {}"
-                        " | MEDIAN {} | tmp_median = {} | written channel baselines [{}]",
+    ERS_LOG(fmt::format("{} VMM{}: baseline {}, samples over RMS cutoff | MEAN: {}"
+                        " | MEDIAN {} | written channel baselines [{}]",
                         m_feName,
                         vmmId,
+                        tmp_median,
                         mean_bad_bl_samples,
                         median_bad_bl_samples,
-                        tmp_median,
                         m_vmmTrimmerData.baselineMed.size()));
 
     // Set the channel masks, at this point unconnected channels are masked
     // As well as those with a baseline significantly larger than the median
+    // * of all channel samples?
+    // * of the median of each channel samples?
     m_febTrimmerData.channelInfo.insert_or_assign(feb_vmm, maskChannels(vmmId, tmp_median));
 
     const auto hot_chan = std::get<1>(m_febTrimmerData.channelInfo.at(feb_vmm));
@@ -223,7 +216,7 @@ void nsw::VmmTrimmerScaCalibration::calibrateVmm(const std::size_t vmmId)
     const auto bad_chan = hot_chan + dead_chan;
 
     if (bad_chan < nsw::vmm::NUM_CH_PER_VMM / 4 and bad_chan != 0) {
-      ERS_LOG(fmt::format("{} VMM{} has a few BAD channels - (HOT - {})(DEAD - {})",
+      ERS_LOG(fmt::format("{} VMM{}: has a few BAD channels ({} HOT/{} DEAD)",
                           m_feName,
                           vmmId,
                           hot_chan,
@@ -233,13 +226,13 @@ void nsw::VmmTrimmerScaCalibration::calibrateVmm(const std::size_t vmmId)
       nsw::VmmTrimmerScaCalibrationIssue issue(
         ERS_HERE,
         fmt::format(
-          "{} VMM{} has more than 1/4 of channels hot or dead ({})", m_feName, vmmId, bad_chan));
+          "{} VMM{}: more than 1/4 ({}) of channels hot or dead", m_feName, vmmId, bad_chan));
       ers::warning(issue);
     } else if (bad_chan >= nsw::vmm::NUM_CH_PER_VMM / 2) {
       nsw::VmmTrimmerScaCalibrationIssue issue(
         ERS_HERE,
         fmt::format(
-          "{} VMM{}: SEVERE PROBLEM more than HALF BAD channels [{} (HOT - {})(DEAD - {})]"
+          "{} VMM{}: SEVERE PROBLEM more than HALF BAD channels [{} ({} HOT/{} DEAD)]"
           ", skipping this VMM. SUGGESTION - read full baseline to asseess "
           "severity of the problem.",
           m_feName,
@@ -251,29 +244,28 @@ void nsw::VmmTrimmerScaCalibration::calibrateVmm(const std::size_t vmmId)
     }
 
     // Calculate VMM median baseline and RMS
-    const auto vmm_sum =
-      std::accumulate(std::cbegin(vmm_median_samples), std::cend(vmm_median_samples), 0.f);
     // Take the mean of the medians of each channel
-    const auto vmm_mean = vmm_sum / static_cast<float>(vmm_median_samples.size());
+    const auto vmm_mean = cm::takeMean(vmm_median_samples);
     // Take the median of the medians of each channel
     const auto vmm_median = cm::takeMedian(vmm_median_samples);
-    // Take the RMS of the medians of each channel
-    // const auto vmm_stdev = cm::takeRms(vmm_median_samples, vmm_mean);
     // Take the median of the RMS of each channel
     const auto vmm_stdev = cm::takeMedian(vmm_rms_samples);
+    // // Take the RMS of the medians of each channel
+    // const auto vmm_stdev = cm::takeRms(vmm_median_samples, vmm_mean);
 
     // Only place that these values are set, all other uses can be read-only
     m_febTrimmerData.baselineMed.insert_or_assign(feb_vmm, vmm_median);
     m_febTrimmerData.baselineRms.insert_or_assign(feb_vmm, vmm_stdev);
 
-    ERS_LOG(fmt::format("{} VMM{} : Calculated global (tmp_vmm_median = {})(vmm_mean = "
-                        "{})(vmm_median = {})(vmm_stdev = {})",
-                        m_feName,
-                        vmmId,
-                        cm::sampleTomV(tmp_median, m_isStgc),
-                        cm::sampleTomV(vmm_mean, m_isStgc),
-                        cm::sampleTomV(vmm_median, m_isStgc),
-                        cm::sampleTomV(vmm_stdev, m_isStgc)));
+    ERS_LOG(
+      fmt::format("{} VMM{}: Calculated global median = {:2.4f} mV [{:2.4f}/{:2.4f}/{:2.4f} mV "
+                  "(VMM average median/VMM median median/VMM median of the RMS, per channel)]",
+                  m_feName,
+                  vmmId,
+                  cm::sampleTomV(tmp_median, m_isStgc),
+                  cm::sampleTomV(vmm_mean, m_isStgc),
+                  cm::sampleTomV(vmm_median, m_isStgc),
+                  cm::sampleTomV(vmm_stdev, m_isStgc)));
 
     // Global Threshold Calculations
     ERS_INFO(fmt::format("{} VMM{}: Calculating global threshold", m_feName, vmmId));
@@ -289,8 +281,8 @@ void nsw::VmmTrimmerScaCalibration::calibrateVmm(const std::size_t vmmId)
         m_febTrimmerData.thDacConstants.insert_or_assign(feb_vmm, nsw::calib::GlobalThrConstants{});
         m_febTrimmerData.thDacValues.insert_or_assign(feb_vmm, nsw::ref::VMM_THDAC_MAX);
         // Set indirectly in calculateGlobalThreshold, via a call to calculateVmmGlobalThreshold
-        m_febTrimmerData.midTrimMed.insert_or_assign(feb_vmm, -1.);
-        m_febTrimmerData.midEffThresh.insert_or_assign(feb_vmm, -1.);
+        m_febTrimmerData.midTrimMed.insert_or_assign(feb_vmm, -1);
+        m_febTrimmerData.midEffThresh.insert_or_assign(feb_vmm, -1);
 
         return nsw::calib::GlobalThrConstants{};
       }}();
@@ -304,33 +296,34 @@ void nsw::VmmTrimmerScaCalibration::calibrateVmm(const std::size_t vmmId)
 
     // Summary and output
     ERS_LOG(
-      fmt::format("{} VMM{}: thDac written to the partial config is [{}]", m_feName, vmmId, thdac));
+      fmt::format("{} VMM{}: thDac written to the partial config is {}", m_feName, vmmId, thdac));
 
     const auto& best_channel_trim = m_vmmTrimmerData.best_channel_trim;
     const auto& eff_thr_w_best_trim = m_vmmTrimmerData.eff_thr_w_best_trim;
 
     const auto& channel_masks = m_febTrimmerData.channelMasks.at(feb_vmm);
-    ERS_LOG(fmt::format("Data check to be written to disk: Side={} sector={} {}-VMM{}::size of "
-                        "data to write: baselines ({}), VMM global baseline ({}), "
-                        "best_channel_trim ({}), effective threshold ({}), channel mask ({})",
-                        m_wheel,
-                        m_sector,
-                        m_feName,
-                        vmmId,
-                        m_vmmTrimmerData.baselineMed.size(),
-                        m_febTrimmerData.baselineMed.size(),
-                        best_channel_trim.size(),
-                        eff_thr_w_best_trim.size(),
-                        channel_masks.size()));
+    ERS_DEBUG(2,
+              fmt::format("Side={} sector={} {} VMM{}: size of data to write: "
+                          "baselines ({}), VMM global baseline ({}), "
+                          "best_channel_trim ({}), effective threshold ({}), channel mask ({})",
+                          m_wheel,
+                          m_sector,
+                          m_feName,
+                          vmmId,
+                          m_vmmTrimmerData.baselineMed.size(),
+                          m_febTrimmerData.baselineMed.size(),
+                          best_channel_trim.size(),
+                          eff_thr_w_best_trim.size(),
+                          channel_masks.size()));
 
     // Write out analysis results to ptree/JSON for this VMM
     setChTrimAndMask(vmmId);
 
-    ERS_INFO(fmt::format("{} VMM{} - Trimmers calculated & data written", m_feName, vmmId));
+    ERS_INFO(fmt::format("{} VMM{}: Trimmers calculated & data written", m_feName, vmmId));
 
     std::this_thread::sleep_for(2000ms);
 
-    const auto n_masked = std::accumulate(channel_masks.begin(), channel_masks.end(), 0.f);
+    const auto n_masked = std::accumulate(std::cbegin(channel_masks), std::cend(channel_masks), 0.f);
     if (n_masked >= nsw::vmm::NUM_CH_PER_VMM / 4) {
       nsw::VmmTrimmerScaCalibrationIssue issue(
         ERS_HERE,
@@ -340,28 +333,41 @@ void nsw::VmmTrimmerScaCalibration::calibrateVmm(const std::size_t vmmId)
   }
 }
 
-// FIXME TODO rename
+// FIXME TODO rename, we're really sampling the baselines here...
 nsw::calib::VMMDisconnectedChannelInfo nsw::VmmTrimmerScaCalibration::getUnconnectedChannels(
   const std::size_t vmmId)
 {
   // Return a vector of the median and RMS of the per-channel pruned
   // samples
-  std::vector<std::size_t> vmm_ch_samples{};
-  std::vector<std::size_t> vmm_ch_median_samples{};
-  std::vector<std::size_t> vmm_ch_rms_samples{};
+  std::vector<std::size_t> vmm_ch_samples{}; // vector to hold all the samples taken for a this VMM
+  std::vector<float> vmm_ch_median_samples{}; // vector to hold the per-channel median of the samples taken for a given channel
+  std::vector<float> vmm_ch_rms_samples{}; // vector to hold the per-channel RMS of the samples taken for a given channel
 
   std::size_t not_connected{0};
-  std::vector<std::size_t> n_over_cut{};
+  std::vector<std::size_t> n_over_cut{}; // vector to hold the number of outlier samples per-channel
   const nsw::calib::FebVmmPair feb_vmm{m_feName, vmmId};
 
-  auto defaultChannelBaseline = [this, &feb_vmm](const auto channelId) {
-    // These are set in readBaseline and need to be set to a sensible
-    // default in the case that we didn't successfully set them above
+  // Lambda later called in various failure cases to ensure default values are set
+  auto defaultChannelBaseline = [this, &feb_vmm, &vmmId](const auto channelId) {
     const nsw::calib::FebChannelPair feb_ch{feb_vmm, channelId};
-    if (m_vmmTrimmerData.baselineMed.find(feb_ch) != std::cend(m_vmmTrimmerData.baselineMed)) {
-      m_vmmTrimmerData.baselineMed.insert_or_assign(feb_ch, -1.f);
+    // If baseline median was not set for this channel, set to 0.
+    if (m_vmmTrimmerData.baselineMed.find(feb_ch) == std::cend(m_vmmTrimmerData.baselineMed)) {
+      ERS_DEBUG(2,
+                fmt::format(
+                  "{} VMM{}: channel {} trimmer data baseline median was not set, defaulting to 0",
+                  m_feName,
+                  vmmId,
+                  channelId));
+      m_vmmTrimmerData.baselineMed.insert_or_assign(feb_ch, 0);
     }
-    if (m_vmmTrimmerData.baselineRms.find(feb_ch) != std::cend(m_vmmTrimmerData.baselineRms)) {
+    // If baseline rms was not set for this channel, set to -1.
+    if (m_vmmTrimmerData.baselineRms.find(feb_ch) == std::cend(m_vmmTrimmerData.baselineRms)) {
+      ERS_DEBUG(
+        2,
+        fmt::format("{} VMM{}: channel {} trimmer data baseline RMS was not set, defaulting to -1",
+                    m_feName,
+                    vmmId,
+                    channelId));
       m_vmmTrimmerData.baselineRms.insert_or_assign(feb_ch, -1.f);
     }
   };
@@ -373,13 +379,25 @@ nsw::calib::VMMDisconnectedChannelInfo nsw::VmmTrimmerScaCalibration::getUnconne
         n_over_cut.push_back(over_cut);
 
         const auto ch_median = cm::takeMedian(ch_samples);
+        const auto ch_mean = cm::takeMean(ch_samples);
+        ERS_DEBUG(1,fmt::format("ch_samples vector: {}\n", ch_samples));
+        const auto ch_rms = cm::takeRms(ch_samples, ch_mean);
+        ERS_DEBUG(2,
+                  fmt::format("{} VMM{}: channel {} sample RMS/median/mean {:2.4f}/{}/{:2.4f} (ADC)",
+                              m_feName,
+                              vmmId,
+                              channelId,
+                              ch_rms,
+                              ch_median,
+                              ch_mean));
+
         vmm_ch_median_samples.emplace_back(ch_median);
-        vmm_ch_rms_samples.emplace_back(cm::takeRms(ch_samples, ch_median));
+        vmm_ch_rms_samples.emplace_back(ch_rms);
 
         std::move(std::begin(ch_samples), std::end(ch_samples), std::back_inserter(vmm_ch_samples));
       } catch (const nsw::ScaCalibrationIssue& ex) {
         ERS_INFO(
-          fmt::format("{} VMM{}: channel {} baseline sampling failed - skipping: reason [{}]",
+          fmt::format("{} VMM{}: channel {} baseline sampling failed, skipping: reason [{}]",
                       m_feName,
                       vmmId,
                       channelId,
@@ -414,15 +432,15 @@ std::pair<std::vector<short unsigned int>, std::size_t> nsw::VmmTrimmerScaCalibr
     std::cbegin(results),
     std::cend(results),
     [this, &vmmId, &channelId, &raw_median](const auto result) {
-      if (cm::sampleTomV(std::abs(static_cast<int64_t>(result - raw_median)), m_isStgc) > nsw::ref::BASELINE_CUTOFF) {
-        ERS_DEBUG(
-          2,
-          fmt::format("{} VMM{}: Outlier detected for channel {}: sample: {} mV | {} ADC",
-                      m_feName,
-                      vmmId,
-                      channelId,
-                      cm::sampleTomV(result, m_isStgc),
-                      result));
+      const auto diff{std::abs(static_cast<std::int64_t>(result - raw_median))};
+      if (cm::sampleTomV(diff, m_isStgc) > nsw::ref::BASELINE_CUTOFF) {
+        ERS_DEBUG(2,
+                  fmt::format("{} VMM{}: channel {} outlier detected: {:2.4f} mV/{} ADC",
+                              m_feName,
+                              vmmId,
+                              channelId,
+                              cm::sampleTomV(result, m_isStgc),
+                              result));
         return true;
       }
       return false;
@@ -434,37 +452,39 @@ std::pair<std::vector<short unsigned int>, std::size_t> nsw::VmmTrimmerScaCalibr
                  std::cend(results),
                  std::back_inserter(output),
                  [this, &raw_median](const auto sample) {
-                   return (cm::sampleTomV(std::abs(static_cast<int64_t>(sample - raw_median)), m_isStgc) <
-                           nsw::ref::BASELINE_CUTOFF);
+                   const auto diff{std::abs(static_cast<std::int64_t>(sample - raw_median))};
+                   return (cm::sampleTomV(diff, m_isStgc) < nsw::ref::BASELINE_CUTOFF);
                  });
     return output;
   }();
 
-  ERS_LOG(fmt::format("{} VMM{} channel {} pruned sample vector size ={}",
-                      m_feName,
-                      vmmId,
-                      channelId,
-                      results_pruned.size()));
+  ERS_DEBUG(1,
+            fmt::format("{} VMM{}: channel {} pruned sample vector size = {}",
+                        m_feName,
+                        vmmId,
+                        channelId,
+                        results_pruned.size()));
 
   // Calculate channel level baseline median and RMS
-  const auto sum = std::accumulate(std::cbegin(results_pruned), std::cend(results_pruned), 0.0f);
-  const auto mean = sum / static_cast<float>(results_pruned.size());
+  const auto mean = cm::takeMean(results_pruned);
+  ERS_DEBUG(1,fmt::format("results pruned vector: {}\n", results_pruned));
   const auto stdev = cm::takeRms(results_pruned, mean);
   const auto median = cm::takeMedian(results_pruned);
 
   const auto mean_mV = cm::sampleTomV(mean, m_isStgc);
   const auto stdev_mV = cm::sampleTomV(stdev, m_isStgc);
 
-  ERS_DEBUG(
-    2,
-    fmt::format("{} VMM{}, channel {}: mean = {}, stdev = {}], {} samples outside baseline cutoff ({}).",
-                m_feName,
-                vmmId,
-                channelId,
-                mean_mV,
-                stdev_mV,
-                far_outliers,
-                nsw::ref::BASELINE_CUTOFF));
+  ERS_DEBUG(3,
+            fmt::format("{} VMM{}: channel {} baseline mean = {:2.4f} +/- {:2.4} mV, {} samples "
+                        "outside baseline cutoff ({}), all samples {}.",
+                        m_feName,
+                        vmmId,
+                        channelId,
+                        mean_mV,
+                        stdev_mV,
+                        far_outliers,
+                        nsw::ref::BASELINE_CUTOFF,
+                        results_pruned));
 
   // Add channel baseline median and RMS to (FEB, channel) map
   m_vmmTrimmerData.baselineMed.insert_or_assign(feb_ch, median);
@@ -502,7 +522,7 @@ void nsw::VmmTrimmerScaCalibration::setChTrimAndMask(const std::size_t vmmId, co
   const auto& thDacOffset = vmmMasked ? 0 : std::get<1>(m_febTrimmerData.thDacConstants.at(feb_vmm));
 
   for (std::size_t ch{0}; ch < nsw::vmm::NUM_CH_PER_VMM; ch++) {
-    // FIXME TODO if a channel was masked, it may not have populated the maps,
+    // If a channel was masked, it may not have fully populated the maps,
     // don't crash in such cases!
     // However, need to ensure that for all potentially failed
     // channels, it is masked, otherwise we have to create a different
@@ -560,9 +580,9 @@ nsw::calib::VMMChannelSummary nsw::VmmTrimmerScaCalibration::maskChannels(const 
 
   for (std::size_t channelId{0}; channelId < nsw::vmm::NUM_CH_PER_VMM; channelId++) {
     const nsw::calib::FebChannelPair feb_ch{feb_vmm, channelId};
-    // FIXME TODO this is done in the calling scope, is it necessary
-    // to repeat here?
     if (checkIfUnconnected(m_feName, vmmId, channelId)) {
+      // FIXME TODO this is done in the calling scope, is it necessary
+      // to repeat here, maybe log to see if we ever get here??
       channel_mask.at(channelId) = 1;
     } else {
       const auto chnl_bln = m_vmmTrimmerData.baselineMed.at(feb_ch);
@@ -578,12 +598,11 @@ nsw::calib::VMMChannelSummary nsw::VmmTrimmerScaCalibration::maskChannels(const 
       }
 
       // FIXME TODO currently uses BB5 analysis convention...
-      // FIXME TODO factor of 3 is really high
       if (static_cast<float>(chnl_bln) > static_cast<float>(median) * nsw::ref::CHANNEL_HOT_FACTOR) {
         channel_mask.at(channelId) = 1;
         hot_chan++;
       } else if (static_cast<float>(chnl_bln) < static_cast<float>(median) * nsw::ref::CHANNEL_DEAD_FACTOR) {
-        ERS_INFO(fmt::format("{} VMM{}: channel {} baseline = {} is below median.",
+        ERS_INFO(fmt::format("{} VMM{}: channel {} baseline = {:2.4f} is below median.",
                              m_feName,
                              vmmId,
                              channelId,
@@ -597,7 +616,7 @@ nsw::calib::VMMChannelSummary nsw::VmmTrimmerScaCalibration::maskChannels(const 
     nsw::VmmTrimmerScaCalibrationIssue issue(
       ERS_HERE,
       fmt::format("{} VMM{}: HALF or more channels have sample RMS > 30mV [{} channels], with average "
-                  "channel RMS: [{:2.2f} mV] --- calibration might be flawed",
+                  "channel RMS: [{:2.4f} mV] --- calibration might be flawed",
                   m_feName,
                   vmmId,
                   noisy_chan,
@@ -619,24 +638,24 @@ nsw::calib::GlobalThrConstants nsw::VmmTrimmerScaCalibration::calculateGlobalThr
   const auto vmmBlnRms_mV = cm::sampleTomV(vmmBlnRms, m_isStgc);
   const auto vmmBlnMed_mV = cm::sampleTomV(vmmBlnMed, m_isStgc);
 
-  const auto [thDacTargetValue_mV, expectedEffThreshold] =
+  const auto [thDacTargetValue_mV, expectedEffThreshold_mV] =
     [this, vmmBlnMed_mV, vmmBlnRms_mV]() -> std::pair<float, float> {
     if (m_isStgc) {
-      const auto isPfeb{m_feName.find("PFEB") != std::string::npos};
+      const auto isPfeb{m_feName.find("PFEB") != std::string::npos || m_feName.find("/Pad/") != std::string::npos};
       if (isPfeb) {
-        return {vmmBlnMed_mV + nsw::ref::PFEB_THDAC_TARGET_OFFSET,
-                vmmBlnMed_mV + nsw::ref::PFEB_THDAC_TARGET_OFFSET};
+        return {vmmBlnMed_mV + nsw::ref::PFEB_THDAC_TARGET_OFFSET + nsw::ref::TRIM_OFFSET,
+                nsw::ref::PFEB_THDAC_TARGET_OFFSET};
       } else {
-        return {vmmBlnMed_mV + nsw::ref::SFEB_THDAC_TARGET_OFFSET,
-                vmmBlnMed_mV + nsw::ref::SFEB_THDAC_TARGET_OFFSET};
+        return {vmmBlnMed_mV + nsw::ref::SFEB_THDAC_TARGET_OFFSET + nsw::ref::TRIM_OFFSET,
+                nsw::ref::SFEB_THDAC_TARGET_OFFSET};
       }
     }
     return {(static_cast<float>(m_rmsFactor) * vmmBlnRms_mV) + vmmBlnMed_mV +
-              cm::sampleTomV(nsw::ref::TRIM_MID, m_isStgc),
+              nsw::ref::TRIM_OFFSET,
             (static_cast<float>(m_rmsFactor) * vmmBlnRms_mV)};
   }();
 
-  ERS_DEBUG(1, fmt::format("{} VMM{}: THDAC target value - [{} (mV)]", m_feName, vmmId, thDacTargetValue_mV));
+  ERS_DEBUG(1, fmt::format("{} VMM{}: THDAC target value [{:2.4f} (mV)]", m_feName, vmmId, thDacTargetValue_mV));
 
   auto mean{0.f};
   int thdac{0};
@@ -651,8 +670,6 @@ nsw::calib::GlobalThrConstants nsw::VmmTrimmerScaCalibration::calculateGlobalThr
       if (th_try == nsw::MAX_ATTEMPTS) {
         throw issue;
       } else {
-        // FIXME would love to reissue message as different type
-        // ers::warning(nsw::ScaVmmSamplingIssue(e));
         std::this_thread::sleep_for(30ms);
         continue;
       }
@@ -662,8 +679,6 @@ nsw::calib::GlobalThrConstants nsw::VmmTrimmerScaCalibration::calculateGlobalThr
       if (th_try == nsw::MAX_ATTEMPTS) {
         throw issue;
       } else {
-        // FIXME would love to reissue message as different type
-        // ers::warning(nsw::ScaVmmSamplingIssue(e));
         std::this_thread::sleep_for(30ms);
         continue;
       }
@@ -675,21 +690,31 @@ nsw::calib::GlobalThrConstants nsw::VmmTrimmerScaCalibration::calculateGlobalThr
 
     ERS_DEBUG(
       1,
-      fmt::format("{} VMM{}: Calculated THDAC value -> {} DAC counts, [slope = {} : offset = {}]",
+      fmt::format("{} VMM{}: Calculated THDAC value {} DAC units, [{:2.4f} mV = {:2.4f} x {} {:2.4f}]",
                   m_feName,
                   vmmId,
                   thdac,
+                  thDacTargetValue_mV,
                   std::get<0>(thDacConstants),
-                  std::get<1>(thDacConstants)));
+                  std::get<1>(thDacConstants) > 0 ? "+" : "-",
+                  std::abs(std::get<1>(thDacConstants))));
 
     const auto results = sampleVmmThDac(vmmId, thdac);
 
-    const auto sum = std::accumulate(std::cbegin(results), std::cend(results), 0.f);
-    mean = sum / static_cast<float>(results.size());
+    mean = cm::takeMean(results);
+
     const auto mean_mV = cm::sampleTomV(mean, m_isStgc);
     const auto thr_diff{mean_mV - vmmBlnMed_mV};
 
-    if (!(thr_diff > 0)) {
+    ERS_DEBUG(3,
+              fmt::format("{} VMM{}: threshold diff {:2.4f} ({:2.4f} - ({:2.4f})) mV",
+                          m_feName,
+                          vmmId,
+                          thr_diff,
+                          mean_mV,
+                          vmmBlnMed_mV));
+
+    if (thr_diff < 0) {
       if (th_try == nsw::MAX_ATTEMPTS) {
         const nsw::VmmTrimmerBadGlobalThreshold issue(
           ERS_HERE,
@@ -704,7 +729,7 @@ nsw::calib::GlobalThrConstants nsw::VmmTrimmerScaCalibration::calculateGlobalThr
           ERS_HERE,
           m_feName,
           vmmId,
-          fmt::format("Resulting threshold is {} mV BELOW baseline!", thr_diff)));
+          fmt::format("Resulting threshold is {:2.4f} mV BELOW baseline!", thr_diff)));
 
         std::this_thread::sleep_for(30ms);
         continue;
@@ -718,11 +743,11 @@ nsw::calib::GlobalThrConstants nsw::VmmTrimmerScaCalibration::calculateGlobalThr
       if (th_try == nsw::MAX_ATTEMPTS) {
         const nsw::VmmTrimmerBadGlobalThreshold issue(
           ERS_HERE,
-          fmt::format("{} VMM{}: {:2.2f}% deviation in threshold calculation: [guess = {} -> calc. "
-                      "= {:2.2f} mV] after {} attempts.",
+          fmt::format("{} VMM{}: {:2.2f}% deviation in threshold calculation: [guess = {:2.4f} -> calc. "
+                      "= {:2.4f} mV] after {} attempts.",
                       m_feName,
                       vmmId,
-                      thdac_dev * 100,
+                      thdac_dev * 100.f,
                       thDacTargetValue_mV,
                       mean_mV,
                       nsw::MAX_ATTEMPTS));
@@ -733,8 +758,8 @@ nsw::calib::GlobalThrConstants nsw::VmmTrimmerScaCalibration::calculateGlobalThr
           m_feName,
           vmmId,
           fmt::format(
-            "{:2.2f}% deviation in threshold calculation: [guess = {} -> calc. = {:2.2f} mV]",
-            thdac_dev * 100,
+            "{:2.2f}% deviation in threshold calculation: [guess = {:2.4f} -> calc. = {:2.4f} mV]",
+            thdac_dev * 100.f,
             thDacTargetValue_mV,
             mean_mV)));
         std::this_thread::sleep_for(40ms);
@@ -742,11 +767,11 @@ nsw::calib::GlobalThrConstants nsw::VmmTrimmerScaCalibration::calculateGlobalThr
       }
     } else {
       ERS_INFO(fmt::format(
-        "{} VMM{}: Global threshold is {}mV, deviation from desired value is [{:2.2f}]%",
+        "{} VMM{}: Global threshold is {:2.4f} mV, deviation from desired value is [{:2.2f}]%",
         m_feName,
         vmmId,
         mean_mV,
-        thdac_dev * 100));
+        thdac_dev * 100.f));
       break;
     }
   }
@@ -765,7 +790,7 @@ nsw::calib::GlobalThrConstants nsw::VmmTrimmerScaCalibration::calculateGlobalThr
 
   // Get VMM-level averages.
   ERS_DEBUG(2,
-            fmt::format("{} VMM{} - Calculating V_eff with trimmers at bit[14]", m_feName, vmmId));
+            fmt::format("{} VMM{}: Calculating V_eff with trimmers at midpoint", m_feName, vmmId));
 
   calculateVmmGlobalThreshold(vmmId);
 
@@ -775,12 +800,10 @@ nsw::calib::GlobalThrConstants nsw::VmmTrimmerScaCalibration::calculateGlobalThr
   // thresholds with trimmers and an increased THDAC 30 ADC counts -
   // roughly 10 mV;
 
-  // FIXME TODO triple check this, 30 mV is way too high!
-  // 5mV for MM/fixed value above threshold for sTGC
   if (vmm_eff_thresh < nsw::ref::RMS_CUTOFF) {
     // if resulting RMS is too low to give at least 1 DAC count
-    const auto addFactor = [vmmBlnRms_mV, &thDacConstants]() -> std::size_t {
-      const auto fact = std::round(vmmBlnRms_mV / std::get<0>(thDacConstants));  // slope
+    const auto addFactor = [vmmBlnRms/*_mV*/, &thDacConstants]() -> std::size_t {
+      const auto fact = std::round(vmmBlnRms/*_mV*/ / std::get<0>(thDacConstants));  // ADC-to-DAC slope
       if (fact == 0) {
         return 1;
       } else {
@@ -793,32 +816,35 @@ nsw::calib::GlobalThrConstants nsw::VmmTrimmerScaCalibration::calculateGlobalThr
     ERS_DEBUG(
       2,
       fmt::format(
-        "{} VMM{} adding {{}} DAC counts to the global threshold", m_feName, vmmId, addFactor));
+        "{} VMM{}: adding {} DAC counts to the global threshold", m_feName, vmmId, addFactor));
 
     ers::warning(nsw::VmmTrimmerScaCalibrationIssue(
       ERS_HERE,
-      fmt::format("{} VMM{} effective threshold is less than 10 mV - raising THDAC by one noise "
-                  "RMS -[{} + {}] = [{}]",
-                  m_feName,
-                  vmmId,
-                  thdac,
-                  addFactor,
-                  thdac_raised)));
+      fmt::format(
+        "{} VMM{}: effective threshold ({}) is less than {} mV, raising THDAC by one "
+        " [{} + {} = {}]",
+        m_feName,
+        vmmId,
+        vmm_eff_thresh,
+        nsw::ref::RMS_CUTOFF,
+        thdac,
+        addFactor,
+        thdac_raised)));
 
+    // recalculate the global threshold, now with thdac_raised
+    m_febTrimmerData.thDacValues.insert_or_assign(feb_vmm, thdac_raised);
     calculateVmmGlobalThreshold(vmmId);
 
     ERS_DEBUG(2, fmt::format("{} VMM{}: new V_eff = {}", m_feName, vmmId, vmm_eff_thresh));
-
-    m_febTrimmerData.thDacValues.insert_or_assign(feb_vmm, thdac_raised);
   }
 
   ERS_DEBUG(2,
-            fmt::format("Threshold value in the thdac map for {} is [{}] DAC counts\n [slope - {}]",
+            fmt::format("{} VMM{}: Threshold value is {} DAC counts [slope = {:2.4f}]",
                         m_feName,
+                        vmmId,
                         m_febTrimmerData.thDacValues.at(feb_vmm),
                         std::get<0>(thDacConstants)));
 
-  // Not modified from
   const auto& vmm_stdev = vmmBlnRms;
   const auto vmmEffThresh_mV = cm::sampleTomV(vmm_eff_thresh, m_isStgc);
   if ((vmmEffThresh_mV >= nsw::ref::EFF_THR_HIGH) or
@@ -826,11 +852,11 @@ nsw::calib::GlobalThrConstants nsw::VmmTrimmerScaCalibration::calculateGlobalThr
     ers::warning(nsw::VmmTrimmerScaCalibrationIssue(
       ERS_HERE,
       fmt::format(
-        "{} VMM{} high threshold [result: {:2.2f} mV, expected: {:2.2f} mV, noise: {:2.2f} mV]",
+        "{} VMM{} high threshold [result: {:2.4f} mV, expected: {:2.4f} mV, noise: {:2.4f} mV]",
         m_feName,
         vmmId,
         vmmEffThresh_mV,
-        expectedEffThreshold,
+        expectedEffThreshold_mV,
         cm::sampleTomV(vmm_stdev, m_isStgc))));
   }
 
@@ -858,7 +884,8 @@ nsw::calib::GlobalThrConstants nsw::VmmTrimmerScaCalibration::calculateThrDacVal
       std::cend(results),
       std::back_inserter(results_pruned),
       [this, &vmmId, &thDac_med](const auto result) {
-        if (std::abs(static_cast<int64_t>(thDac_med - result)) > nsw::ref::THDAC_SAMPLE_MARGIN) {
+        const auto dev{std::abs(static_cast<std::int64_t>(thDac_med - result))};
+        if (static_cast<std::size_t>(dev) > nsw::ref::THDAC_SAMPLE_MARGIN) {
           ERS_DEBUG(
             1,
             fmt::format("{} VMM{}: sample [{} ADC] strongly deviates from THDAC median value {}",
@@ -871,12 +898,11 @@ nsw::calib::GlobalThrConstants nsw::VmmTrimmerScaCalibration::calculateThrDacVal
         return true;
       });
 
-    const auto sum = std::accumulate(std::cbegin(results_pruned), std::cend(results_pruned), 0.f);
-    const auto mean = sum / static_cast<float>(results_pruned.size());
+    const auto mean = cm::takeMean(results_pruned);
     thDacGuessesSample.push_back(mean);
 
     ERS_DEBUG(1,
-              fmt::format("{} VMM{}, thDac {}, thDac (mV) {}",
+              fmt::format("{} VMM{}: thDac {} DAC/{:2.4f} mV",
                           m_feName,
                           vmmId,
                           thDac,
@@ -884,24 +910,7 @@ nsw::calib::GlobalThrConstants nsw::VmmTrimmerScaCalibration::calculateThrDacVal
   }
 
   // do fit to a line
-  const auto thDacGuessMean =
-    std::accumulate(thDacGuessVariations.begin(), thDacGuessVariations.end(), 0.f) /
-    static_cast<float>(thDacGuessVariations.size());
-  const auto thDacGuessSampleMean =
-    std::accumulate(thDacGuessesSample.begin(), thDacGuessesSample.end(), 0.f) /
-    static_cast<float>(thDacGuessesSample.size());
-
-  auto num = 0.f;
-  auto denom = 0.f;
-  for (std::size_t i = 0; i < thDacGuessVariations.size(); i++) {
-    const auto var = static_cast<float>(thDacGuessVariations.at(i));
-    const auto sam = thDacGuessesSample.at(i);
-    num += (var - thDacGuessMean) * (sam - thDacGuessSampleMean);
-    denom += std::pow((var - thDacGuessMean), 2);
-  }
-
-  const auto thDacSlope = num / denom;
-  const auto thDacIntercept = thDacGuessSampleMean - (thDacSlope * thDacGuessMean);
+  const auto [thDacSlope, thDacIntercept] = cm::fitLine(thDacGuessVariations, thDacGuessesSample);
 
   // checking if calculated THDAC slope does not deviate
   // by more than 20% from targeted value
@@ -911,23 +920,36 @@ nsw::calib::GlobalThrConstants nsw::VmmTrimmerScaCalibration::calculateThrDacVal
       m_feName,
       vmmId,
       fmt::format(
-        "THDAC calculation yields: [slope = {}] [offset = {}]", thDacSlope, thDacIntercept));
+        "THDAC fit yields: {:2.4f}/{:2.4f} (slope/offset)", thDacSlope, thDacIntercept));
     ers::error(issue);
     throw issue;
   } else {
-    ERS_INFO(fmt::format("{} VMM{} DAC slope OK! [approx 2 DAC/mV]", m_feName, vmmId));
+    ERS_INFO(fmt::format("{} VMM{}: DAC slope OK! [{:2.4f} ADC/DAC]", m_feName, vmmId, thDacSlope));
   }
 
-  // (y-b) / m = x
+  // (y-b) / m = x (in DAC units)
+  // TODO Force to be in the range of the VMM setting max value 0x3ff?
+  // FIXME what happens when the underlying value would be negative?
   const auto thdac =
     static_cast<std::size_t>((cm::mVtoSample(thDacTargetValue_mV, m_isStgc) - thDacIntercept) / thDacSlope);
+
+  ERS_DEBUG(3,
+            fmt::format("{} VMM{}: THDAC {}({:2.4f} mV) [({} {} {:2.4f})/{:2.4f}]",
+                        m_feName,
+                        vmmId,
+                        thdac,
+                        thDacTargetValue_mV,
+                        cm::mVtoSample(thDacTargetValue_mV, m_isStgc),
+                        thDacIntercept > 0 ? "-" : "+",
+                        std::abs(thDacIntercept),
+                        thDacSlope));
 
   if (thdac > nsw::ref::VMM_THDAC_MAX) {
     nsw::VmmTrimmerBadDacValue issue(
       ERS_HERE,
       m_feName,
       vmmId,
-      fmt::format("Resulting threshold {} mV is outside allowable range!", thdac));
+      fmt::format("Resulting threshold DAC ({}) is outside allowable range [0, {}]!", thdac, nsw::ref::VMM_THDAC_MAX));
     ers::error(issue);
     throw issue;
   }
@@ -939,10 +961,10 @@ void nsw::VmmTrimmerScaCalibration::calculateVmmGlobalThreshold(const std::size_
 {
   const nsw::calib::FebVmmPair feb_vmm{m_feName, vmmId};
 
-  std::vector<int> vmm_samples;
+  std::vector<std::size_t> vmm_samples{};
 
   for (std::size_t channelId = 0; channelId < nsw::vmm::NUM_CH_PER_VMM; channelId++) {
-    if (m_febTrimmerData.channelMasks.at(feb_vmm).at(channelId) != 0) {
+    if (m_febTrimmerData.channelMasks.at(feb_vmm).at(channelId) == 1) {
       continue;
     }
 
@@ -952,15 +974,38 @@ void nsw::VmmTrimmerScaCalibration::calculateVmmGlobalThreshold(const std::size_
                                                nsw::ref::TRIM_MID,
                                                nsw::ref::BASELINE_SAMP_FACTOR);
 
+    const auto ch_median = cm::takeMedian(ch_samples);
     std::move(std::begin(ch_samples), std::end(ch_samples), std::back_inserter(vmm_samples));
+    ERS_DEBUG(1, fmt::format("{} VMM{}, channel {} : MEDIAN: {} Threshold samplings: {}",
+   		m_feName,
+		vmmId,
+		channelId,
+		ch_median,
+  		ch_samples));
+    vmm_samples.emplace_back(ch_median);
   }
 
-  const auto [vmm_median_trim_mid, vmm_eff_thresh] = [this, &vmm_samples, &feb_vmm]() -> std::pair<float,float> {
+  const auto [vmm_median_trim_mid, vmm_eff_thresh] =
+    [this, &vmm_samples, &feb_vmm, &vmmId]() -> std::pair<int, int> {
     if (vmm_samples.empty()) {
+      ERS_DEBUG(3, fmt::format("{} VMM{}: empty sample vector at trim midpoint", m_feName, vmmId));
       return {0.f, 0.f};
     }
+
     const auto median_trim_mid = cm::takeMedian(vmm_samples);
-    return {median_trim_mid, median_trim_mid - m_febTrimmerData.baselineMed.at(feb_vmm)};
+    const auto& tmp_baseline_med = m_febTrimmerData.baselineMed.at(feb_vmm);
+    const auto tmp_eff_thresh = static_cast<int>(median_trim_mid) - static_cast<int>(tmp_baseline_med);
+
+    ERS_DEBUG(
+      3,
+      fmt::format(
+        "{} VMM{}: {}/{}/{} (effective threshold/baseline median/trimmed median at trim mid)",
+        m_feName,
+        vmmId,
+        tmp_eff_thresh,
+        tmp_baseline_med,
+        median_trim_mid));
+    return {median_trim_mid, tmp_eff_thresh};
   }();
 
   m_febTrimmerData.midTrimMed.insert_or_assign(feb_vmm, vmm_median_trim_mid);
@@ -975,8 +1020,8 @@ void nsw::VmmTrimmerScaCalibration::scanTrimmers(const std::size_t vmmId)
 
   ERS_INFO(fmt::format("Scanning {} VMM{} trimmers", m_feName, vmmId));
 
-  m_febTrimmerData.baselines_above_threshold.insert_or_assign(feb_vmm, 0);
-  const auto& nch_base_above_thresh = m_febTrimmerData.baselines_above_threshold.at(feb_vmm);
+  m_febTrimmerData.baselinesOverThresh.insert_or_assign(feb_vmm, 0);
+  const auto& nch_base_above_thresh = m_febTrimmerData.baselinesOverThresh.at(feb_vmm);
 
   std::size_t good_chs{0};
   std::size_t tot_chs{nsw::vmm::NUM_CH_PER_VMM};
@@ -984,7 +1029,7 @@ void nsw::VmmTrimmerScaCalibration::scanTrimmers(const std::size_t vmmId)
   const auto current_thdac = m_febTrimmerData.thDacValues.at(feb_vmm);
 
   for (std::size_t channelId = 0; channelId < nsw::vmm::NUM_CH_PER_VMM; channelId++) {
-    if (channel_masks.at(channelId) != 0) {
+    if (channel_masks.at(channelId) == 1) {
       ERS_DEBUG(
         2, fmt::format("{} VMM{} Channel {} masked, so skipping it", m_feName, vmmId, channelId));
       continue;
@@ -1002,7 +1047,6 @@ void nsw::VmmTrimmerScaCalibration::scanTrimmers(const std::size_t vmmId)
                             channelId,
                             ch_baseline_rms,
                             nsw::ref::RMS_CUTOFF));
-      // TODO FIXME first check, underlying value may be modified subsequently
       // Do we not also do tot_chs-- here, as later?
 
       // Necessary to have a value set in these maps for the non-masked case
@@ -1039,16 +1083,17 @@ void nsw::VmmTrimmerScaCalibration::scanTrimmers(const std::size_t vmmId)
     const auto& max_eff_threshold = m_vmmTrimmerData.maxEffThresh.at(feb_ch);
     const auto& vmm_eff_thresh = m_febTrimmerData.midEffThresh.at(feb_vmm);
     ERS_DEBUG(2,
-              fmt::format("{} VMM{}: [MIN_EF_TH = {}], [MAX_EF_TH = {}], [VMM_EF_TH = {}]",
+              fmt::format("{} VMM{}: channel {} effective threshold {:2.4f} mV [{:2.4f}, {:2.4f}]",
                           m_feName,
                           vmmId,
+                          channelId,
+                          cm::sampleTomV(vmm_eff_thresh, m_isStgc),
                           cm::sampleTomV(min_eff_threshold, m_isStgc),
-                          cm::sampleTomV(max_eff_threshold, m_isStgc),
-                          cm::sampleTomV(vmm_eff_thresh, m_isStgc)));
+                          cm::sampleTomV(max_eff_threshold, m_isStgc)));
 
     if (vmm_eff_thresh < min_eff_threshold || vmm_eff_thresh > max_eff_threshold) {
       ERS_DEBUG(2,
-                fmt::format("{} VMM{} channel {} can't be equalized!", m_feName, vmmId, channelId));
+                fmt::format("{} VMM{}: channel {} can't be equalized!", m_feName, vmmId, channelId));
     } else {
       good_chs++;
     }
@@ -1057,11 +1102,12 @@ void nsw::VmmTrimmerScaCalibration::scanTrimmers(const std::size_t vmmId)
   if (nch_base_above_thresh > nsw::ref::CHAN_THR_CUTOFF) {
     nsw::VmmTrimmerScaCalibrationIssue issue(
       ERS_HERE,
-      fmt::format("{} VMM{} has [{}] channels with V_eff below baseline at trim value 14 THDAC "
+      fmt::format("{} VMM{}: {} channels with V_eff below baseline at trim value {} THDAC "
                   "might be increased later!",
                   m_feName,
                   vmmId,
-                  nch_base_above_thresh));
+                  nch_base_above_thresh,
+                  nsw::ref::TRIM_MID ));
     ers::warning(issue);
   }
 
@@ -1090,9 +1136,8 @@ std::pair<float, std::size_t> nsw::VmmTrimmerScaCalibration::findLinearRegionSlo
     const nsw::calib::FebChannelPair feb_ch{feb_vmm, channelId};
 
     const auto& ch_baseline_med = m_vmmTrimmerData.baselineMed.at(feb_ch);
-    const auto& bad_bl = std::get<4>(m_febTrimmerData.channelInfo.at(feb_vmm));
 
-    auto& nch_base_above_thresh = m_febTrimmerData.baselines_above_threshold.at(feb_vmm);
+    auto& nch_base_above_thresh = m_febTrimmerData.baselinesOverThresh.at(feb_vmm);
 
     auto channel_mid_eff_thresh = 0.f;
     auto channel_max_eff_thresh = 0.f;
@@ -1107,12 +1152,13 @@ std::pair<float, std::size_t> nsw::VmmTrimmerScaCalibration::findLinearRegionSlo
 
       const auto dev_sam =
         std::count_if(std::cbegin(results), std::cend(results), [&median](const auto sam) {
-          return (std::abs(static_cast<int64_t>(sam - median)) > nsw::ref::THDAC_SAMPLE_MARGIN);
+          const auto dev{std::abs(static_cast<std::int64_t>(sam - median))};
+          return (static_cast<std::size_t>(dev) > nsw::ref::THDAC_SAMPLE_MARGIN);
         });
 
       if (dev_sam > std::floor((m_nSamples * nsw::ref::THDAC_SAMPLE_FACTOR) / 4)) {
-        ERS_DEBUG(2,
-                  fmt::format("{} VMM{} channel {}: {}/{} samples strongly deviate",
+        ERS_DEBUG(1,
+                  fmt::format("{} VMM{}: channel {} {}/{} samples strongly deviate",
                               m_feName,
                               vmmId,
                               channelId,
@@ -1120,15 +1166,15 @@ std::pair<float, std::size_t> nsw::VmmTrimmerScaCalibration::findLinearRegionSlo
                               m_nSamples * nsw::ref::THDAC_SAMPLE_FACTOR));
       }
 
-      const auto eff_thresh = median - ch_baseline_med;
+      const int eff_thresh{median - ch_baseline_med};
 
       if (trim == trim_mid) {
         channel_mid_eff_thresh = eff_thresh;
         if (channel_mid_eff_thresh < 0) {
           nch_base_above_thresh++;
 
-          ERS_DEBUG(2,
-                    fmt::format("{} VMM{}: channel {} has negative effective thr. = {}",
+          ERS_DEBUG(1,
+                    fmt::format("{} VMM{}: channel {} has negative effective threshold ({})",
                                 m_feName,
                                 vmmId,
                                 channelId,
@@ -1140,8 +1186,8 @@ std::pair<float, std::size_t> nsw::VmmTrimmerScaCalibration::findLinearRegionSlo
         channel_min_eff_thresh = eff_thresh;
       }
 
-      ERS_DEBUG(2,
-                fmt::format("{} VMM{}: channel {} Trim <<{}>>, sample median = {}, and effective thr [{}]",
+      ERS_DEBUG(4,
+                fmt::format("{} VMM{}: channel {} trim <<{}>>, {}/{} (median/effective threshold)",
                             m_feName,
                             vmmId,
                             channelId,
@@ -1155,30 +1201,26 @@ std::pair<float, std::size_t> nsw::VmmTrimmerScaCalibration::findLinearRegionSlo
     m_vmmTrimmerData.midEffThresh.insert_or_assign(feb_ch, channel_mid_eff_thresh);
     m_vmmTrimmerData.maxEffThresh.insert_or_assign(feb_ch, channel_max_eff_thresh);
 
-    ERS_DEBUG(
-      2,
-      fmt::format(
-        "{} VMM{}: slope calc params -> ( Min|Mid|Max thr: {} | {} | {})(Hi|Mid|Lo trims: {} | {} | {})",
-        m_feName,
-        vmmId,
-        channel_min_eff_thresh,
-        channel_mid_eff_thresh,
-        channel_max_eff_thresh,
-        trim_hi,
-        trim_mid,
-        trim_lo));
+    ERS_DEBUG(2,
+              fmt::format("{} VMM{}: slope trim parameters (threshold/trim) |{}/{}|{}/{}|{}/{}|",
+                          m_feName,
+                          vmmId,
+                          channel_min_eff_thresh,
+                          trim_hi,
+                          channel_mid_eff_thresh,
+                          trim_mid,
+                          channel_max_eff_thresh,
+                          trim_lo));
 
-    const auto [m1, m2] = cm::getSlopes(channel_min_eff_thresh,
-                                        channel_mid_eff_thresh,
-                                        channel_max_eff_thresh,
-                                        nsw::ref::TRIM_HI,
-                                        nsw::ref::TRIM_MID,
-                                        nsw::ref::TRIM_LO);
+    // Get the slope (ADC count/DAC unit) of effective threshold vs TRIM DAC
+    const auto [m1, m2] = cm::getSlopes({channel_max_eff_thresh,trim_lo},
+                                        {channel_mid_eff_thresh,trim_mid},
+                                        {channel_min_eff_thresh,trim_hi});
 
     avg_m = (m1 + m2) / 2.;
 
-    ERS_DEBUG(2,
-              fmt::format("{} VMM{}: channel {} trim {} - ([avg_m {}], [m1 {}], [m2 {}])",
+    ERS_DEBUG(3,
+              fmt::format("{} VMM{}: channel {} high trim {}, slope (avg/m1/m2) |{:2.4f}/{:2.4f}/{:2.4f}|",
                           m_feName,
                           vmmId,
                           channelId,
@@ -1187,14 +1229,13 @@ std::pair<float, std::size_t> nsw::VmmTrimmerScaCalibration::findLinearRegionSlo
                           m1,
                           m2));
 
-    const auto check = cm::checkSlopes(m1, m2, nsw::ref::SLOPE_CHECK);
-    if (!check) {
-      ERS_DEBUG(
-        2,
-        fmt::format("{} VMM{}: low-middle & middle-high slope comparison gives {}, slopes are not same",
-                    m_feName,
-                    vmmId,
-                    check));
+    if (!cm::checkSlopes(m1, m2, nsw::ref::SLOPE_CHECK)) {
+      ERS_DEBUG(2,
+                fmt::format(
+                  "{} VMM{}: channel {} low-to-middle & middle-to-high slopes are not compatible!",
+                  m_feName,
+                  vmmId,
+                  channelId));
 
       return findLinearRegionSlope(vmmId, channelId, thdac, {trim_hi - 2, trim_mid, trim_lo});
     }
@@ -1225,7 +1266,7 @@ void nsw::VmmTrimmerScaCalibration::analyseTrimmers(const std::size_t vmmId,
                   std::cend(m_vmmTrimmerData.trimmerMax),
                   [this](const auto trim_max) { return (trim_max.second <= nsw::ref::TRIM_MID); });
 
-  if (short_trim >= nsw::ref::MAX_NUM_BAD_SWOOSH) {
+  if (static_cast<std::size_t>(short_trim) >= nsw::ref::MAX_NUM_BAD_SWOOSH) {
     ers::warning(nsw::VmmTrimmerScaCalibrationIssue(
       ERS_HERE,
       fmt::format("{} VMM{}: {}/64 trimmers with half of defined operation range",
@@ -1235,7 +1276,7 @@ void nsw::VmmTrimmerScaCalibration::analyseTrimmers(const std::size_t vmmId,
   }
 
   for (std::size_t channelId = 0; channelId < nsw::vmm::NUM_CH_PER_VMM; channelId++) {
-    if (channel_masks.at(channelId) != 0) {
+    if (channel_masks.at(channelId) == 1) {
       continue;
     }
 
@@ -1249,15 +1290,13 @@ void nsw::VmmTrimmerScaCalibration::analyseTrimmers(const std::size_t vmmId,
   if (!recalc) {
     // check if there are unmasked channels above threshold, if this is the
     // case - recalculate values with updated thdac
-    // FIXME TODO can any entries in this vector ever be negative?
     std::vector<std::size_t> add_dac;
     for (std::size_t i = 0; i < nsw::vmm::NUM_CH_PER_VMM; i++) {
       const nsw::calib::FebChannelPair feb_ch{feb_vmm, i};
       const auto extraDAC = [this, feb_ch]() {
         try {
           return m_vmmTrimmerData.dac_to_add.at(feb_ch);
-        } catch (const std::out_of_range& ex) {
-          // dac_to_add doesn't have a matching key
+        } catch (const std::out_of_range&) {
           return std::size_t{0};
         }
       }();
@@ -1272,11 +1311,11 @@ void nsw::VmmTrimmerScaCalibration::analyseTrimmers(const std::size_t vmmId,
 
     if (!add_dac.empty()) {
       std::sort(add_dac.begin(), add_dac.end());
-      // FIXME TODO this shouldn't ever be negative
-      const int plus_dac = std::round(add_dac.back() / thDacSlope) + 1;
+      const auto plus_dac = std::round(add_dac.back() / thDacSlope) + 1;
+      // FIXME ensure we don't underflow, thdac is std::size_t, and will be written to a VMM register
       const auto thdac_new = thdac + plus_dac;
 
-      ERS_INFO(fmt::format("{} VMM{} New THDAC value is set to - ({}) by adding ({} + 1) [DAC] -> "
+      ERS_INFO(fmt::format("{} VMM{}: New THDAC value is set to {} ({} + 1) [DAC], "
                            "recalculating channel threshold values",
                            m_feName,
                            vmmId,
@@ -1291,17 +1330,17 @@ void nsw::VmmTrimmerScaCalibration::analyseTrimmers(const std::size_t vmmId,
         nsw::VmmTrimmerScaCalibrationIssue issue(
           ERS_HERE,
           fmt::format(
-            "{} VMM{} - Number of channels with bad trimmers ({})!", m_feName, vmmId, bad_trim));
+            "{} VMM{}: Number of channels with bad trimmers: {}!", m_feName, vmmId, bad_trim));
         ers::warning(issue);
       }
     }
   } else {
-    const int plus_dac = thdac - m_febTrimmerData.thDacValues.at(feb_vmm);
+    const auto plus_dac = static_cast<int>(thdac) - static_cast<int>(m_febTrimmerData.thDacValues.at(feb_vmm));
     if ((bad_trim >= nsw::vmm::NUM_CH_PER_VMM/4) or recalc) {
       nsw::VmmTrimmerScaCalibrationIssue issue(
         ERS_HERE,
         fmt::format(
-          "{} VMM{}: Threshold raised by {} DAC, OR many badly trimmed channels - [{}/64](try 2)",
+          "{} VMM{}: Threshold raised by {} DAC, OR many badly trimmed channels [{}/64] (try 2)",
           m_feName,
           vmmId,
           plus_dac,
@@ -1309,7 +1348,6 @@ void nsw::VmmTrimmerScaCalibration::analyseTrimmers(const std::size_t vmmId,
       ers::warning(issue);
     }
 
-    // FIXME TODO but doesn't modify the thDacConstants...?
     m_febTrimmerData.thDacValues.insert_or_assign(feb_vmm, thdac);
   }
 }
@@ -1335,24 +1373,24 @@ void nsw::VmmTrimmerScaCalibration::analyseChannelTrimmers(const std::size_t vmm
   auto& best_channel_trim = m_vmmTrimmerData.best_channel_trim;
 
   if (slope_ok) {
-    const std::size_t trim_target =
-      nsw::ref::TRIM_MID + std::round(delta / eff_thresh_slope);
-
-    ERS_DEBUG(2,
-              fmt::format("{} VMM{} channel {} trim information (ch_slope = {})(delta = {})(trim target = {})",
+    const std::size_t trim_target = std::max(0,
+      static_cast<int>(nsw::ref::TRIM_MID) - static_cast<int>(std::round(delta / eff_thresh_slope)));
+    ERS_DEBUG(3,
+              fmt::format("{} VMM{}: channel {} trim target: {} DAC units ({} + ({}/{:2.4f}))",
                           m_feName,
                           vmmId,
                           channelId,
-                          eff_thresh_slope,
+                          trim_target,
+                          nsw::ref::TRIM_MID,
                           delta,
-                          trim_target));
+                          eff_thresh_slope));
 
     best_channel_trim.insert_or_assign(
       feb_ch,
       std::max(std::size_t{0}, std::min(trim_target, m_vmmTrimmerData.trimmerMax.at(feb_ch))));
   } else {
     ERS_DEBUG(2,
-              fmt::format("{} VMM{} channel {} slope is unuseful, value={}",
+              fmt::format("{} VMM{}: channel {} slope ({:2.4f}) is not useful",
                           m_feName,
                           vmmId,
                           channelId,
@@ -1360,18 +1398,17 @@ void nsw::VmmTrimmerScaCalibration::analyseChannelTrimmers(const std::size_t vmm
     best_channel_trim.insert_or_assign(feb_ch, nsw::ref::TRIM_LO);
   }
 
-  // FIXME TODO what to do if this call is allowed to throw rather than return an empty vector?
   const auto results = sampleVmmChTrimDac(vmmId, channelId, thdac_i, best_channel_trim.at(feb_ch));
 
   const auto [median, eff_thresh] =
-    [this, &vmmId, &channelId, &results, &ch_baseline_med]() -> std::pair<float, float> {
+    [this, &vmmId, &channelId, &results, &ch_baseline_med]() -> std::pair<int, int> {
     if (results.empty()) {
-      ERS_LOG(fmt::format("{} VMM{} channel {} returned an empty vector, unable to calculate "
+      ERS_LOG(fmt::format("{} VMM{}: channel {} returned an empty vector, unable to calculate "
                           "median or effective threshold.",
                           m_feName,
                           vmmId,
                           channelId));
-      return {0.f, 0.f};
+      return {0, 0};
     }
     const auto tmp_median = cm::takeMedian(results);
     return {tmp_median, tmp_median - ch_baseline_med};
@@ -1379,30 +1416,21 @@ void nsw::VmmTrimmerScaCalibration::analyseChannelTrimmers(const std::size_t vmm
 
   ERS_DEBUG(
     2,
-    fmt::format("{} VMM{} channel {}: THR(eff) = {} ADC", m_feName, vmmId, channelId, eff_thresh));
+    fmt::format("{} VMM{}: channel {} effective threshold = {} ADC", m_feName, vmmId, channelId, eff_thresh));
 
   if (eff_thresh < 0) {
   ERS_LOG(
-    fmt::format("{} VMM{} channel {}: effective threshold is below 0", m_feName, vmmId, channelId));
+    fmt::format("{} VMM{}: channel {} effective threshold is below 0", m_feName, vmmId, channelId));
     // Trimmed median is smaller than baseline median for this channel
     auto& channel_masks = m_febTrimmerData.channelMasks.at(feb_vmm);
-    const auto mask = (channel_masks.at(channelId) != 0);
+    const auto mask = (channel_masks.at(channelId) == 1);
     if (!mask) {
-      auto& dac_to_add = m_vmmTrimmerData.dac_to_add;
-      dac_to_add.insert_or_assign(feb_ch, std::abs(eff_thresh));
+      m_vmmTrimmerData.dac_to_add.insert_or_assign(feb_ch, std::abs(eff_thresh));
       // FIXME TODO 55 is magic!!
       if (recalc or std::abs(eff_thresh) > 55) {
         // cutting of around 20mV
-        // if negative eff thr is less than approx 30mV, raise the thdac
-        // FIXME REDUNDANT duplicates line above, probably only need to mask here.
-        dac_to_add.insert_or_assign(feb_ch, std::abs(eff_thresh));
         channel_masks.at(channelId) = 1;
       }
-    } else {
-      ERS_DEBUG(
-        2,
-        fmt::format(
-                    "{} VMM{}: ignoring masked channel {} with eff_thr {}<0", m_feName, vmmId, channelId, eff_thresh));
     }
   }
 
@@ -1417,12 +1445,12 @@ void nsw::VmmTrimmerScaCalibration::writeOutScaVmmCalib()
 {
   m_chCalibData.close();
 
-  const auto fNameJson = fmt::format("{}/partial_config.json", m_outPath, m_feName);
+  const auto fNameJson = fmt::format("{}/{}_partial_config_RMSx{}.json", m_outPath, m_boardName, m_rmsFactor);
   pt::write_json(fNameJson, m_febOutJson);
 
   std::ifstream filecheck;
   filecheck.open(fNameJson, std::ios::in);
-  if (!(filecheck.peek() == std::ifstream::traits_type::eof())) {
+  if (filecheck.peek() == std::ifstream::traits_type::eof()) {
     nsw::VmmTrimmerScaCalibrationIssue issue(ERS_HERE,
                                              fmt::format("{} file was not written", fNameJson));
     ers::warning(issue);

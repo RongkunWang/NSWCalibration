@@ -125,3 +125,19 @@ tdaq_add_executable(nsw_mmtp_feedback app/mmtp_feedback.cpp
 )
 
 tdaq_add_schema(schema/NSWCalib.schema.xml)
+
+tdaq_add_executable(test_THRCalib test/test_THRCalib.cpp
+  NOINSTALL
+  LINK_LIBRARIES Boost::unit_test_framework tdaq-common::ers nswcalib)
+
+tdaq_add_executable(test_PDOCalib test/test_PDOCalib.cpp
+  NOINSTALL
+  LINK_LIBRARIES Boost::unit_test_framework tdaq-common::ers nswcalib)
+
+### Tests
+set(NSWCALIB_TESTS THRCalib PDOCalib)
+
+foreach(testname IN LISTS NSWCALIB_TESTS)
+  message(STATUS "  Adding test::add_test(NAME ${testname} COMMAND test_${testname})")
+  add_test(NAME ${testname} COMMAND test_${testname})
+endforeach()

@@ -12,14 +12,14 @@ namespace cm = nsw::CalibrationMath;
 
 using namespace std::chrono_literals;
 
-nsw::VmmBaselineScaCalibration::VmmBaselineScaCalibration(nsw::FEBConfig feb,
+nsw::VmmBaselineScaCalibration::VmmBaselineScaCalibration(std::reference_wrapper<const hw::FEB> feb,
                                                           std::string outpath,
                                                           const std::size_t nSamples,
                                                           const std::size_t rmsFactor,
                                                           const std::size_t sector,
                                                           const int wheel,
                                                           const bool debug) :
-  nsw::ScaCalibration::ScaCalibration(std::move(feb),
+  nsw::ScaCalibration::ScaCalibration(feb,
                                       std::move(outpath),
                                       nSamples,
                                       rmsFactor,
@@ -43,7 +43,7 @@ void nsw::VmmBaselineScaCalibration::runCalibration()
 
 void nsw::VmmBaselineScaCalibration::readBaselineFull()
 {
-  std::ofstream full_bl(fmt::format("{}/{}_baseline_samples.txt", m_outPath, m_feName));
+  std::ofstream full_bl(fmt::format("{}/{}_baseline_samples.txt", m_outPath, m_boardName));
 
   full_bl.is_open();
   std::size_t fault_chan_total = 0;
@@ -61,9 +61,7 @@ void nsw::VmmBaselineScaCalibration::readBaselineFull()
     for (std::size_t channelId = 0; channelId < nsw::vmm::NUM_CH_PER_VMM; channelId++) {
       auto results = sampleVmmChMonDac(vmmId, channelId, nsw::ref::BASELINE_SAMP_FACTOR);
 
-      const auto sum = std::accumulate(results.begin(), results.end(), 0.f);
-      const auto mean = sum / static_cast<float>(results.size());
-      // FIXME TODO take a better RMS, exclude insane outliers
+      const auto mean = cm::takeMean(results);
       const auto rms = cm::takeRms(results, mean);
       const auto mean_mV = cm::sampleTomV(mean, m_isStgc);
       const auto rms_mV = cm::sampleTomV(rms, m_isStgc);
@@ -88,7 +86,7 @@ void nsw::VmmBaselineScaCalibration::readBaselineFull()
         ers::warning(nsw::VmmBaselineScaCalibrationIssue(
           ERS_HERE,
           fmt::format(
-            "{} VMM{} channel {} broken baseline V = {}mV", m_feName, vmmId, channelId, mean_mV)));
+            "{} VMM{}: channel {} broken baseline V = {:2.4f} mV", m_feName, vmmId, channelId, mean_mV)));
       }
 
       // FIXME TODO remove m_debug, but understand if fault_chan can
@@ -97,7 +95,7 @@ void nsw::VmmBaselineScaCalibration::readBaselineFull()
         if (mean_mV > nsw::ref::HIGH_CH_BASELINE) {
           fault_chan++;
           ERS_DEBUG(2,
-                    fmt::format("Side: {} sector: {} {} VMM{} channel {} high baseline = {}mV",
+                    fmt::format("Side: {} sector: {} {} VMM{}: channel {} high baseline = {:2.4f} mV",
                                 m_wheel,
                                 m_sector,
                                 m_feName,
@@ -107,7 +105,7 @@ void nsw::VmmBaselineScaCalibration::readBaselineFull()
         } else if (mean_mV < nsw::ref::LOW_CH_BASELINE) {
           fault_chan++;
           ERS_DEBUG(2,
-                    fmt::format("Side: {} sector: {} {} VMM{}: channel {} low baseline = {}mV",
+                    fmt::format("Side: {} sector: {} {} VMM{}: channel {} low baseline = {:2.4f} mV",
                                 m_wheel,
                                 m_sector,
                                 m_feName,
@@ -133,7 +131,7 @@ void nsw::VmmBaselineScaCalibration::readBaselineFull()
       ERS_DEBUG(
         3,
         fmt::format(
-          "{} VMM{}: channel {} Baselines |{} (median)|{} (mean)|{} (mode)| - RMS: {}, spread: {}",
+          "{} VMM{}: channel {} baselines |{:2.4f}/{:2.4f}/{:2.4f} mV (median/mean/mode)| {:2.4f}/{:2.4f} mV (RMS/spread)",
           m_feName,
           vmmId,
           channelId,
@@ -152,7 +150,7 @@ void nsw::VmmBaselineScaCalibration::readBaselineFull()
 
     if (noisy_channels >= nsw::vmm::NUM_CH_PER_VMM / 4) {
       ERS_DEBUG(1,
-                fmt::format("{} VMM{}has > quarter of VMM channels with noise above 30mV - [{}]",
+                fmt::format("{} VMM{}: More than quarter of VMM channels [{}] have noise above 30mV",
                             m_feName,
                             vmmId,
                             noisy_channels));
@@ -163,11 +161,11 @@ void nsw::VmmBaselineScaCalibration::readBaselineFull()
       ers::warning(nsw::VmmBaselineScaCalibrationIssue(
         ERS_HERE,
         fmt::format(
-          "{} VMM{} has more than quarter faulty channels - [{}]", m_feName, vmmId, fault_chan)));
+          "{} VMM{}: more than quarter faulty channels [{}]", m_feName, vmmId, fault_chan)));
     } else if (fault_chan >= nsw::vmm::NUM_CH_PER_VMM / 2) {
       ers::warning(nsw::VmmBaselineScaCalibrationIssue(
         ERS_HERE,
-        fmt::format("{} VMM{}: [ATTENTION] more than HALF of channels are faulty - [{}]",
+        fmt::format("{} VMM{}: [ATTENTION] more than HALF of channels [{}] are faulty",
                     m_feName,
                     vmmId,
                     fault_chan)));
@@ -177,7 +175,7 @@ void nsw::VmmBaselineScaCalibration::readBaselineFull()
   if (fault_chan_total >= m_quarterOfFebChannels) {
     ers::warning(nsw::VmmBaselineScaCalibrationIssue(
       ERS_HERE,
-      fmt::format("{} Large number of faulty channels (has {}/512) faulty channels!",
+      fmt::format("{}: Large number of faulty channels ({}/512)!",
                   m_feName,
                   fault_chan_total)));
   }
@@ -185,16 +183,17 @@ void nsw::VmmBaselineScaCalibration::readBaselineFull()
   full_bl.close();
   ERS_INFO(m_feName << " baseline done");
 }
+
 // FIXME TODO why do this in a baseline run?
 void nsw::VmmBaselineScaCalibration::calibPulserDac()
 {
   ERS_INFO("Calibrating " << m_feName);
 
-  constexpr std::array tpDacPoints = {
+  const std::vector tpDacPoints = {
     100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800};
 
-  std::ofstream tp_file(fmt::format("{}/{}_TPDAC_samples.txt", m_outPath, m_feName));
-  std::ofstream tp_var_file(fmt::format("{}/{}_TPDAC_data.txt", m_outPath, m_feName));
+  std::ofstream tp_file(fmt::format("{}/{}_TPDAC_samples.txt", m_outPath, m_boardName));
+  std::ofstream tp_var_file(fmt::format("{}/{}_TPDAC_data.txt", m_outPath, m_boardName));
 
   tp_file.is_open();
   tp_var_file.is_open();
@@ -204,12 +203,11 @@ void nsw::VmmBaselineScaCalibration::calibPulserDac()
 
     for (const auto& tpDacPoint : tpDacPoints) {
       ERS_DEBUG(3,
-                fmt::format("{} VMM{}\t reading pulser ADC at [{}]", m_feName, vmmId, tpDacPoint));
+                fmt::format("{} VMM{}: reading pulser ADC at [{}]", m_feName, vmmId, tpDacPoint));
 
       const auto results = sampleVmmTpDac(vmmId, tpDacPoint);
 
-      const auto sample_sum = std::accumulate(results.begin(), results.end(), 0.f);
-      const auto sample_mean = sample_sum / static_cast<float>(results.size());
+      const auto sample_mean = cm::takeMean(results);
       const auto sample_mean_mV = cm::sampleTomV(sample_mean, m_isStgc);
 
       for (auto& res : results) {
@@ -231,12 +229,13 @@ void nsw::VmmBaselineScaCalibration::calibPulserDac()
 
       tp_var_file << line.str();
 
-      ERS_DEBUG(3, fmt::format("{} VMM{} calib_puserDAC: {}", m_feName, vmmId, line.str()));
+      ERS_DEBUG(3, fmt::format("{} VMM{}: calib_puserDAC: {}", m_feName, vmmId, line.str()));
     }
 
-    const auto tpdac_point_mean = std::accumulate(tpDacPoints.begin(), tpDacPoints.end(), 0.f);
-    const auto point_vect_sample_mean =
-      std::accumulate(std::cbegin(sample_mean_v), std::cend(sample_mean_v), 0.f);
+    // Do linear fit between TP DAC value and measured ADC count
+    /*
+    const auto tpdac_point_mean = cm::takeMean(tpDacPoints);
+    const auto point_vect_sample_mean = cm::takeMean(sample_mean_v);
     auto num = 0.f;
     auto denom = 0.f;
 
@@ -248,7 +247,8 @@ void nsw::VmmBaselineScaCalibration::calibPulserDac()
 
     const auto slope = num / denom;
     const auto intercept = point_vect_sample_mean - (slope * tpdac_point_mean);
-
+    */
+    const auto [slope, intercept] = cm::fitLine(tpDacPoints, sample_mean_v);
     ERS_DEBUG(
       2,
       fmt::format(

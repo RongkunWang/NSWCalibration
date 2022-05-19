@@ -40,7 +40,6 @@ namespace nsw {
        *          arguments, delimited by ':'
        */
       std::string commandToString(const nsw::commands::Command& command);
-
     }  // namespace utils
   }    // namespace calib
 }  // namespace nsw
