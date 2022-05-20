@@ -36,16 +36,6 @@ namespace nsw {
      */
     void readThresholdFull();
 
-    /*!
-     * FIXME TODO move to PDOCalib
-     * \brief Calibrates VMM internal pulser DAC analog part
-     *
-     * Calibrates the VMM internal pulser DAC necessary for the PDO calibration.
-     * Writes two .txt files containing pure sample data per DAC value and separate file with
-     * calculated DAC slope/offset data
-     */
-    void calibPulserDac();
-
     public:
     // public data exposed to callers containing results
     private:

@@ -33,12 +33,6 @@ void nsw::VmmThresholdScaCalibration::runCalibration()
   ERS_INFO(fmt::format("{}: Reading thresholds", m_feName));
   readThresholdFull();
   ERS_INFO(fmt::format("{}: Done with thresholds", m_feName));
-
-  //std::this_thread::sleep_for(1000ms);
-
-  //ERS_INFO(fmt::format("{}: Calibrating VMM internal pulser", m_feName));
-  //calibPulserDac();
-  //ERS_INFO(fmt::format("{}: Done with VMM internal pulser", m_feName));
 }
 
 void nsw::VmmThresholdScaCalibration::readThresholdFull()
@@ -76,44 +70,6 @@ void nsw::VmmThresholdScaCalibration::readThresholdFull()
                               cm::sampleTomV(result, m_isStgc),
                               rms_mV);
       }
-
-      //if (rms_mV > nsw::ref::RMS_CUTOFF) {
-      //  noisy_channels++;
-      //}
-
-      //if ((mean_mV >= nsw::ref::BROKEN_HIGH_BASELINE) ||
-      //    (mean_mV <= nsw::ref::BROKEN_LOW_BASELINE)) {
-      //  ers::warning(nsw::VmmThresholdScaCalibrationIssue(
-      //    ERS_HERE,
-      //    fmt::format(
-      //      "{} VMM{}: channel {} broken threshold V = {:2.4f} mV", m_feName, vmmId, channelId, mean_mV)));
-      //}
-
-      // FIXME TODO remove m_debug, but understand if fault_chan can
-      // be generally set or only in certain circumstances
-      //if (m_debug) {
-      //  if (mean_mV > nsw::ref::HIGH_CH_BASELINE) {
-      //    fault_chan++;
-      //    ERS_DEBUG(2,
-      //              fmt::format("Side: {} sector: {} {} VMM{}: channel {} high threshold = {:2.4f} mV",
-      //                          m_wheel,
-      //                          m_sector,
-      //                          m_feName,
-      //                          vmmId,
-      //                          channelId,
-      //                          mean_mV));
-      //  } else if (mean_mV < nsw::ref::LOW_CH_BASELINE) {
-      //    fault_chan++;
-      //    ERS_DEBUG(2,
-      //              fmt::format("Side: {} sector: {} {} VMM{}: channel {} low threshold = {:2.4f} mV",
-      //                          m_wheel,
-      //                          m_sector,
-      //                          m_feName,
-      //                          vmmId,
-      //                          channelId,
-      //                          mean_mV));
-      //  }
-      //}
 
       std::sort(results.begin(), results.end());
 
@@ -182,80 +138,4 @@ void nsw::VmmThresholdScaCalibration::readThresholdFull()
 
   full_bl.close();
   ERS_INFO(m_feName << " threshold done");
-}
-
-// FIXME TODO why do this in a threshold run?
-void nsw::VmmThresholdScaCalibration::calibPulserDac()
-{
-  ERS_INFO("Calibrating " << m_feName);
-
-  const std::vector tpDacPoints = {
-    100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800};
-
-  std::ofstream tp_file(fmt::format("{}/{}_TPDAC_samples.txt", m_outPath, m_boardName));
-  std::ofstream tp_var_file(fmt::format("{}/{}_TPDAC_data.txt", m_outPath, m_boardName));
-
-  tp_file.is_open();
-  tp_var_file.is_open();
-
-  for (std::size_t vmmId = m_firstVmm; vmmId < m_nVmms; vmmId++) {
-    std::vector<float> sample_mean_v;
-
-    for (const auto& tpDacPoint : tpDacPoints) {
-      ERS_DEBUG(3,
-                fmt::format("{} VMM{}: reading pulser ADC at [{}]", m_feName, vmmId, tpDacPoint));
-
-      const auto results = sampleVmmTpDac(vmmId, tpDacPoint);
-
-      const auto sample_mean = cm::takeMean(results);
-      const auto sample_mean_mV = cm::sampleTomV(sample_mean, m_isStgc);
-
-      for (auto& res : results) {
-        writeTabDelimitedLine(tp_file,
-                              m_wheel,
-                              m_sector,
-                              m_feName,
-                              vmmId,
-                              tpDacPoint,
-                              res,
-                              cm::sampleTomV(res, m_isStgc));
-      }
-
-      sample_mean_v.push_back(sample_mean);
-
-      std::stringstream line;
-      writeTabDelimitedLine(
-        line, m_wheel, m_sector, m_feName, vmmId, tpDacPoint, sample_mean, sample_mean_mV);
-
-      tp_var_file << line.str();
-
-      ERS_DEBUG(3, fmt::format("{} VMM{}: calib_puserDAC: {}", m_feName, vmmId, line.str()));
-    }
-
-    // Do linear fit between TP DAC value and measured ADC count
-    /*
-    const auto tpdac_point_mean = cm::takeMean(tpDacPoints);
-    const auto point_vect_sample_mean = cm::takeMean(sample_mean_v);
-    auto num = 0.f;
-    auto denom = 0.f;
-
-    for (std::size_t i = 0; i < tpDacPoints.size(); i++) {
-      num +=
-        (tpDacPoints.at(i) - tpdac_point_mean) * (sample_mean_v.at(i) - point_vect_sample_mean);
-      denom += std::pow((tpDacPoints.at(i) - tpdac_point_mean), 2);
-    }
-
-    const auto slope = num / denom;
-    const auto intercept = point_vect_sample_mean - (slope * tpdac_point_mean);
-    */
-    const auto [slope, intercept] = cm::fitLine(tpDacPoints, sample_mean_v);
-    ERS_DEBUG(
-      2,
-      fmt::format(
-        "{} VMM{}: Linear fit yields: [a = {}] - [b = {}]", m_feName, vmmId, intercept, slope));
-  }
-
-  tp_var_file.close();
-  tp_file.close();
-  ERS_INFO(fmt::format("{} Pulser DAC calibrated!", m_feName));
 }
