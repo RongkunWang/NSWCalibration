@@ -54,7 +54,7 @@ void nsw::sTGCPadsL1DDCFibers::setROCPhases() const {
 }
 
 void nsw::sTGCPadsL1DDCFibers::setROCPhase(const nsw::hw::FEB& feb) const {
-  if (feb.getScaAddress().find("PFEB") == std::string::npos) {
+  if (feb.getGeoInfo().resourceType() != "PFEB") {
     return;
   }
 
@@ -64,7 +64,7 @@ void nsw::sTGCPadsL1DDCFibers::setROCPhase(const nsw::hw::FEB& feb) const {
   const auto phase   = is_left ? m_phase_L : m_phase_R;
   const auto side    = is_left ? "L" : "R";
   ERS_INFO(fmt::format("Configuring {} ({}-side)", name, side));
-  
+
   // set phase
   if (not simulation()) {
     feb.getRoc().writeValue(m_reg, phase);
@@ -97,16 +97,20 @@ void nsw::sTGCPadsL1DDCFibers::checkObjects() const {
 }
 
 bool nsw::sTGCPadsL1DDCFibers::isLeft(const std::string& name) const {
-  return (name.find("HOL") != std::string::npos) or
-         (name.find("IPL") != std::string::npos);
+  return nsw::contains(name, "HOL") or
+         nsw::contains(name, "IPL") or
+         nsw::contains(name, "/L1") or
+         nsw::contains(name, "/L3") or
+         nsw::contains(name, "/L5") or
+         nsw::contains(name, "/L7");
 }
 
 bool nsw::sTGCPadsL1DDCFibers::isLeftStripped(const std::string& name) const {
   for (const auto& feb: getDeviceManager().getFebs()) {
-    if (feb.getScaAddress().find("PFEB") == std::string::npos) {
+    if (feb.getGeoInfo().resourceType() != "PFEB") {
       continue;
     }
-    if (feb.getScaAddress().find(name) != std::string::npos) {
+    if (nsw::contains(feb.getScaAddress(), name)) {
       return isLeft(feb.getScaAddress());
     }
   }
@@ -143,19 +147,21 @@ void nsw::sTGCPadsL1DDCFibers::setupTree() {
     m_pt_name = pt.getName();
     break;
   }
-  for (const auto name: nsw::padtrigger::ORDERED_PFEBS) {
+  for (std::size_t it = 0; it < nsw::padtrigger::NUM_PFEBS; it++) {
+    const auto nameCore = nsw::padtrigger::ORDERED_PFEBS.at(it);
+    const auto nameStar = nsw::padtrigger::ORDERED_PFEBS_GEOID.at(it);
     m_pfeb.push_back(m_pfeb.size());
-    m_mask.push_back(existsInDB(std::string(name)));
-    m_left.push_back(isLeftStripped(std::string(name)));
+    m_mask.push_back(existsInDB(std::string(nameCore)) or existsInDB(std::string(nameStar)));
+    m_left.push_back(isLeftStripped(std::string(nameCore)) or isLeftStripped(std::string(nameStar)));
   }
 }
 
 bool nsw::sTGCPadsL1DDCFibers::existsInDB(const std::string& name) const {
   for (const auto& feb: getDeviceManager().getFebs()) {
-    if (feb.getScaAddress().find("PFEB") == std::string::npos) {
+    if (feb.getGeoInfo().resourceType() != "PFEB") {
       continue;
     }
-    if (feb.getScaAddress().find(name) != std::string::npos) {
+    if (nsw::contains(feb.getScaAddress(), name)) {
       return true;
     }
   }
