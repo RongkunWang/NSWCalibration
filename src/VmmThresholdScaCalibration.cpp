@@ -37,9 +37,9 @@ void nsw::VmmThresholdScaCalibration::runCalibration()
 
 void nsw::VmmThresholdScaCalibration::readThresholdFull()
 {
-  std::ofstream full_bl(fmt::format("{}/{}_threshold_samples.txt", m_outPath, m_boardName));
+  std::ofstream full_th(fmt::format("{}/{}_threshold_samples.txt", m_outPath, m_boardName));
 
-  full_bl.is_open();
+  full_th.is_open();
   std::size_t fault_chan_total = 0;
 
   ERS_DEBUG(2, fmt::format("{} is {}", m_feName, (m_isStgc ? "s/pFEB" : "MMFE8")));
@@ -61,7 +61,7 @@ void nsw::VmmThresholdScaCalibration::readThresholdFull()
       const auto rms_mV = cm::sampleTomV(rms, m_isStgc);
 
       for (const auto& result : results) {
-        writeTabDelimitedLine(full_bl,
+        writeTabDelimitedLine(full_th,
                               m_wheel,
                               m_sector,
                               m_feName,
@@ -136,6 +136,6 @@ void nsw::VmmThresholdScaCalibration::readThresholdFull()
                   fault_chan_total)));
   }
 
-  full_bl.close();
+  full_th.close();
   ERS_INFO(m_feName << " threshold done");
 }
