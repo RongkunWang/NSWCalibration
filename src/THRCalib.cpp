@@ -34,6 +34,7 @@
 #include "NSWCalibration/Utility.h"
 
 #include "NSWCalibration/VmmTrimmerScaCalibration.h"
+#include "NSWCalibration/VmmThresholdScaCalibration.h"
 #include "NSWCalibration/VmmBaselineScaCalibration.h"
 
 namespace pt = boost::property_tree;
@@ -116,6 +117,11 @@ void nsw::THRCalib::configure()
 
   if (m_run_type == "baselines") {
     launch_feb_calibration<nsw::VmmBaselineScaCalibration>();
+    std::this_thread::sleep_for(2000ms);
+  } else if (m_run_type == "read_thresholds") {
+    launch_feb_calibration<nsw::VmmBaselineScaCalibration>();
+    std::this_thread::sleep_for(2000ms);
+    launch_feb_calibration<nsw::VmmThresholdScaCalibration>();
     std::this_thread::sleep_for(2000ms);
   } else if (m_run_type == "thresholds") {
     launch_feb_calibration<nsw::VmmTrimmerScaCalibration>();
@@ -309,11 +315,13 @@ nsw::THRCalib::RunParameters nsw::THRCalib::parseCalibParams(const std::string& 
   const auto type = tokens.front();
   if (type == "BLN") {
     run_params.type = "baselines";
+  } else if (type == "RTH") {
+    run_params.type = "read_thresholds";
   } else if (type == "THR") {
     run_params.type = "thresholds";
   } else {
     throw nsw::THRParameterIssue(ERS_HERE,
-                                 fmt::format("Invalid calibration type specified: {} (expected BLN or THR)", type));
+                                 fmt::format("Invalid calibration type specified: {} (expected BLN, RTH, or THR)", type));
   }
   return run_params;
 }
