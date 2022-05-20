@@ -91,7 +91,8 @@ void nsw::MMTriggerCalib::setup(const std::string& db) {
 
 
   m_patterns = patterns();
-  write_json("test.json", m_patterns);
+  const auto now = nsw::calib::utils::strf_time();
+  write_json(fmt::format("Pattern_run{}_{}.json", runNumber(), now), m_patterns);
   setTotal(m_patterns.size());
 
   m_febs   = nsw::ConfigReader::makeObjects<nsw::FEBConfig> (db, "MMFE8");
@@ -432,20 +433,21 @@ ptree nsw::MMTriggerCalib::patterns() const {
     //
     // connectivity max-parallel loop
     //
-    for (size_t pos = 0; pos < nsw::mmfe8::MMFE8_PER_LAYER/2; pos++) {
-      bool even = pos % 2 == 0;
-      int pcb   = pos / 2 + 1;
-      auto pcbstr       = std::to_string(pcb);
-      auto pcbstr_plus4 = std::to_string(pcb+4);
+    for (size_t pos = 0; pos < nsw::mmfe8::MMFE8_PER_LAYER/2; pos += 2) {
+      // pos(radius): 0, 2, 4, 6
+      // PCB:         1, 2, 3, 4
+      // do two radius at a time(pos, pos+1)
+      constexpr bool even = true;
+      constexpr bool odd = !even;
+      const int pcb   = pos / 2 + 1;
+      const auto pcbstr       = std::to_string(pcb);
+      const auto pcbstr_plus4 = std::to_string(pcb+4);
       for (int chan = 0; chan < nsw::vmm::NUM_CH_PER_VMM; chan++) {
         if (m_calibType == "MMARTConnectivityTest" && chan % 10 != 0)
           continue;
         if (m_calibType == "MMARTPhase"            && chan % 10 != 0)
           continue;
         ptree feb_patt;
-        /* 
-         * \\ to convert to \ after c++ string, and then \/ to escape / in regex
-         * */
         for (auto && [name, geoName] : std::map<std::string, std::string>{
              { "MMFE8_L1P" + pcbstr       + "_HO" + (even ? "R" : "L"), 
                fmt::format("L7/R{}", pos)},
@@ -479,6 +481,39 @@ ptree nsw::MMTriggerCalib::patterns() const {
                fmt::format("L1/R{}", pos+8)},
              { "MMFE8_L1P" + pcbstr_plus4 + "_IP" + (even ? "L" : "R"), 
                fmt::format("L0/R{}", pos+8)},
+
+             { "MMFE8_L1P" + pcbstr       + "_HO" + (odd ? "R" : "L"), 
+               fmt::format("L7/R{}", pos+1)},
+             { "MMFE8_L2P" + pcbstr       + "_HO" + (odd ? "L" : "R"), 
+               fmt::format("L6/R{}", pos+1)},
+             { "MMFE8_L3P" + pcbstr       + "_HO" + (odd ? "R" : "L"), 
+               fmt::format("L5/R{}", pos+1)},
+             { "MMFE8_L4P" + pcbstr       + "_HO" + (odd ? "L" : "R"), 
+               fmt::format("L4/R{}", pos+1)},
+             { "MMFE8_L4P" + pcbstr       + "_IP" + (odd ? "R" : "L"), 
+               fmt::format("L3/R{}", pos+1)},
+             { "MMFE8_L3P" + pcbstr       + "_IP" + (odd ? "L" : "R"), 
+               fmt::format("L2/R{}", pos+1)},
+             { "MMFE8_L2P" + pcbstr       + "_IP" + (odd ? "R" : "L"), 
+               fmt::format("L1/R{}", pos+1)},
+             { "MMFE8_L1P" + pcbstr       + "_IP" + (odd ? "L" : "R"), 
+               fmt::format("L0/R{}", pos+1)},
+             { "MMFE8_L1P" + pcbstr_plus4 + "_HO" + (odd ? "R" : "L"), 
+               fmt::format("L7/R{}", pos+1+8)},
+             { "MMFE8_L2P" + pcbstr_plus4 + "_HO" + (odd ? "L" : "R"), 
+               fmt::format("L6/R{}", pos+1+8)},
+             { "MMFE8_L3P" + pcbstr_plus4 + "_HO" + (odd ? "R" : "L"), 
+               fmt::format("L5/R{}", pos+1+8)},
+             { "MMFE8_L4P" + pcbstr_plus4 + "_HO" + (odd ? "L" : "R"), 
+               fmt::format("L4/R{}", pos+1+8)},
+             { "MMFE8_L4P" + pcbstr_plus4 + "_IP" + (odd ? "R" : "L"), 
+               fmt::format("L3/R{}", pos+1+8)},
+             { "MMFE8_L3P" + pcbstr_plus4 + "_IP" + (odd ? "L" : "R"), 
+               fmt::format("L2/R{}", pos+1+8)},
+             { "MMFE8_L2P" + pcbstr_plus4 + "_IP" + (odd ? "R" : "L"), 
+               fmt::format("L1/R{}", pos+1+8)},
+             { "MMFE8_L1P" + pcbstr_plus4 + "_IP" + (odd ? "L" : "R"), 
+               fmt::format("L0/R{}", pos+1+8)},
               }) {
           ptree febtree;
           for (size_t vmmid = 0; vmmid < nsw::MAX_NUMBER_OF_VMM; vmmid++) {

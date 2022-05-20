@@ -617,6 +617,8 @@ class Patterns:
             if "febpatt" in key:
                 for feb in curr[key]:
                     for vmm in curr[key][feb]:
+                        # in case someone start to use new pattern file
+                        if vmm == "geo_name": continue
                         for ch in curr[key][feb][vmm]:
                             return int(ch)
         self.fatal("No channel in current pattern!")
@@ -627,6 +629,8 @@ class Patterns:
             if "febpatt" in key:
                 for feb in curr[key]:
                     for vmm in curr[key][feb]:
+                        # in case someone start to use new pattern file
+                        if vmm == "geo_name": continue
                         for ch in curr[key][feb][vmm]:
                             layer_  = self.layer(feb)
                             vmmpos_ = self.vmmpos(feb, int(vmm))
