@@ -40,7 +40,6 @@ void nsw::VmmThresholdScaCalibration::readThresholdFull()
   std::ofstream full_th(fmt::format("{}/{}_threshold_samples.txt", m_outPath, m_boardName));
 
   full_th.is_open();
-  std::size_t fault_chan_total = 0;
 
   ERS_DEBUG(2, fmt::format("{} is {}", m_feName, (m_isStgc ? "s/pFEB" : "MMFE8")));
 
@@ -98,43 +97,12 @@ void nsw::VmmThresholdScaCalibration::readThresholdFull()
           cm::sampleTomV(sample_dev, m_isStgc)));
     }  // channel loop ends
 
-    fault_chan_total += fault_chan;
     const auto t1 = std::chrono::high_resolution_clock::now();
     const auto t_bl{t1-t0};
 
     ERS_DEBUG(3, fmt::format("{} VMM{}: done in {:%M:%S} [min]",m_feName , vmmId , t_bl));
 
-    if (noisy_channels >= nsw::vmm::NUM_CH_PER_VMM / 4) {
-      ERS_DEBUG(1,
-                fmt::format("{} VMM{}: More than quarter of VMM channels [{}] have noise above 30mV",
-                            m_feName,
-                            vmmId,
-                            noisy_channels));
-    }
-
-    if ((fault_chan > nsw::vmm::NUM_CH_PER_VMM / 4) and
-        (fault_chan < nsw::vmm::NUM_CH_PER_VMM / 2)) {
-      ers::warning(nsw::VmmThresholdScaCalibrationIssue(
-        ERS_HERE,
-        fmt::format(
-          "{} VMM{}: more than quarter faulty channels [{}]", m_feName, vmmId, fault_chan)));
-    } else if (fault_chan >= nsw::vmm::NUM_CH_PER_VMM / 2) {
-      ers::warning(nsw::VmmThresholdScaCalibrationIssue(
-        ERS_HERE,
-        fmt::format("{} VMM{}: [ATTENTION] more than HALF of channels [{}] are faulty",
-                    m_feName,
-                    vmmId,
-                    fault_chan)));
-    }
   }  // vmm loop ends
-
-  if (fault_chan_total >= m_quarterOfFebChannels) {
-    ers::warning(nsw::VmmThresholdScaCalibrationIssue(
-      ERS_HERE,
-      fmt::format("{}: Large number of faulty channels ({}/512)!",
-                  m_feName,
-                  fault_chan_total)));
-  }
 
   full_th.close();
   ERS_INFO(m_feName << " threshold done");
