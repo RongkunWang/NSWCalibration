@@ -119,8 +119,6 @@ void nsw::THRCalib::configure()
     launch_feb_calibration<nsw::VmmBaselineScaCalibration>();
     std::this_thread::sleep_for(2000ms);
   } else if (m_run_type == "read_thresholds") {
-    launch_feb_calibration<nsw::VmmBaselineScaCalibration>();
-    std::this_thread::sleep_for(2000ms);
     launch_feb_calibration<nsw::VmmThresholdScaCalibration>();
     std::this_thread::sleep_for(2000ms);
   } else if (m_run_type == "thresholds") {
