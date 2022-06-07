@@ -23,6 +23,7 @@ ERS_DECLARE_ISSUE(nsw, THRParameterIssue, message, ((std::string)message))
 
 namespace nsw {
   // class VmmTrimmerScaCalibration;
+  // class VmmThresholdScaCalibration;
   // class VmmBaselineScaCalibration;
 
   /*!
