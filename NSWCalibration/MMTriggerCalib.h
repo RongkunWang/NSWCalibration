@@ -52,6 +52,7 @@ namespace nsw {
     int configure_art_input_phase(nsw::ADDCConfig addc, uint phase) const;
     int configure_tps(const boost::property_tree::ptree& tr);
     int addc_tp_watchdog();
+    void recordPattern();
 
     //
     // Read the hit counters of all ART ASICs.
@@ -85,7 +86,8 @@ namespace nsw {
     bool m_reset_vmm = false;
     boost::property_tree::ptree m_patterns;
     std::unique_ptr<std::vector<std::future<int> > > m_threads = nullptr;
-    std::future<int> m_watchdog;
+    std::future<int>  m_watchdog;
+    std::future<void> m_writePattern;
     mutable std::atomic<bool> m_tpscax_busy = false;
 
     std::unique_ptr<TFile> m_art_rfile;
