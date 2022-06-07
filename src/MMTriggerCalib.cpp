@@ -91,8 +91,6 @@ void nsw::MMTriggerCalib::setup(const std::string& db) {
 
 
   m_patterns = patterns();
-  const auto now = nsw::calib::utils::strf_time();
-  write_json(fmt::format("Pattern_run{}_{}.json", runNumber(), now), m_patterns);
   setTotal(m_patterns.size());
 
   m_febs   = nsw::ConfigReader::makeObjects<nsw::FEBConfig> (db, "MMFE8");
@@ -111,7 +109,8 @@ void nsw::MMTriggerCalib::configure() {
 
   if (counter() == 0) {
     m_watchdog = std::async(std::launch::async, &nsw::MMTriggerCalib::addc_tp_watchdog, this);
-}
+    m_writePattern = std::async(std::launch::async, &nsw::MMTriggerCalib::recordPattern, this);
+  }
 
   for (auto toppattkv : m_patterns) {
 
@@ -557,6 +556,7 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
   // Dont race elsewhere.
   //
 
+
   if (m_addcs.size() == 0)
     return 0;
   if (m_tps.size() == 0)
@@ -651,6 +651,12 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
   rtree->Write();
   rfile->Close();
   return 0;
+}
+
+void nsw::MMTriggerCalib::recordPattern() {
+  // do this before the start of run
+  const auto now = nsw::calib::utils::strf_time();
+  write_json(fmt::format("Pattern_run{}_{}.json", runNumber(), now), m_patterns);
 }
 
 int nsw::MMTriggerCalib::read_arts_counters() {
