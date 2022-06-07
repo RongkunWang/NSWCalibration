@@ -48,9 +48,6 @@ void nsw::VmmThresholdScaCalibration::readThresholdFull()
   for (std::size_t vmmId = m_firstVmm; vmmId < m_nVmms; vmmId++) {
     const auto t0 = std::chrono::high_resolution_clock::now();
 
-    std::size_t fault_chan{0};
-    std::size_t noisy_channels{0};
-
     for (std::size_t channelId = 0; channelId < nsw::vmm::NUM_CH_PER_VMM; channelId++) {
       auto results = sampleVmmChThreshold(vmmId, channelId);
 
