@@ -46,7 +46,7 @@ To run threshold calibration user does following:
    command line command
 
    ```bash
-   is_write -p <partition_name> -n Setup.NSW.calibType -t String -v THRCalib -i 0
+   is_write -p <partition_name> -n NswParams.Calib.calibType -t String -v THRCalib -i 0
    ```
 
 3. Declare desired threshold calibration routine
@@ -56,13 +56,13 @@ To run threshold calibration user does following:
 
    ```bash
 
-   is_write -p <partition_name> -n Setup.NSW.calibParams -t String -v BLN,<nr.of samplesx10>,<RMSfactor>,<debug flag> -i 0
+   is_write -p <partition_name> -n NswParams.Calib.calibParams -t String -v BLN,<nr.of samplesx10>,<RMSfactor>,<debug flag> -i 0
    ```
 
    as an example:
 
    ```bash
-   is_write -p <partition_name> -n Setup.NSW.calibParams -t String -v BLN,10,9,0 -i 0
+   is_write -p <partition_name> -n NswParams.Calib.calibParams -t String -v BLN,10,9,0 -i 0
 
    ```
 
@@ -81,7 +81,7 @@ To run threshold calibration user does following:
    `THR` flag as the first parameter in the IS input string:
 
    ```bash
-   is_write -p <partition_name> -n Setup.NSW.calibParams -t String -v THR,10,9,0 -i 0
+   is_write -p <partition_name> -n NswParams.Calib.calibParams -t String -v THR,10,9,0 -i 0
 
    ```
 
@@ -159,7 +159,7 @@ To run PDO/TDO calibration using this class user does following:
    class in the run controll application in following way:
 
    ```bash
-   is_write -p <partition_name> -n Setup.NSW.calibType -t String -v PDOCalib(/TDOCalib)-i 0
+   is_write -p <partition_name> -n NswParams.CalibcalibType -t String -v PDOCalib(/TDOCalib)-i 0
    ```
 
    where depending on the -v entry either TDO (-v TDOCalib) OR PDO (-v
@@ -167,15 +167,15 @@ To run PDO/TDO calibration using this class user does following:
 
 3. Declare the calibration run parameters:
    ```bash
-   is_write -p <partition_name> -n Setup.NSW.calibParams -t String -v <channel-group>,<reg-val-1>,<reg-val-2>,...,<reg-val-n>,*<data-coll-time[ms]>* -i 0
+   is_write -p <partition_name> -n NswParams.Calib.calibParams -t String -v <channel-group>,<reg-val-1>,<reg-val-2>,...,<reg-val-n>,*<data-coll-time[ms]>* -i 0
    ```
 
    example:
 
    ```bash
-   is_write -p <partition_name> -n Setup.NSW.calibType -t String -v PDOCalib -i 0
+   is_write -p <partition_name> -n NswParams.Calib.calibType -t String -v PDOCalib -i 0
 
-   is_write -p <partition_name> -n Setup.NSW.calibParams -t String -v 8,200,300,400,*6000* -i 0
+   is_write -p <partition_name> -n NswParams.Calib.calibParams -t String -v 8,200,300,400,*6000* -i 0
    ```
 
    in which user tells application to calibrate PDO with following
