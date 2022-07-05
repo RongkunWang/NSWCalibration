@@ -25,7 +25,7 @@ void nsw::sTGCPadsControlPhase::configure() {
     for (std::size_t it = 0; it < std::size(rates); it++) {
       m_pfeb_addr = it;
       m_pfeb_rate = rates.at(it);
-      m_pfeb_name = nsw::padtrigger::ORDERED_PFEBS.at(it);
+      m_pfeb_name = nsw::padtrigger::ORDERED_PFEBS_GEOID.at(it);
       fillTree();
     }
   }
@@ -51,11 +51,14 @@ void nsw::sTGCPadsControlPhase::maskPFEBs() const {
 }
 
 void nsw::sTGCPadsControlPhase::maskPFEB(const nsw::hw::FEB& feb) const {
-  const auto name = feb.getScaAddress();
-  if (name.find("PFEB") == std::string::npos) {
+  if (feb.getGeoInfo().resourceType() != "PFEB") {
     return;
   }
-  ERS_INFO(fmt::format("Masking {}", name));
+  ERS_INFO(fmt::format("Masking {}", feb.getScaAddress()));
+  if (not simulation() and not feb.getRoc().readScaOnline()) {
+    ERS_INFO(fmt::format("Skipping unreachable {}", feb.getScaAddress()));
+    return;
+  }
   for (const auto& vmmDev: feb.getVmms()) {
     auto vmmConf = nsw::VMMConfig{vmmDev.getConfig()};
     vmmConf.setChannelRegisterAllChannels("channel_st", false);
@@ -79,13 +82,16 @@ void nsw::sTGCPadsControlPhase::setROCPhases() const {
 }
 
 void nsw::sTGCPadsControlPhase::setROCPhase(const nsw::hw::FEB& feb) const {
-  const auto name = feb.getScaAddress();
-  if (name.find("PFEB") == std::string::npos) {
+  if (feb.getGeoInfo().resourceType() != "PFEB") {
     return;
   }
-  ERS_INFO(fmt::format("Configure {}: {} = {}", name, m_reg, m_delay));
+  ERS_INFO(fmt::format("Configure {}: {} = {}", feb.getScaAddress(), m_reg, m_delay));
   if (not simulation()) {
-    feb.getRoc().writeValue(m_reg, m_delay);
+    if (feb.getRoc().readScaOnline()) {
+      feb.getRoc().writeValue(m_reg, m_delay);
+    } else {
+      ERS_INFO(fmt::format("Skipping unreachable {}", feb.getScaAddress()));
+    }
   }
 }
 
