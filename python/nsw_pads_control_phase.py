@@ -9,6 +9,7 @@ import sys
 import time
 import ROOT
 ROOT.gROOT.SetBatch()
+ROOT.gErrorIgnoreLevel = ROOT.kWarning
 
 NOW = time.strftime("%Y_%m_%d_%Hh%Mm%Ss")
 EOS = "/eos/atlas/atlascerngroupdisk/det-nsw/191/trigger/"
@@ -166,7 +167,7 @@ def lab_and_sector_and_run():
 def lab_guess():
     ops = options()
     fname = os.path.basename(ops.i)
-    labs = ["BB5", "VS", "191A", "191C"]
+    labs = ["BB5", "VS", "191A", "191C", "P1"]
     for lab in labs:
         if lab in fname:
             if lab in ["191A", "191C"]:

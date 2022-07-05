@@ -67,7 +67,11 @@ void nsw::sTGCPadsL1DDCFibers::setROCPhase(const nsw::hw::FEB& feb) const {
 
   // set phase
   if (not simulation()) {
-    feb.getRoc().writeValue(m_reg, phase);
+    if (feb.getRoc().readScaOnline()) {
+      feb.getRoc().writeValue(m_reg, phase);
+    } else {
+      ERS_INFO(fmt::format("Skipping unreachable {}", feb.getScaAddress()));
+    }
   }
 }
 
