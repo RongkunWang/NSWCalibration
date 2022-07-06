@@ -144,6 +144,7 @@ namespace nsw {
      *  values of 100,200,300 and recording time of 6000 milliseconds
      */
     void setCalibParamsFromIS(const ISInfoDictionary& is_dictionary, const std::string& is_db_name) override;
+    void setCalibKeyToIS(const ISInfoDictionary&) override;
 
     /*!
      * \brief Parse the IS string containing the calibration parameters
@@ -163,9 +164,11 @@ namespace nsw {
 
     std::vector<std::size_t> m_calibRegs{};      //!< Vector of calibration register values
     std::vector<std::size_t> m_loopCalibRegs{};  //!< Vector of calibration register values inside the loop
+    std::vector<std::size_t> m_loopCalibChs{};  //!< Vector of calibration channels inside the loop
     std::size_t m_currentChannel{};              //!< Current channel in the calibration loop
     std::size_t m_currentCalibReg{};             //!< Current calibration register in the calibration loop
     std::size_t m_numChPerGroup{};               //!< Number of channels to pulse for each iteration
+    std::size_t m_numChGroups{};                //!< Number of first-channels to iterate(also -1 is the the index)
 
     // Timekeeping
     std::chrono::time_point<std::chrono::system_clock> m_chanIterStart{};  //!< Start time for current channel iteration

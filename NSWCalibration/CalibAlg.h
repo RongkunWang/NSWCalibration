@@ -82,6 +82,7 @@ namespace nsw {
      * \param is_db_name Name of the IS server storing the parameters
      */
     virtual void setCalibParamsFromIS(const ISInfoDictionary& is_dictionary, const std::string& is_db_name);
+    virtual void setCalibKeyToIS(const ISInfoDictionary&){};
 
     /*!
      * \brief Increments the iteration counter and checks if there are
@@ -177,6 +178,7 @@ namespace nsw {
 
     std::chrono::time_point<std::chrono::system_clock> m_time_start;  //!< Calibration start time
     std::chrono::duration<double> m_elapsed_seconds{0};  //!< Duration of the calibration
+
   };
 }
 

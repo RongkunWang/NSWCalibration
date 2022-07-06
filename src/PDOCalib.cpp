@@ -58,7 +58,7 @@ void nsw::PDOCalib::setup(const std::string& /*db*/)
   // determining if group of even number of channels will be pulsed, otherwise -
   // pulse all
 
-  const auto num_ch_groups = [this]() -> std::size_t {
+  m_numChGroups = [this]() -> std::size_t {
     if (m_numChPerGroup != 1 &&
         m_numChPerGroup != 2 &&
         m_numChPerGroup != 4 &&
@@ -68,34 +68,33 @@ void nsw::PDOCalib::setup(const std::string& /*db*/)
       ERS_INFO(fmt::format("Pulsing ALL channels, | m_numChPerGroup={}", m_numChPerGroup));
       return 1;
     } else {
-      ERS_INFO(fmt::format("Pulsing groups of {} channels, number of channel iterations {}",
-                           m_numChPerGroup, nsw::vmm::NUM_CH_PER_VMM / m_numChPerGroup));
+      ERS_INFO(fmt::format("Pulsing groups of {} channels, in {} channel groups ({} register settings in each group)",
+                           m_numChPerGroup, nsw::vmm::NUM_CH_PER_VMM / m_numChPerGroup, m_calibRegs.size()));
       return nsw::vmm::NUM_CH_PER_VMM / m_numChPerGroup;
     }
   }();
 
   // Calibration loops over each calib reg value, for each channel group.
   // Within each iteration, an ALTI interaction is made
-  setTotal(num_ch_groups * m_calibRegs.size());
+  setTotal(m_numChGroups * m_calibRegs.size());
 
-  // loop starts at the first channel (0), but resetCalibLoop increments the current channel
-  m_currentChannel = static_cast<std::size_t>(-1);
+  // make a copy, because in the loop we remove the entries as we go along.
+  m_loopCalibRegs = m_calibRegs;
   if (!m_calibRegs.empty()) {
     resetCalibLoop();
+  // Perform the ch calibration loop in reverse and clear up vector as we go
+    m_currentChannel = m_loopCalibChs.back();
+    m_loopCalibChs.pop_back();
   }
 }
 
 void nsw::PDOCalib::configure()
 {
-  // const auto start = std::chrono::high_resolution_clock::now();
-
   if (m_pdo_flag) {
     ERS_INFO(fmt::format("Calibrating PDO with pulser DAC = {}", m_currentCalibReg));
   } else {
     ERS_INFO(fmt::format("Calibrating TDO with delay = {} [ns]", static_cast<float>(m_currentCalibReg) * nsw::ref::TP_DELAY_STEP));
   }
-
-  ERS_INFO("Unmasking channels to be pulsed, setting registers");
   send_pulsing_configs(m_currentCalibReg, m_currentChannel, true);
 }
 
@@ -109,7 +108,11 @@ void nsw::PDOCalib::acquire()
 void nsw::PDOCalib::unconfigure()
 {
   ERS_INFO("Unconfiguring");
-  ERS_INFO(fmt::format("Done with parameter {}", m_currentCalibReg));
+  if (m_pdo_flag) {
+    ERS_INFO(fmt::format("Done with PDO parameter {}, current first channel {}", m_currentCalibReg, m_currentChannel));
+  } else {
+    ERS_INFO(fmt::format("Done with TDO parameter {}, current first channel {}", m_currentCalibReg, m_currentChannel));
+  }
 
   // waiting for all the data to be transferred & l1a to be sent
   std::this_thread::sleep_for(2000ms);
@@ -118,13 +121,15 @@ void nsw::PDOCalib::unconfigure()
   const auto chanElapsed{chanIterStop - m_chanIterStart};
   ERS_INFO(fmt::format("Done with channel {} in {:%M:%S} min", m_currentChannel, chanElapsed));
 
-  // If we're at the end of the register loop, reset and increment the channel
-  if (m_loopCalibRegs.empty()) {
+  // If we're at the end of the channel group loop, reset the channel group and update the register setting
+  if (m_loopCalibChs.empty()) {
     resetCalibLoop();
   }
+  m_currentChannel = m_loopCalibChs.back();
+  m_loopCalibChs.pop_back();
 
   // FIXME TODO if we have reached the end of the calibration...?
-  // if (m_currentChannel == num_ch_groups) {
+  // if (m_currentChannel == m_numChGroups) {
   //   const auto calibFinish = std::chrono::high_resolution_clock::now();
   //   const auto totalElapsed{calibStop - m_calibStart};
   //   ERS_INFO(fmt::format("Calibration complete, total run time was t={:%M:%S} [min]", totalElapsed));
@@ -135,8 +140,10 @@ nsw::commands::Commands nsw::PDOCalib::getAltiSequences() const
 {
   return {
     {},  // before configure
-    {nsw::commands::actionSR,
-     nsw::commands::actionBCR,
+    {
+      nsw::commands::actionSR,
+     // nsw::commands::actionBCR,
+     nsw::commands::actionOCR, // seems to work better for realignment, etc..
      nsw::commands::actionECR,
      nsw::commands::actionStartPG},  // during (before acquire)
     {nsw::commands::actionStopPG}    // after (before unconfigure)
@@ -146,17 +153,16 @@ nsw::commands::Commands nsw::PDOCalib::getAltiSequences() const
 void nsw::PDOCalib::resetCalibLoop()
 {
   m_chanIterStart = std::chrono::high_resolution_clock::now();
-  ERS_INFO(fmt::format("Iterating over channel {}", m_currentChannel));
-  // Move to next channel
-  m_currentChannel += 1;
-  // make a copy, because in the loop we remove the entries as we go along.
-  m_loopCalibRegs = m_calibRegs;
-  // Perform the calibration loop in reverse
+  ERS_INFO(fmt::format("Start channel iteration "));
+  // size_t -- goes to maximum positive value.
+  for (std::size_t first_chan = m_numChGroups - 1; first_chan < m_numChGroups; --first_chan) {
+    m_loopCalibChs.push_back(first_chan);
+  }
+  // Perform the reg calibration loop in reverse and clear up vector as we go
   m_currentCalibReg = m_loopCalibRegs.back();
-  // Remove the element we start with
   m_loopCalibRegs.pop_back();
   // masking all channels here to be sure we pulse only what we need
-  send_pulsing_configs(0, m_currentChannel, false);
+  send_pulsing_configs(0, 0, false);
 }
 
 void nsw::PDOCalib::send_pulsing_configs(const std::size_t i_par,
@@ -169,13 +175,14 @@ void nsw::PDOCalib::send_pulsing_configs(const std::size_t i_par,
     });
   }
 
-  std::this_thread::sleep_for(2000ms);
 
   for (auto& thrd : m_conf_threads) {
     thrd.join();
   }
 
   m_conf_threads.clear();
+  // after all config is finished, sleep to wait for reset to finish!
+  std::this_thread::sleep_for(5000ms);
 }
 
 void nsw::PDOCalib::toggle_channels(const nsw::hw::FEB& feb,
@@ -190,7 +197,7 @@ void nsw::PDOCalib::toggle_channels(const nsw::hw::FEB& feb,
   const auto& roc = feb.getRoc();
 
   if (toggle) {
-    if (m_pdo_flag) {
+    if (!m_pdo_flag) {
       roc.writeValues({
         // delaying vmms 0 to 3
         {"ePllVmm0.tp_phase_0", static_cast<std::uint32_t>(i_par)},
@@ -209,14 +216,15 @@ void nsw::PDOCalib::toggle_channels(const nsw::hw::FEB& feb,
   }
 
   // Ensure no garbage comes out of the ROC while resetting the VMM configuration
-  roc.disableVmmCaptureInputs();
+  // TODO: see if we need it(later)
 
   // Do the modification of the VMM configuration
   auto enable_vmm_channels = [&](nsw::VMMConfig& vmm,
                                  const std::vector<std::uint32_t>& offsets) -> void {
     for (const auto& ofs : offsets) {
-      vmm.setChannelRegisterOneChannel("channel_st", 1, static_cast<std::uint32_t>(first_chan) + ofs);
-      vmm.setChannelRegisterOneChannel("channel_sm", 0, static_cast<std::uint32_t>(first_chan) + ofs);
+      const auto ch = static_cast<std::uint32_t>(first_chan) + ofs;
+      vmm.setChannelRegisterOneChannel("channel_st", 1, ch);
+      vmm.setChannelRegisterOneChannel("channel_sm", 0, ch);
     }
   };
 
@@ -250,16 +258,8 @@ void nsw::PDOCalib::toggle_channels(const nsw::hw::FEB& feb,
     }
 
     try {
-      const auto reset_orig = vmm.getGlobalRegister("reset");
-      vmm.setGlobalRegister("reset", 3);
-      vmmHwi.writeConfiguration(vmm);
-
-      std::this_thread::sleep_for(1000ms);
-
-      vmm.setGlobalRegister("reset", reset_orig);
-      vmmHwi.writeConfiguration(vmm);
-
-      std::this_thread::sleep_for(1000ms);
+      // using the intrinsic reset vmm, no sleep is needed here, we sleep later
+      vmmHwi.writeConfiguration(vmm, true);
     } catch (const std::exception& e) {
       ers::warning(
         nsw::PDOCalibIssue(
@@ -270,7 +270,6 @@ void nsw::PDOCalib::toggle_channels(const nsw::hw::FEB& feb,
   }
 
   // Ensure data properly comes out of the ROC
-  roc.enableVmmCaptureInputs();
 }
 
 void nsw::PDOCalib::setCalibParamsFromIS(const ISInfoDictionary& is_dictionary,
@@ -324,6 +323,11 @@ void nsw::PDOCalib::setCalibParamsFromIS(const ISInfoDictionary& is_dictionary,
     ers::warning(issue);
   }
 
+}
+
+void nsw::PDOCalib::setCalibKeyToIS(const ISInfoDictionary& is_dictionary) {
+  // write IS first before configure(), to allow concurrent IS_Publish to happen during send_pulsing_config
+  is_dictionary.checkin("Monitoring.NSWCalibration.triggerCalibrationKey", ISInfoInt((m_currentCalibReg << 12) + (m_numChGroups << 6) + m_currentChannel));
 }
 
 nsw::PDOCalib::RunParameters nsw::PDOCalib::parseCalibParams(const std::string& calibParams)
