@@ -143,6 +143,7 @@ void nsw::NSWCalibRc::user(const daq::rc::UserCmd& usrCmd) {
   } else if (usrCmd.commandName() == "configure") {
     publish4swrod();
     calib->progressbar();
+    calib->setCalibKeyToIS(*is_dictionary);
     calib->configure();
   } else if (usrCmd.commandName() == "acquire") {
     calib->acquire();
