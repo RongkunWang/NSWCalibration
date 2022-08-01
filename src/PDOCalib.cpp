@@ -59,10 +59,8 @@ void nsw::PDOCalib::setup(const std::string& /*db*/)
   // pulse all
 
   m_numChGroups = [this]() -> std::size_t {
-    if (m_numChPerGroup != 1 &&
-        m_numChPerGroup != 2 &&
-        m_numChPerGroup != 4 &&
-        m_numChPerGroup != 8) {
+    if (m_numChPerGroup != 1 && m_numChPerGroup != 2 && m_numChPerGroup != 4 &&
+        m_numChPerGroup != 8 && m_numChPerGroup != 16) {
       // this option if ALL channels will be pulsed (first
       // entry in IS string is any odd int, not a factor of 8)
       ERS_INFO(fmt::format("Pulsing ALL channels, | m_numChPerGroup={}", m_numChPerGroup));
@@ -251,6 +249,8 @@ void nsw::PDOCalib::toggle_channels(const nsw::hw::FEB& feb,
         enable_vmm_channels(vmm, {0, 16, 32, 48});
       } else if (m_numChPerGroup == 8) {
         enable_vmm_channels(vmm, {0, 8, 16, 24, 32, 40, 48, 56});
+      } else if (m_numChPerGroup) {
+        enable_vmm_channels(vmm, {0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60});
       } else {
         vmm.setChannelRegisterAllChannels("channel_st", 1);
         vmm.setChannelRegisterAllChannels("channel_sm", 0);
@@ -327,7 +327,7 @@ void nsw::PDOCalib::setCalibParamsFromIS(const ISInfoDictionary& is_dictionary,
 
 void nsw::PDOCalib::setCalibKeyToIS(const ISInfoDictionary& is_dictionary) {
   // write IS first before configure(), to allow concurrent IS_Publish to happen during send_pulsing_config
-  is_dictionary.checkin("Monitoring.NSWCalibration.triggerCalibrationKey", ISInfoInt((m_currentCalibReg << 12) + (m_numChGroups << 6) + m_currentChannel));
+  is_dictionary.checkin("Monitoring.NSWCalibration.triggerCalibrationKey", ISInfoInt((m_currentCalibReg << 12) + (m_numChPerGroup  << 6) + m_currentChannel));
 }
 
 nsw::PDOCalib::RunParameters nsw::PDOCalib::parseCalibParams(const std::string& calibParams)
