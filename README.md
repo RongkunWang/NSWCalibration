@@ -159,7 +159,7 @@ To run PDO/TDO calibration using this class user does following:
    class in the run controll application in following way:
 
    ```bash
-   is_write -p <partition_name> -n NswParams.CalibcalibType -t String -v PDOCalib(/TDOCalib)-i 0
+   is_write -p <partition_name> -n NswParams.Calib.calibType -t String -v PDOCalib(/TDOCalib)-i 0
    ```
 
    where depending on the -v entry either TDO (-v TDOCalib) OR PDO (-v
