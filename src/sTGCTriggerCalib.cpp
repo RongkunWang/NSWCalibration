@@ -179,22 +179,22 @@ void nsw::sTGCTriggerCalib::gatherPFEBs() {
   if (partition.find("VS") != std::string::npos) {
     // VS
     ERS_INFO("Gather pFEBs: VS pFEBs");
-    m_pfebs_ordered.push_back("PFEB_L1Q1_IP");
-    m_pfebs_ordered.push_back("PFEB_L2Q1_IP");
-    m_pfebs_ordered.push_back("PFEB_L3Q1_IP");
-    m_pfebs_ordered.push_back("PFEB_L4Q1_IP");
-    m_pfebs_ordered.push_back("PFEB_L1Q2_IP");
-    m_pfebs_ordered.push_back("PFEB_L2Q2_IP");
-    m_pfebs_ordered.push_back("PFEB_L3Q2_IP");
-    m_pfebs_ordered.push_back("PFEB_L4Q2_IP");
-    m_pfebs_ordered.push_back("PFEB_L1Q3_IP");
-    m_pfebs_ordered.push_back("PFEB_L2Q3_IP");
-    m_pfebs_ordered.push_back("PFEB_L3Q3_IP");
-    m_pfebs_ordered.push_back("PFEB_L4Q3_IP");
+    m_pfebs_ordered.push_back("/L0/R0");
+    m_pfebs_ordered.push_back("/L1/R0");
+    m_pfebs_ordered.push_back("/L2/R0");
+    m_pfebs_ordered.push_back("/L3/R0");
+    m_pfebs_ordered.push_back("/L0/R1");
+    m_pfebs_ordered.push_back("/L1/R1");
+    m_pfebs_ordered.push_back("/L2/R1");
+    m_pfebs_ordered.push_back("/L3/R1");
+    m_pfebs_ordered.push_back("/L0/R2");
+    m_pfebs_ordered.push_back("/L1/R2");
+    m_pfebs_ordered.push_back("/L2/R2");
+    m_pfebs_ordered.push_back("/L3/R2");
   }
   else {
     // 191/P1
-    for (const auto& pfeb: nsw::padtrigger::ORDERED_PFEBS) {
+    for (const auto& pfeb: nsw::padtrigger::ORDERED_PFEBS_GEOID) {
       m_pfebs_ordered.push_back(std::string(pfeb));
     }
   }
