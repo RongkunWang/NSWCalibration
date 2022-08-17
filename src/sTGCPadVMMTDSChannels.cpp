@@ -5,91 +5,73 @@
 #include "ers/ers.h"
 #include <future>
 
+using namespace std::chrono_literals;
+
 void nsw::sTGCPadVMMTDSChannels::setup(const std::string& db) {
-  ERS_INFO("setup " << db);
-
-  // make objects and outputs
-  setup_objects(db);
-
-  // set calib options
-  setTotal((nsw::NUM_VMM_PER_PFEB - nsw::PFEB_FIRST_PAD_VMM)
-           * nsw::vmm::NUM_CH_PER_VMM);
-
-  nsw::snooze();
+  ERS_INFO(fmt::format("setup {}", db));
+  checkObjects();
+  setTotal(nsw::NUM_PAD_VMM_PER_PFEB * nsw::vmm::NUM_CH_PER_VMM);
 }
 
 void nsw::sTGCPadVMMTDSChannels::configure() {
-  ERS_INFO("sTGCPadVMMTDSChannels::configure " << counter());
+  configurePfebs();
+  configurePadTrigger();
+}
 
-  // launch 1 thread per PFEB configuration
+void nsw::sTGCPadVMMTDSChannels::configurePfebs() {
   auto threads = std::vector< std::future<void> >();
-  for (auto & feb : m_pfebs)
-    threads.push_back( std::async(std::launch::async,
-                                  &nsw::sTGCPadVMMTDSChannels::configure_pfeb,
-                                  this,
-                                  feb) );
-
-  // wait on them
+  for (const auto& feb: getDeviceManager().getFebs()) {
+    threads.push_back(
+      std::async(std::launch::async, &nsw::sTGCPadVMMTDSChannels::configurePfeb, this, feb)
+    );
+  }
   for (auto& thread : threads) {
     thread.get();
   }
-
 }
 
-nsw::commands::Commands nsw::sTGCPadVMMTDSChannels::getAltiSequences() const {
-  return {{}, // before configure
-          {nsw::commands::actionStartPG}, // during (before acquire)
-          {} // after (before unconfigure)
-  };
-}
-
-void nsw::sTGCPadVMMTDSChannels::configure_pfeb(nsw::FEBConfig feb) {
-  ERS_INFO("Configuring "
-           << feb.getOpcServerIp()
-           << "/"
-           << feb.getAddress()
-           );
+void nsw::sTGCPadVMMTDSChannels::configurePfeb(const nsw::hw::FEB& feb) {
+  if (nsw::getElementType(feb.getScaAddress()) != "PFEB") {
+    return;
+  }
+  ERS_INFO(fmt::format("Configuring {}", feb.getScaAddress()));
 
   // choose the VMM channel to pulse
-  const size_t vmmId  = counter() / nsw::vmm::NUM_CH_PER_VMM + nsw::PFEB_FIRST_PAD_VMM;
-  const size_t chan = counter() % nsw::vmm::NUM_CH_PER_VMM;
-  ERS_INFO("Enable VMM " << vmmId << ", channel " << chan);
+  const std::size_t vmmId = counter() / nsw::vmm::NUM_CH_PER_VMM + nsw::PFEB_FIRST_PAD_VMM;
+  const std::size_t chan  = counter() % nsw::vmm::NUM_CH_PER_VMM;
+  ERS_INFO(fmt::format("Enable VMM {}, channel {}", vmmId, chan));
 
-  // mask all channels
-  for (auto& vmm : feb.getVmms()) {
-    vmm.setChannelRegisterAllChannels("channel_st", false);
-    vmm.setChannelRegisterAllChannels("channel_sm", true);
-  }
-
+  // mask all channels, and
   // test pulse and unmask the channel of interest
-  feb.getVmm(vmmId).setChannelRegisterOneChannel("channel_st", true,  chan);
-  feb.getVmm(vmmId).setChannelRegisterOneChannel("channel_sm", false, chan);
-
-  // send configuration
-  const auto cs = std::make_unique<nsw::ConfigSender>();
-  if (!simulation()) {
-    cs->sendVmmConfig(feb);
+  for (const auto& vmmDev: feb.getVmms()) {
+    if (vmmDev.getVmmId() == nsw::PFEB_WIRE_VMM) {
+      continue;
+    }
+    auto vmmConf = nsw::VMMConfig{vmmDev.getConfig()};
+    vmmConf.setChannelRegisterAllChannels("channel_st", false);
+    vmmConf.setChannelRegisterAllChannels("channel_sm", true);
+    if (vmmDev.getVmmId() == vmmId) {
+      vmmConf.setChannelRegisterOneChannel("channel_st", true,  chan);
+      vmmConf.setChannelRegisterOneChannel("channel_sm", false, chan);
+    }
+    vmmDev.writeConfiguration(vmmConf);
   }
-
 }
 
-void nsw::sTGCPadVMMTDSChannels::setup_objects(const std::string& db) {
-  ERS_INFO("Making pFEB and Pad Trigger objects");
-
-  // create NSWConfiguration objects
-  m_pfebs = nsw::ConfigReader::makeObjects<nsw::FEBConfig>(db, "PFEB");
-  ERS_INFO("Found " << m_pfebs.size() << " pFEBs");
-  ERS_INFO("Found " << m_pts.get().size()   << " pad triggers");
-
-  // require exactly one Pad Trigger
-  if (m_pts.get().size() != 1) {
-    std::stringstream msg;
-    msg << "Cannot handle !=1 pad triggers."
-        << " You gave: "
-        << m_pts.get().size();
-    nsw::NSWsTGCPadVMMTDSChannelsIssue issue(ERS_HERE, msg.str());
-    ers::fatal(issue);
-    throw std::runtime_error(msg.str());
+void nsw::sTGCPadVMMTDSChannels::configurePadTrigger() {
+  for (const auto& pt: getDeviceManager().getPadTriggers()) {
+    ERS_INFO(fmt::format("Configuring {}", pt.getName()));
+    pt.writeReadoutEnableTemporarily(10ms);
   }
+}
 
+void nsw::sTGCPadVMMTDSChannels::checkObjects() {
+  const auto npads = getDeviceManager().getPadTriggers().size();
+  const auto nfebs = getDeviceManager().getFebs().size();
+  ERS_INFO(fmt::format("Found {} pad triggers", npads));
+  ERS_INFO(fmt::format("Found {} FEBs", nfebs));
+  if (npads != std::size_t{1}) {
+    const auto msg = std::string("Requires 1 pad trigger");
+    ers::error(nsw::NSWsTGCPadVMMTDSChannelsIssue(ERS_HERE, msg));
+  }
 }
