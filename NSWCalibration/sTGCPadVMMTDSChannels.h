@@ -39,8 +39,8 @@ namespace nsw {
      * \brief Simple constructor.
      */
     sTGCPadVMMTDSChannels(std::string calibType, const hw::DeviceManager& deviceManager) :
-      CalibAlg(std::move(calibType), deviceManager),
-      m_pts{getDeviceManager().getPadTriggers()} {};
+      CalibAlg(std::move(calibType), deviceManager)
+        {};
 
     /**
      * \brief Set up the calibration algorithm.
@@ -58,13 +58,14 @@ namespace nsw {
      */
     void configure() override;
 
-    /**
-     * \brief Describe the set of Alti actions for the Orchestrator
-     */
-    [[nodiscard]]
-    nsw::commands::Commands getAltiSequences() const override;
-
   private:
+    /**
+     * \brief Configure the PFEB VMMs for test pulsing.
+     *
+     * Launch one thread for each PFEB
+     */
+    void configurePfebs();
+
     /**
      * \brief Configure the PFEB VMMs for test pulsing.
      *
@@ -72,17 +73,18 @@ namespace nsw {
      * disable channel masking and enable test pulsing for that channel,
      * and send this configuration to the hardware.
      */
-    void configure_pfeb(nsw::FEBConfig feb);
+    void configurePfeb(const nsw::hw::FEB& feb);
 
     /**
-     * \brief Create NSWConfig objects from the given configuration database.
+     * \brief Configure the pad trigger for readout
      */
-    void setup_objects(const std::string& db);
+    void configurePadTrigger();
 
+    /**
+     * \brief Check NSWConfig objects
+     */
+    void checkObjects();
 
-  private:
-    std::reference_wrapper<const std::vector<hw::PadTrigger>> m_pts;
-    std::vector<nsw::FEBConfig> m_pfebs;
   };
 
 }
