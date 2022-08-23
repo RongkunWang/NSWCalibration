@@ -1,9 +1,9 @@
 #!/usr/bin/env tdaq_python
 """
-A script for adding a pad trigger object to one or many jsons.
+A script for adding pad trigger objects to the official jsons.
 
 Run like:
-python nsw_add_pad_trigger_in_json.py -i "/path/to/STGC_P1_C*.json"
+python nsw_add_pad_trigger_in_json.py
 """
 import argparse
 import collections
@@ -13,9 +13,12 @@ import os
 import sys
 import time
 
-TEMPLATE = "/detwork/nsw/json/trigger/stg/cosmics/padtriggerfpga_common_config.json"
+JSONDIR  = "/det/nsw/json/stgc/readout/"
+TEMPLATE = "/detwork/nsw/json/trigger/stg/rim/PadTriggers.json"
 COMMON = "padtriggerfpga_common_config"
-OBJECT = "PadTriggerSCA_00"
+OBJECT = "PadTrigger"
+OLDOBJECT = "PadTriggerSCA_00"
+RIML1DDC = "RimL1DDC"
 SIDES = ["A", "C"]
 NUMBERS = range(1, 17)
 NOW = time.strftime("%Y_%m_%d_%Hh%Mm%Ss")
@@ -25,6 +28,8 @@ def main():
     # check the CL args
     ops = options()
     checkOptions()
+    print("")
+    print(f"Input directory:\n {ops.i}")
 
     # make output dir
     outdir = getOutputDir()
@@ -32,11 +37,11 @@ def main():
     print("")
     print(f"Output directory:\n {outdir}")
 
-    # load the template file
+    # load the pad triggers file
     print("")
-    print(f"Template pad trigger:\n {ops.t}")
-    with open(ops.t) as jfile:
-        padtrigger = json.load(jfile, object_pairs_hook=collections.OrderedDict)
+    print(f"Pad triggers:\n {ops.j}")
+    with open(ops.j) as jfile:
+        padtriggers = json.load(jfile, object_pairs_hook=collections.OrderedDict)
 
     # announce inputs
     print("")
@@ -56,7 +61,7 @@ def main():
         # load & update json
         with open(inp) as jfile:
             oldjson = json.load(jfile, object_pairs_hook=collections.OrderedDict)
-            newjson = merge(oldjson, padtrigger, sector)
+            newjson = merge(oldjson, padtriggers, sector)
 
         # write to disk
         output = os.path.join(outdir, os.path.basename(inp))
@@ -73,23 +78,23 @@ def main():
 
 def options():
     parser = argparse.ArgumentParser(usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("-i", help="Input JSON file",                default=None)
+    parser.add_argument("-i", help="Input JSON directory",           default=JSONDIR)
+    parser.add_argument("-j", help="JSON file of pad triggers",      default=TEMPLATE)
     parser.add_argument("-o", help="Output directory",               default=None)
-    parser.add_argument("-t", help="Template pad trigger JSON file", default=TEMPLATE)
     parser.add_argument("--nameCommon", help="Name of the pad trigger common config", default=COMMON)
     parser.add_argument("--nameObject", help="Name of the pad trigger object config", default=OBJECT)
-    parser.add_argument("-f", help="Force overwrite of output file if it already exists", action="store_true")
+    parser.add_argument("--nameRimL1DDC", help="Name of the RimL1DDC object config", default=RIML1DDC)
+    parser.add_argument("-f", help="Force overwrite of output dir if it already exists", action="store_true")
     return parser.parse_args()
 
 
 def getInputs():
     ops = options()
     if not ops.i:
-        fatal("Please provide an input file with -i")
-    fnames = []
-    for fpath in ops.i.split(","):
-        fnames.extend(glob.glob(fpath))
-    return fnames
+        fatal("Please provide an input json dir with -i")
+    inputs = sorted(glob.glob(os.path.join(ops.i, "*")))
+    inputs = list(filter(lambda inp: inp.endswith(".json"), inputs))
+    return inputs
 
 
 def getOutputDir():
@@ -104,18 +109,18 @@ def checkOptions():
     inputs = getInputs()
     outdir = getOutputDir()
     if not inputs:
-        fatal("Please provide an input file with -i")
+        fatal("Please provide an input json dir with -i")
     for fname in inputs:
         if not os.path.isfile(fname):
             fatal(f"Input json file doesnt exist: {fname}")
         if not fname.endswith(".json"):
             fatal(f"Input json file path doesnt end with `.json`. Wat? {fname}")
-    if not ops.t:
-        fatal("Please provide a pad trigger template file with -t")
-    if not os.path.isfile(ops.t):
-        fatal(f"Input json file doesnt exist: {ops.t}")
-    if not ops.t.endswith(".json"):
-        fatal(f"Template json file path doesnt end with `.json`. Wat? {ops.t}")
+    if not ops.j:
+        fatal("Please provide a pad trigger file with -j")
+    if not os.path.isfile(ops.j):
+        fatal(f"Input json file doesnt exist: {ops.j}")
+    if not ops.j.endswith(".json"):
+        fatal(f"Pad trigger json file path doesnt end with `.json`. Wat? {ops.j}")
 
 
 def getSector(fname):
@@ -131,12 +136,11 @@ def getSector(fname):
 def merge(oldjson, template, sector):
     ops = options()
     newjson = oldjson
-    newjson[ops.nameCommon] = template[ops.nameCommon]
-    newjson[ops.nameObject] = template[ops.nameObject]
-    for key in newjson[ops.nameObject]:
-        if key == "OpcServerIp":
-            host, port = getHost(sector), getPort(sector)
-            newjson[ops.nameObject][key] = f"{host}:{port}"
+    newjson[ops.nameRimL1DDC] = template[ops.nameRimL1DDC]
+    newjson[ops.nameObject]   = template[f"{ops.nameObject}_{sector}"]
+    newjson[ops.nameCommon]   = template[ops.nameCommon]
+    if OLDOBJECT in newjson:
+        newjson.pop(OLDOBJECT)
     return newjson
 
 
