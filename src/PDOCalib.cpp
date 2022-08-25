@@ -113,7 +113,7 @@ void nsw::PDOCalib::unconfigure()
   }
 
   // waiting for all the data to be transferred & l1a to be sent
-  std::this_thread::sleep_for(2000ms);
+  std::this_thread::sleep_for(4000ms);
 
   const auto chanIterStop = std::chrono::high_resolution_clock::now();
   const auto chanElapsed{chanIterStop - m_chanIterStart};
@@ -142,7 +142,7 @@ nsw::commands::Commands nsw::PDOCalib::getAltiSequences() const
       nsw::commands::actionSR,
      // nsw::commands::actionBCR,
      nsw::commands::actionOCR, // seems to work better for realignment, etc..
-     nsw::commands::actionECR,
+     // nsw::commands::actionECR,
      nsw::commands::actionStartPG},  // during (before acquire)
     {nsw::commands::actionStopPG}    // after (before unconfigure)
   };
