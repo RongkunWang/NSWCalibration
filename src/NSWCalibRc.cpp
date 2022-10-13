@@ -36,6 +36,7 @@
 #include "NSWCalibration/RocPhase40MhzCore.h"
 #include "NSWCalibration/RocPhase160MhzCore.h"
 #include "NSWCalibration/RocPhase160MhzVmm.h"
+#include "NSWCalibration/VmmConfigurationCheck.h"
 #include "NSWConfiguration/NSWConfig.h"
 
 #include "NSWConfiguration/NSWConfig.h"
@@ -254,6 +255,8 @@ void nsw::NSWCalibRc::handler() {
     calib = std::make_unique<RocPhaseCalibrationBase<RocPhase160MhzCore>>(m_calibType, deviceManager);
   } else if (m_calibType == "RocPhase160MHzVmm") {
     calib = std::make_unique<RocPhaseCalibrationBase<RocPhase160MhzVmm>>(m_calibType, deviceManager);
+  } else if (m_calibType == "VmmConfigurationCheck") {
+    calib = std::make_unique<VmmConfigurationCheck>(m_calibType, deviceManager);
   } else {
     std::string msg = "Unknown calibration request: " + m_calibType;
     nsw::NSWCalibIssue issue(ERS_HERE, msg);
