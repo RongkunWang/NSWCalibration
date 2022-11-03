@@ -262,7 +262,8 @@ int nsw::MMTriggerCalib::configure_tps(const ptree& tr) {
   auto latency = tr.get<int>("tp_latency");
   for (auto & tp : m_tps) {
     if (latency != -1)
-      tp.setARTWindowCenter(latency);
+      // TODO: need to account for boundary as well!!
+      tp.setL1ARequestOffset(latency);
     auto cs = std::make_unique<nsw::ConfigSender>();
     while (m_tpscax_busy)
       usleep(1e5);
