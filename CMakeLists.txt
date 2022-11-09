@@ -80,7 +80,6 @@ tdaq_add_library(nswcalib
     LogIt
     Boost::boost
     rt
-    Protobuf
     tdaq::AltiModule
     ROOT::Core
     ROOT::Tree
