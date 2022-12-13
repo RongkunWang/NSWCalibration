@@ -4,6 +4,7 @@
 #include "NSWConfiguration/Utility.h"
 #include "ers/ers.h"
 #include <future>
+#include <execution>
 
 using namespace std::chrono_literals;
 
@@ -18,19 +19,14 @@ void nsw::sTGCPadVMMTDSChannels::configure() {
   configurePadTrigger();
 }
 
-void nsw::sTGCPadVMMTDSChannels::configurePfebs() {
-  auto threads = std::vector< std::future<void> >();
-  for (const auto& feb: getDeviceManager().getFebs()) {
-    threads.push_back(
-      std::async(std::launch::async, &nsw::sTGCPadVMMTDSChannels::configurePfeb, this, feb)
-    );
-  }
-  for (auto& thread : threads) {
-    thread.get();
-  }
+void nsw::sTGCPadVMMTDSChannels::configurePfebs() const {
+  const auto& febs = getDeviceManager().getFebs();
+  std::for_each(std::execution::par,
+                std::cbegin(febs), std::cend(febs),
+                [this](const auto& feb){ configurePfeb(feb); });
 }
 
-void nsw::sTGCPadVMMTDSChannels::configurePfeb(const nsw::hw::FEB& feb) {
+void nsw::sTGCPadVMMTDSChannels::configurePfeb(const nsw::hw::FEB& feb) const {
   if (nsw::getElementType(feb.getScaAddress()) != "PFEB") {
     return;
   }
@@ -58,14 +54,14 @@ void nsw::sTGCPadVMMTDSChannels::configurePfeb(const nsw::hw::FEB& feb) {
   }
 }
 
-void nsw::sTGCPadVMMTDSChannels::configurePadTrigger() {
+void nsw::sTGCPadVMMTDSChannels::configurePadTrigger() const {
   for (const auto& pt: getDeviceManager().getPadTriggers()) {
     ERS_INFO(fmt::format("Configuring {}", pt.getName()));
     pt.writeReadoutEnableTemporarily(10ms);
   }
 }
 
-void nsw::sTGCPadVMMTDSChannels::checkObjects() {
+void nsw::sTGCPadVMMTDSChannels::checkObjects() const {
   const auto npads = getDeviceManager().getPadTriggers().size();
   const auto nfebs = getDeviceManager().getFebs().size();
   ERS_INFO(fmt::format("Found {} pad triggers", npads));

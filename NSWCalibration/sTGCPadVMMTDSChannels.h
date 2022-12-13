@@ -64,7 +64,7 @@ namespace nsw {
      *
      * Launch one thread for each PFEB
      */
-    void configurePfebs();
+    void configurePfebs() const;
 
     /**
      * \brief Configure the PFEB VMMs for test pulsing.
@@ -73,17 +73,17 @@ namespace nsw {
      * disable channel masking and enable test pulsing for that channel,
      * and send this configuration to the hardware.
      */
-    void configurePfeb(const nsw::hw::FEB& feb);
+    void configurePfeb(const nsw::hw::FEB& feb) const;
 
     /**
      * \brief Configure the pad trigger for readout
      */
-    void configurePadTrigger();
+    void configurePadTrigger() const;
 
     /**
      * \brief Check NSWConfig objects
      */
-    void checkObjects();
+    void checkObjects() const;
 
   };
 
