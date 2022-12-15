@@ -73,7 +73,7 @@ tdaq_add_library(nswcalib
     src/RocPhase160MhzCore.cpp
     src/RocPhase160MhzVmm.cpp
   INCLUDE_DIRECTORIES
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/extern/omni/include>
+    $<$<VERSION_EQUAL:${TDAQ_VERSION},9.4.0>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/extern/omni/include>>
   LINK_LIBRARIES nswconfig  NSWConfig nswcalibdal
     nswhwinterface
     nswopcclient
@@ -108,7 +108,7 @@ tdaq_add_library(nswcalib
 
 tdaq_add_executable(NSWCalibRc_main app/NSWCalibRc_main.cpp src/NSWCalibRc.cpp
   INCLUDE_DIRECTORIES
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/extern/omni/include>
+    $<$<VERSION_EQUAL:${TDAQ_VERSION},9.4.0>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/extern/omni/include>>
   LINK_LIBRARIES nswcalib tdaq::daq-df-dal tdaq::rc_ItemCtrl
     tdaq-common::ers Boost::program_options nswcalibdal
     tdaq::AltiModule
