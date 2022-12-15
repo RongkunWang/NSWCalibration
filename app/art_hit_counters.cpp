@@ -13,6 +13,8 @@
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/ADDCConfig.h"
 #include "NSWConfiguration/Utility.h"
+
+#define R__HAS_STD_SPAN
 #include "TFile.h"
 #include "TTree.h"
 

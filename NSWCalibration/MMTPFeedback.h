@@ -11,6 +11,8 @@
 #include "ers/Issue.h"
 
 #include <boost/property_tree/ptree.hpp>
+
+#define R__HAS_STD_SPAN
 #include "TFile.h"
 #include "TTree.h"
 #include "TBranch.h"
