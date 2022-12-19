@@ -19,9 +19,13 @@
 
 #include <string>
 #include <vector>
+
 #include <ers/Issue.h>
+
+#define R__HAS_STD_SPAN
 #include <TFile.h>
 #include <TTree.h>
+
 #include "NSWCalibration/CalibAlg.h"
 #include "NSWConfiguration/Constants.h"
 

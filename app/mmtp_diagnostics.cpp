@@ -19,6 +19,8 @@
 #include "NSWCalibration/Utility.h"
 #include "NSWCalibration/MMTPFeedback.h"
 #include "NSWCalibration/MMTPStatusRegisters.h"
+
+#define R__HAS_STD_SPAN
 #include "TFile.h"
 #include "TTree.h"
 #include "TInterpreter.h"

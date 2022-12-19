@@ -15,6 +15,7 @@
 #include "NSWConfiguration/FEBConfig.h"
 #include "NSWConfiguration/TPConfig.h"
 
+#define R__HAS_STD_SPAN
 #include "TFile.h"
 #include "TTree.h"
 
