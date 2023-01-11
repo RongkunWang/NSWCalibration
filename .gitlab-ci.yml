@@ -10,16 +10,20 @@ variables:
 
 stages:
   - build
+  - docs
   - test
   - quality
   - reports
+  - deploy
 
 include:
   - project: 'atlas-muon-nsw-daq/nsw-build-scripts'
     ref: master
     file:
+      - '.gitlab/ci/docs.yml'
       - '.gitlab/ci/code-quality.yml'
       - '.gitlab/ci/build-and-test.yml'
+      - '.gitlab/ci/deploy.yml'
 
 workflow:
   rules:

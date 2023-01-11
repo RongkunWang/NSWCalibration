@@ -1,5 +1,14 @@
 cmake_minimum_required(VERSION 3.14.0)
 
+### compile_commands.json DB
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+
+include(CheckIPOSupported)
+set(IPO_SUPPORTED)
+check_ipo_supported(RESULT IPO_SUPPORTED)
+message(STATUS "  IPO_SUPPORTED::${IPO_SUPPORTED}")
+
 add_subdirectory(extern)
 
 tdaq_package()
@@ -142,3 +151,17 @@ foreach(testname IN LISTS NSWCALIB_TESTS)
   message(STATUS "  Adding test::add_test(NAME ${testname} COMMAND test_${testname})")
   add_test(NAME ${testname} COMMAND test_${testname})
 endforeach()
+
+option(SKIP_NSW_DOCS "Disable doxygen when dependent build" OFF)
+if (NOT SKIP_NSW_DOCS)
+if (BUILD_NSW_DOCS)
+  message(STATUS "CMAKE_MODULE_PATH is ${CMAKE_MODULE_PATH}")
+  include(NSWDoxygen)
+  SetupNSWDoxygen()
+
+  if (TARGET ${TDAQ_PACKAGE_NAME}.doxygen)
+    add_dependencies(${TDAQ_PACKAGE_NAME}.doxygen nswcalibdal)
+    SetupNSWDoxygenTargets(${TDAQ_PACKAGE_NAME}.doxygen)
+  endif()
+endif()
+endif()
