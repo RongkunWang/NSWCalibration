@@ -12,12 +12,19 @@
 #include <is/infodictionary.h>
 
 #include <RunControl/Common/OnlineServices.h>
+#include <TTCInfo/LumiBlockNamed.h>
 
+#include "NSWCalibration/Issues.h"
 #include "NSWCalibrationDal/NSWCalibApplication.h"
 
 nsw::CalibAlg::CalibAlg(std::string calibType, const hw::DeviceManager& deviceManager) :
   m_calibType(std::move(calibType)),
-  m_deviceManager{deviceManager}
+  m_deviceManager{deviceManager},
+  m_ipcPartition{[]() {
+    daq::rc::OnlineServices& rcSvc = daq::rc::OnlineServices::instance();
+    return rcSvc.getIPCPartition();
+  }()},
+  m_isDict{m_ipcPartition}
 {
   auto& runCtlOnlServ = daq::rc::OnlineServices::instance();
   const auto& rcBase = runCtlOnlServ.getApplication();
@@ -58,4 +65,50 @@ void nsw::CalibAlg::setCurrentRunParameters(const std::pair<std::uint32_t, std::
     m_run_string = fmt::format("{:%Y_%m_%d_%Hh%Mm%Ss}",fmt::localtime(m_run_start));
   }
   ERS_LOG(fmt::format("Using run identifier {}", m_run_string));
+}
+
+json nsw::CalibAlg::getLbJson() const
+{
+  std::map<int, std::map<std::string, int>> lbsTransformed{};
+  std::ranges::transform(m_lbs,
+                         std::inserter(lbsTransformed, std::end(lbsTransformed)),
+                         [](const auto& pair) -> decltype(lbsTransformed)::value_type {
+                           return {pair.first,
+                                   std::map<std::string, int>{{"start", pair.second.first},
+                                                              {"end", pair.second.second}}};
+                         });
+  return json{lbsTransformed};
+}
+
+int nsw::CalibAlg::getLumiBlock() const
+{
+  const auto getLb = [this](const std::string& key) -> std::optional<int> {
+    if (m_isDict.contains(key)) {
+      LumiBlockNamed lumipars(m_ipcPartition, key);
+      m_isDict.getValue(key, lumipars);
+      if (lumipars.LumiBlockNumber > std::numeric_limits<int>::max()) {
+        ers::fatal(calib::Issue(ERS_HERE, "Cannot read LB", "LB is larger than max size of int"));
+        return {};
+      }
+      return static_cast<int>(lumipars.LumiBlockNumber);
+    }
+    return {};
+  };
+  const auto key1 = std::string{"RunParams.LumiBlock"};
+  const auto val1 = getLb(key1);
+  if (val1) {
+    return *val1;
+  }
+  const auto key2 = std::string{"RunParams.LuminosityInfo"};
+  const auto val2 = getLb(key2);
+  if (val2) {
+    return *val2;
+  }
+  ers::fatal(calib::Issue(ERS_HERE, "Cannot read LB", "Value does not exist in IS"));
+  return 0;
+}
+
+void nsw::CalibAlg::updateLumiBlockMap(const int lumiBlockStart, const int lumiBlockEnd)
+{
+  m_lbs.try_emplace(counter(), lumiBlockStart, lumiBlockEnd);
 }

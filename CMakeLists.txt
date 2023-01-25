@@ -19,6 +19,8 @@ if(ENABLE_NSW_DEBUG)
   remove_definitions(-DERS_NO_DEBUG)
 endif()
 
+find_package(nlohmann_json QUIET REQUIRED HINTS ${JSONMCPP_ROOT})
+
 install (DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/${BINARY_TAG}/bin/)
 tdaq_add_scripts(bin/nsw_art_input_phase.py             python/nsw_art_input_phase.py)
 tdaq_add_scripts(bin/nsw_increase_threshold_in_json.py  python/nsw_increase_threshold_in_json.py)
@@ -93,6 +95,7 @@ tdaq_add_library(nswcalib
     ROOT::Core
     ROOT::Tree
     ROOT::RIO
+    nlohmann_json::nlohmann_json
     PRIVATE
       stdc++fs
 )

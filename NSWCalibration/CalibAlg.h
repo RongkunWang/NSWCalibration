@@ -12,11 +12,18 @@
 #include <filesystem>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
+#include <ipc/partition.h>
+#include <is/infodictionary.h>
+
 #include "NSWCalibration/Commands.h"
 
 #include "NSWConfiguration/hw/DeviceManager.h"
 
 class ISInfoDictionary;
+
+using json = nlohmann::json;
 
 namespace nsw {
 
@@ -27,6 +34,10 @@ namespace nsw {
     CalibAlg(std::string, hw::DeviceManager&&) = delete;
 
     virtual ~CalibAlg() = default;
+    CalibAlg(const CalibAlg&) = default;
+    CalibAlg(CalibAlg&&) = default;
+    CalibAlg& operator=(CalibAlg&&) = default;
+    CalibAlg& operator=(const CalibAlg&) = default;
 
     /*!
      * \brief Defines the steps required to prepare the calibration
@@ -71,6 +82,14 @@ namespace nsw {
      */
     [[nodiscard]]
     virtual nsw::commands::Commands getAltiSequences() const {return {};};
+
+    /**
+     * \brief Tell orchestrator whether to increase LB between iterations
+     *
+     * \return true Increase LB
+     * \return false Do not increase LB
+     */
+    [[nodiscard]] virtual bool increaseLbBetweenIterations() const { return false; }
 
     /*!
      * \brief Implements a method to extract calibration parameters from IS
@@ -153,6 +172,23 @@ namespace nsw {
     [[nodiscard]]
     std::filesystem::path getOutputPath(const std::string& fname) const { return getOutputDir()/fname;}
 
+    /**
+     * \brief Get LBs as a JSON
+     *
+     * \return JSON objects containing LBs per iteration
+     */
+    [[nodiscard]] json getLbJson() const;
+
+    /**
+     * @brief Get the current LB
+     */
+    [[nodiscard]] int getLumiBlock() const;
+
+    /**
+     * @brief Start a new LB
+     */
+    void updateLumiBlockMap(int lumiBlockStart, int lumiBlockEnd);
+
   private:
     // "progress bar"
     void setStartTime() {m_time_start = std::chrono::system_clock::now();}
@@ -178,6 +214,10 @@ namespace nsw {
 
     std::chrono::time_point<std::chrono::system_clock> m_time_start;  //!< Calibration start time
     std::chrono::duration<double> m_elapsed_seconds{0};  //!< Duration of the calibration
+
+    IPCPartition m_ipcPartition;
+    ISInfoDictionary m_isDict;
+    std::map<std::size_t, std::pair<int, int>> m_lbs{};
 
   };
 }

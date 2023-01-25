@@ -196,6 +196,8 @@ void nsw::NSWCalibRc::publish() {
     is_dictionary->checkin(
       key, ISInfoString(nsw::calib::utils::serializeCommands(commands)));
   }
+  const std::string increaseLb = "NswParams.Calib.increaseLb";
+  is_dictionary->checkin(increaseLb, ISInfoBool(calib->increaseLbBetweenIterations()));
   const std::string numIterations = "NswParams.Calib.numIterations";
   is_dictionary->checkin(numIterations, ISInfoUnsignedLong(calib->total()));
 }
