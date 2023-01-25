@@ -16,6 +16,7 @@
 
 #include "NSWCalibration/Commands.h"
 #include "NSWCalibration/Issues.h"
+#include "NSWCalibration/ThresholdCalibration.h"
 #include "NSWCalibration/Utility.h"
 #include "NSWCalibrationDal/NSWCalibApplication.h"
 #include "NSWCalibration/MMTriggerCalib.h"
@@ -257,6 +258,8 @@ void nsw::NSWCalibRc::handler() {
     calib = std::make_unique<RocPhaseCalibrationBase<RocPhase160MhzCore>>(m_calibType, deviceManager);
   } else if (m_calibType == "RocPhase160MHzVmm") {
     calib = std::make_unique<RocPhaseCalibrationBase<RocPhase160MhzVmm>>(m_calibType, deviceManager);
+  } else if (m_calibType == "ThresholdCalibration") {
+    calib = std::make_unique<ThresholdCalibration>(m_calibType, deviceManager);
   } else {
     std::string msg = "Unknown calibration request: " + m_calibType;
     nsw::NSWCalibIssue issue(ERS_HERE, msg);

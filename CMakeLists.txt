@@ -83,6 +83,7 @@ tdaq_add_library(nswcalib
     src/RocPhase40MhzCore.cpp
     src/RocPhase160MhzCore.cpp
     src/RocPhase160MhzVmm.cpp
+    src/ThresholdCalibration.cpp
   INCLUDE_DIRECTORIES
     $<$<VERSION_EQUAL:${TDAQ_VERSION},9.4.0>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/extern/omni/include>>
   LINK_LIBRARIES nswconfig  NSWConfig nswcalibdal
