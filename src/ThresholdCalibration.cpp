@@ -8,13 +8,13 @@
 #include <thread>
 #include <tuple>
 
-#include <RunControl/Common/OnlineServices.h>
-#include <is/infoT.h>
-#include <is/infodictionary.h>
-
 #include <fmt/core.h>
 #include <fmt/chrono.h>
 #include <nlohmann/json.hpp>
+
+#include <RunControl/Common/OnlineServices.h>
+#include <is/infoT.h>
+#include <is/infodictionary.h>
 
 #include "NSWCalibration/CalibAlg.h"
 #include "NSWCalibration/Issues.h"
