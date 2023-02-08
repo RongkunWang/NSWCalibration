@@ -23,7 +23,6 @@
 
 class ISInfoDictionary;
 
-using json = nlohmann::json;
 
 namespace nsw {
 
@@ -177,7 +176,7 @@ namespace nsw {
      *
      * \return JSON objects containing LBs per iteration
      */
-    [[nodiscard]] json getLbJson() const;
+    [[nodiscard]] nlohmann::json getLbJson() const;
 
     /**
      * @brief Get the current LB

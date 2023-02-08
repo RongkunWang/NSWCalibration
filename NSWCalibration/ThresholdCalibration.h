@@ -14,7 +14,6 @@
 
 #include "NSWCalibration/CalibAlg.h"
 
-using json = nlohmann::json;
 
 namespace nsw {
 

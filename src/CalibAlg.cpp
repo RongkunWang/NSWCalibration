@@ -17,6 +17,9 @@
 #include "NSWCalibration/Issues.h"
 #include "NSWCalibrationDal/NSWCalibApplication.h"
 
+using json = nlohmann::json;
+
+
 nsw::CalibAlg::CalibAlg(std::string calibType, const hw::DeviceManager& deviceManager) :
   m_calibType(std::move(calibType)),
   m_deviceManager{deviceManager},
