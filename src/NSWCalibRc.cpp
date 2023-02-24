@@ -94,6 +94,7 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd&) {
 
     m_NSWConfig = std::make_unique<NSWConfig>(m_simulation);
     m_NSWConfig->readConf(m_nswApp);
+    m_NSWConfig->readConfigurationResource();
 
     ERS_LOG("End");
 }
