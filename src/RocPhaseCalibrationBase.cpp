@@ -219,6 +219,15 @@ void RocPhaseCalibrationBase<Specialized>::setRegisters(const nsw::hw::ROC& roc)
   roc.writeValues(valueMap);
 }
 
+template<typename Specialized>
+void RocPhaseCalibrationBase<Specialized>::setCalibParamsFromIS(const ISInfoDictionary& is_dictionary,
+                                               const std::string& is_db_name)
+{
+  if constexpr (std::is_same_v<Specialized, RocPhase160MhzVmm>) {
+    m_specialized.getJson(is_dictionary, is_db_name);
+  }
+}
+
 // instantiate templates
 template class RocPhaseCalibrationBase<RocPhase40MhzCore>;
 template class RocPhaseCalibrationBase<RocPhase160MhzCore>;

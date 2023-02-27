@@ -87,6 +87,8 @@ class RocPhaseCalibrationBase : public nsw::CalibAlg
    */
   [[nodiscard]] nsw::commands::Commands getAltiSequences() const override;
 
+  void setCalibParamsFromIS(const ISInfoDictionary& is_dictionary, const std::string& is_db_name) override;
+
   private:
   /**
    * \brief Create map of values for ROC configuration for a given iteration

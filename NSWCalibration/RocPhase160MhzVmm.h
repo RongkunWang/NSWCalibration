@@ -7,6 +7,10 @@
 
 #include "NSWConfiguration/hw/ROC.h"
 
+#include <is/infodynany.h>
+#include <is/infodictionary.h>
+#include <optional>
+
 /**
  * \brief Calibration of the ROC 160 MHz VMM clock
  *
@@ -45,7 +49,7 @@ class RocPhase160MhzVmm
    *
    * \param roc ROC to be configured
    */
-  static void configure(const nsw::hw::ROC& roc);
+  void configure(const nsw::hw::ROC& roc) const;
 
   /**
    * \brief Get the value of the phase for a given iteration
@@ -64,6 +68,8 @@ class RocPhase160MhzVmm
    */
   [[nodiscard]] ValueMap getInputVals() const;
 
+  void getJson(const ISInfoDictionary& is_dictionary, const std::string& is_db_name);
+
   private:
   /**
    * \brief Create the input phase values (helper function)
@@ -74,6 +80,7 @@ class RocPhase160MhzVmm
   [[nodiscard]] static ValueMap createInputVals(const std::vector<std::uint8_t>& input);
 
   ValueMap m_inputValues{};
+  std::optional<std::string> m_calibJson{};
 };
 
 #endif
