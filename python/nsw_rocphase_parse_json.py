@@ -182,8 +182,4 @@ def main():
     parser.save_json("new.json")
 
 if __name__ == "__main__":
-<<<<<<< HEAD
     main()
-=======
-    main()
->>>>>>> f92eed7b0922ad0298f5f4e2a35278819030723a

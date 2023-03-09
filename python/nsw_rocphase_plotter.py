@@ -56,7 +56,7 @@ class Plotter:
         else:
             raise ValueError("Invalid calibration type {}".format(calibration_type))
 
-    def create_histogram(self, group_name, calib_type, data):            # TODO add raw plots
+    def create_histogram(self, group_name, calib_type, data):
         """Create one histogram given a dict of lists
 
         Args:
@@ -117,15 +117,12 @@ class Plotter:
             c.SetRightMargin(.05)
             c.SetLeftMargin(.06)
             title_size = .03
-            #x, y = c.GetLeftMargin()+0.45, 1-c.GetTopMargin()+0.03 
             x, y = 1-c.GetRightMargin()-0.3, 1-c.GetTopMargin()+0.03
-            # title = ROOT.TLatex(x, y, group_name)
             title = ROOT.TLatex()
             title.SetTextAlign(12)
             title.SetNDC()
             title.SetTextSize(title_size)
             title.SetTextFont(42)
-            # title.Draw()
             title.DrawLatexNDC(x, y, group_name)        
         return c
 
@@ -138,8 +135,6 @@ class Plotter:
         # gStyle calls
         ROOT.gStyle.SetLabelSize(.05, 'y')
         ROOT.gStyle.SetLabelSize(.04, 'x')
-        #ROOT.gStyle.SetTitleSize(.05, 'xy')
-        #ROOT.gStyle.SetTitleOffset(.6, 'y')
 
         if (
             calibration_type == CalibrationType.core40
@@ -154,7 +149,6 @@ class Plotter:
         return
 
     def write_best_phases(self, h, data, phase_labels):       
-        #phase_labels = []
         for i, (name, result) in enumerate(data.items()):
             best_phase = result.index(2)
             phase_labels.append(ROOT.TLatex(h.GetXaxis().GetBinUpEdge(h.GetXaxis().GetNbins()) * 1.02,
@@ -175,32 +169,28 @@ class Plotter:
         assert( 0 <= x <= 1 )
         assert( 0 <= y <= 1 )
         text_size_header = 0.05
-        #title_element = ROOT.TLatex(x, y, header_text)
         title_element = ROOT.TLatex()
         title_element.SetTextAlign(align)
         title_element.SetNDC()
         title_element.SetTextSize(text_size_header)
         title_element.SetName("title_element")
         title_element.SetTextFont( 42 )
-        #title_element.Draw()
         title_element.DrawLatexNDC(x, y, header_text)
 
         x, y = 1-c.GetRightMargin(), 1-c.GetTopMargin()+0.02
         align = 31
-        #nsw_element = ROOT.TLatex(x, y, '2022')
         nsw_element = ROOT.TLatex()
         nsw_element.SetTextAlign(align)
         nsw_element.SetNDC()
         nsw_element.SetTextSize(text_size_header)
         nsw_element.SetName("nsw_element")
         nsw_element.SetTextFont(42)
-        #nsw_element.Draw()
         nsw_element.DrawLatexNDC(x, y, '2022')
 
     def save(self, raw_data):
+        ROOT.gROOT.SetBatch(True)
         root_file = ROOT.TFile(self.filename, "RECREATE")
         for calib_type, grouped_data in self.data.items():  # grouped data = dict[dict]
-            #canvases = []
             if len(grouped_data) == 0:
                 continue
             root_file.mkdir(str(calib_type))
@@ -214,8 +204,6 @@ class Plotter:
                 phase_labels = []
                 if calib_type == CalibrationType.core_combined or calib_type == CalibrationType.vmm160:
                     self.write_best_phases(hist, data, phase_labels)
-                #canvas.UseCurrentStyle()
-                #canvases.append(canvas)
 
                 pdfname = self.filename.replace('.root', '')
                 if len(grouped_data) == 1:
@@ -247,25 +235,6 @@ class Plotter:
         for calib_type, grouped_data in self.data.items():
             print( 'calibration: {}\ngrouped_data: {}\n'.format(calib_type, grouped_data))
         return "done"
-'''
-def main():
-    test_dict = od()
-    test_dict2 = od()
-    test_dict ["b1"] = [1, 1, 1, 0, 2, 0, 0, 1, 1]
-    test_dict ["b2"] = [0, 2, 1, 1, 1, 1, 1, 0, 0]
-    test_dict ["b3"] = [1, 1, 1, 0, 0, 0, 2, 1, 0]
-    test_dict ["b4"] = [0, 2, 1, 1, 1, 1, 1, 1, 0]
-    test_dict2 ["b5"] = [1, 1, 1, 1, 2, 1, 1, 1, 1]
-    test_dict2 ["b6"] = [0, 0, 0, 2, 0, 0, 0, 0, 0]
-    timestamp = '2022'
-    timestamp2 = '2023'
 
-    plotter = Plotter("myroot.root")
-    plotter.add_data(test_dict, CalibrationType.core40, timestamp)
-    print (plotter)
-    plotter.add_data(test_dict2, CalibrationType.core_combined, timestamp2)
-    print (plotter)
-    plotter.save()
-'''
 if __name__ == "__main__":
     main()

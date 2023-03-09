@@ -9,18 +9,15 @@ import ROOT
 import os
 import logging
 from collections import OrderedDict as od
-from parse_json import *
-from plotter import *
+from collections import defaultdict
+from nsw_rocphase_parse_json import *
+from nsw_rocphase_plotter import *
 
 def parse_txt (inputfile):                                         
-  #print('\n' + inputfile)
   board_id = inputfile.split("/")[-1].split("_", 5)[-1].rstrip('.csv')
-  #print (board_id)
   timestamp = inputfile.split("/")[-1].split("_", 1)[-1][:20]
-  #print(timestamp)
   raw_data = pd.read_csv(inputfile, delimiter=";")
   data = raw_data.values  # makes numpy arrays
-  #print (data.shape)
 
   for i in range(data.shape[0]):                                  
     for j in range (1, data.shape[1]):
@@ -65,7 +62,6 @@ def find_all_regions(data): #-> list[Region]:
 
 def find_holes(region_end, region_begin): #->list[int]
   holes = list(range(region_end + 1, region_begin))
-  #print ('\nbad iterations within good region {}'.format(holes))
   return holes
 
 def merge_regions(regions): #-> list[Region]
@@ -107,7 +103,7 @@ def shift_back_regions(regions, shift, iterations):  # takes and returns list of
     shifted_back_regions.append(Region(shifted_start, shifted_end, shifted_holes))
   return sorted(shifted_back_regions, key=lambda x: x.start)
 
-def choose_region_40core(good_regions, bad_regions, iterations): #=128):
+def choose_region_40core(good_regions, bad_regions, iterations):
   distances = [x.find_distance(iterations) for x in bad_regions]  
   smallest_bad_region = bad_regions[distances.index(min(distances))]
   for region in good_regions:
@@ -120,6 +116,20 @@ def find_negative_regions(regions):
     negative_regions.append(Region(region.end+1, regions[i+1].start-1))
   negative_regions.append(Region(regions[-1].end+1, regions[0].start-1))
   return sorted(negative_regions, key=lambda x: x.start)
+
+def new_core(board, best_phase, new_phases):
+  opc_node = board.replace('_', '/')
+  value_40mhz = best_phase
+  value_160mhz = best_phase % 32
+  new_phases[opc_node]['ePllCore.ePllPhase40MHz_0']= value_40mhz
+  new_phases[opc_node]['ePllCore.ePllPhase40MHz_1']= value_40mhz
+  new_phases[opc_node]['ePllCore.ePllPhase40MHz_2']= value_40mhz
+  new_phases[opc_node]['ePllCore.ePllPhase160MHz_0']= value_160mhz
+  new_phases[opc_node]['ePllCore.ePllPhase160MHz_1']= value_160mhz
+  new_phases[opc_node]['ePllCore.ePllPhase160MHz_2']= value_160mhz
+
+  return
+
 
 class Region:
   def __init__(self, start, end, holes = []):  #default holes empty
@@ -161,7 +171,6 @@ class Region:
       return '[{}, {}]'.format(self.start, self.end)
     else:
       return '[{}, {}]'.format(self.start, self.end) + ' holes: {}'.format(self.holes)
-
 
 def main():
   parser = argparse.ArgumentParser(description='analyze roc phase scan results')
@@ -404,6 +413,7 @@ def main():
   ##### combined core results
   if args.input_core40 is not None and args.input_core160 is not None:
     combined_results = od()
+    new_core_phases = defaultdict(dict)
     logger.info('\n')
     logger.info('COMBINED CORE RESULTS')
     for board, region in regions_40core_results.items():
@@ -440,10 +450,17 @@ def main():
 
         ##### write to new json
         parser.update_value_core(board, best_phase_combined)
+        ##### just core phases for vmm calibration
+        new_core(board, best_phase_combined, new_core_phases)
       else:
         logger.error('MISSING core data for combined analysis for %s', board)
+
     ##### plotting
     plotter.add_data(combined_results, CalibrationType.core_combined, timestamp_40core)
+    ##### json for vmm calibration
+    with open("new_core_phases.json", "w") as outfile:
+      json.dump(new_core_phases, outfile, indent=3)
+      print (f'json for vmm calibration {outfile}')
   else:
     logger.info('core combined analysis not performed: need both 40 and 160 MHz core clock data')
   
