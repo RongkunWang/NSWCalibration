@@ -35,22 +35,28 @@ nsw::ThresholdCalibration::~ThresholdCalibration()
 
 void nsw::ThresholdCalibration::configure()
 {
+  ERS_LOG("Configuring...");
   const auto step = m_steps.at(counter());
   for (const auto& feb : getDeviceManager().getFebs()) {
     m_threadPool.addJob([&feb, step]() { configureFeb(feb, step); });
   }
+  ERS_LOG("Configured FEBS, waiting for configure job completion...");
   m_threadPool.waitForCompletion();
 }
 
 void nsw::ThresholdCalibration::acquire()
 {
+  ERS_LOG("Acquiring lumiblock...");
   m_lbStart = getLumiBlock();
+  ERS_LOG("m_lbStart acquired, sleeping for acquisitionTime...");
   std::this_thread::sleep_for(m_acquisitionTime);
 }
 
 void nsw::ThresholdCalibration::unconfigure()
 {
+  ERS_LOG("Unconfiguring...");
   const auto lbEnd = getLumiBlock();
+  ERS_LOG("lb_End acquired, updating lumiblock map");
   updateLumiBlockMap(m_lbStart, lbEnd);
 }
 
@@ -107,6 +113,7 @@ void nsw::ThresholdCalibration::setCalibParamsFromIS(const ISInfoDictionary& is_
 
 void nsw::ThresholdCalibration::saveParameters() const
 {
+  ERS_LOG("Saving parameters...");
   const auto output = json{
     {"LBs", getLbJson()},
     {"Steps", m_steps},
@@ -128,11 +135,13 @@ std::uint32_t nsw::ThresholdCalibration::computeTreshold(const nsw::hw::VMM& vmm
   if (result > MAX) {
     return MAX;
   }
+  ERS_LOG(fmt::format("Compute threshold result: {}", result));
   return static_cast<std::uint32_t>(result);
 }
 
 void nsw::ThresholdCalibration::configureFeb(const nsw::hw::FEB& feb, int step)
 {
+  ERS_LOG("Configuring single FEB...");
   for (const auto& vmm : feb.getVmms()) {
     const auto threshold = nsw::ThresholdCalibration::computeTreshold(vmm, step);
     nsw::ThresholdCalibration::setThreshold(vmm, threshold);
@@ -141,6 +150,7 @@ void nsw::ThresholdCalibration::configureFeb(const nsw::hw::FEB& feb, int step)
 
 void nsw::ThresholdCalibration::setThreshold(const nsw::hw::VMM& vmm, std::uint32_t threshold)
 {
+  ERS_LOG(fmt::format("Setting vmm threshold to {}", threshold));
   auto config = vmm.getConfig();
   config.setGlobalThreshold(threshold);
   vmm.writeConfiguration(config);

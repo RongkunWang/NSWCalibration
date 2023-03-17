@@ -119,7 +119,8 @@ namespace nsw {
     private:
     constexpr static std::chrono::seconds DEFAULT_ACQUISITION_TIME{60};
     constexpr static std::array
-      DEFAULT_STEPS{-30, -10, 0, 5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 150};
+    DEFAULT_STEPS{0, 100, 10,110, 20,120, 30,130, 40,140, 50,150, 60,160, 70,170, 80,180, 90,190, 100,200};
+    // DEFAULT_STEPS{-30, -10, 0, 5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 150};
     constexpr static std::size_t NUM_CONCURRENT{10};
     std::vector<int> m_steps{std::cbegin(DEFAULT_STEPS), std::cend(DEFAULT_STEPS)};
     IPCThreadPool m_threadPool{NUM_CONCURRENT};
