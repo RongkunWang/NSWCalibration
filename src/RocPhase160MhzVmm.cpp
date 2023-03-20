@@ -1,11 +1,12 @@
 #include "NSWCalibration/RocPhase160MhzVmm.h"
 
-#include <numeric>
-
-#include <optional>
-#include <fmt/ranges.h>
-#include <nlohmann/json.hpp>
 #include <fstream>
+#include <numeric>
+#include <optional>
+
+#include <fmt/ranges.h>
+
+#include <nlohmann/json.hpp>
 
 RocPhase160MhzVmm::RocPhase160MhzVmm(const std::vector<std::uint8_t>& input) :
   m_inputValues(createInputVals(input))
