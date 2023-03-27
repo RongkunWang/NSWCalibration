@@ -163,9 +163,12 @@ namespace nsw {
      *
      * \param vmmId FEB VMM index
      * \param channelId VMM channel index
+     * \param factor Bump factor of number of samples per point to
+     *        acquire (default is 1).
      */
     nsw::calib::VMMSampleVector sampleVmmChThreshold(std::size_t vmmId,
-                                                     std::size_t channelId);
+                                                     std::size_t channelId,
+                                                     std::size_t factor = 1);
     /*!
      * \brief Configures the SCA and VMM to read the VMM global threshold DAC
      *

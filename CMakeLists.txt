@@ -57,6 +57,7 @@ tdaq_add_library(nswcalib
     src/ScaCalibration.cpp
     src/VmmTrimmerScaCalibration.cpp
     src/VmmThresholdScaCalibration.cpp
+    src/VmmBaselineThresholdScaCalibration.cpp
     src/VmmBaselineScaCalibration.cpp
     src/THRCalib.cpp
     src/Utility.cpp

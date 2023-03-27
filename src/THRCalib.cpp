@@ -36,6 +36,7 @@
 #include "NSWCalibration/VmmTrimmerScaCalibration.h"
 #include "NSWCalibration/VmmThresholdScaCalibration.h"
 #include "NSWCalibration/VmmBaselineScaCalibration.h"
+#include "NSWCalibration/VmmBaselineThresholdScaCalibration.h"
 
 namespace pt = boost::property_tree;
 namespace fs = std::filesystem;
@@ -118,6 +119,9 @@ void nsw::THRCalib::configure()
   if (m_run_type == "baselines") {
     launch_feb_calibration<nsw::VmmBaselineScaCalibration>();
     std::this_thread::sleep_for(2000ms);
+  } else if (m_run_type == "baselines_thresholds") {
+    launch_feb_calibration<nsw::VmmBaselineThresholdScaCalibration>();
+    std::this_thread::sleep_for(2000ms);
   } else if (m_run_type == "read_thresholds") {
     launch_feb_calibration<nsw::VmmThresholdScaCalibration>();
     std::this_thread::sleep_for(2000ms);
@@ -126,7 +130,8 @@ void nsw::THRCalib::configure()
     std::this_thread::sleep_for(2000ms);
     merge_json();
   } else {
-    ERS_INFO("Run type was not recognised - nothing to do");
+    nsw::THRParameterIssue issue(ERS_HERE, fmt::format("Run type {} was not recognised. No THR calibration will be run.", m_run_type));
+    ers::error(issue);
   }
   ERS_INFO(fmt::format("{} done!", m_run_type));
 }
@@ -315,11 +320,13 @@ nsw::THRCalib::RunParameters nsw::THRCalib::parseCalibParams(const std::string& 
     run_params.type = "baselines";
   } else if (type == "RTH") {
     run_params.type = "read_thresholds";
+  } else if (type == "baselines_thresholds") {
+    run_params.type = "baselines_thresholds";
   } else if (type == "THR") {
     run_params.type = "thresholds";
   } else {
     throw nsw::THRParameterIssue(ERS_HERE,
-                                 fmt::format("Invalid calibration type specified: {} (expected BLN, RTH, or THR)", type));
+                                 fmt::format("Invalid calibration type specified: {} (expected BLN, RTH, or THR, or even baselines_thresholds)", type));
   }
   return run_params;
 }
