@@ -107,13 +107,14 @@ nsw::calib::VMMSampleVector nsw::ScaCalibration::sampleVmmChTrimDac(const std::s
 }
 
 nsw::calib::VMMSampleVector nsw::ScaCalibration::sampleVmmChThreshold(const std::size_t vmmId,
-                                                                      const std::size_t channelId)
+                                                                      const std::size_t channelId,
+                                                                      const std::size_t samplingFactor)
 {
   auto config = m_feb.get().getVmm(vmmId).getConfig();
   config.setMonitorOutput(static_cast<std::uint32_t>(channelId), nsw::vmm::ChannelMonitor);
   config.setChannelMOMode(static_cast<std::uint32_t>(channelId), nsw::vmm::ChannelTrimmedThreshold);
 
-  return getVmmPdoSamples(config, vmmId);
+  return getVmmPdoSamples(config, vmmId, samplingFactor);
 }
 
 nsw::calib::VMMSampleVector nsw::ScaCalibration::sampleVmmThDac(const std::size_t vmmId,
