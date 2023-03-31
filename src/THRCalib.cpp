@@ -136,6 +136,10 @@ void nsw::THRCalib::configure()
     ers::error(issue);
   }
 
+  ERS_INFO(fmt::format("Fixing file permissions for: {}", m_output_path));
+  ERS_INFO(fmt::format("chgrp MUONS -R {}",output.string()));
+  ERS_INFO(fmt::format("chmod g+rwX -R {}",output.string()));
+
   system(fmt::format("chgrp MUONS -R {}",output.string()).c_str());
   system(fmt::format("chmod g+rwX -R {}",output.string()).c_str());
 
