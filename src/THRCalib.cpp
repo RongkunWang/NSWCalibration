@@ -114,7 +114,9 @@ void nsw::THRCalib::configure()
   // calibration does not change to have multiple iterations.
   m_output_path = getOutputDir().string();
   ERS_INFO(fmt::format("Calibration data will be written to: {}", m_output_path));
-  fs::create_directories(fs::path(m_output_path));
+
+  fs::path output(m_output_path);
+  fs::create_directories(output);
 
   if (m_run_type == "baselines") {
     launch_feb_calibration<nsw::VmmBaselineScaCalibration>();
@@ -133,6 +135,10 @@ void nsw::THRCalib::configure()
     nsw::THRParameterIssue issue(ERS_HERE, fmt::format("Run type {} was not recognised. No THR calibration will be run.", m_run_type));
     ers::error(issue);
   }
+
+  system(fmt::format("chgrp MUONS -R {}",output.string()).c_str());
+  system(fmt::format("chmod g+rwX -R {}",output.string()).c_str());
+
   ERS_INFO(fmt::format("{} done!", m_run_type));
 }
 
