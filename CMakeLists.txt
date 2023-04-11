@@ -75,6 +75,7 @@ tdaq_add_library(nswcalib
     src/sTGCPadsL1DDCFibers.cpp
     src/sTGCPadsHitRateL1a.cpp
     src/sTGCPadsHitRateSca.cpp
+    src/sTGCPadTdsBcidOffset.cpp
     src/NSWCalibRc.cpp
     src/MMTPFeedback.cpp
     src/MMTPStatusRegisters.cpp
