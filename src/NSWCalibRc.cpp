@@ -30,6 +30,7 @@
 #include "NSWCalibration/sTGCPadsL1DDCFibers.h"
 #include "NSWCalibration/sTGCPadsHitRateL1a.h"
 #include "NSWCalibration/sTGCPadsHitRateSca.h"
+#include "NSWCalibration/sTGCPadTdsBcidOffset.h"
 #include "NSWCalibration/THRCalib.h"
 #include "NSWCalibration/PDOCalib.h"
 #include "NSWCalibration/RocPhaseCalibrationBase.h"
@@ -244,6 +245,8 @@ void nsw::NSWCalibRc::handler() {
     calib = std::make_unique<sTGCPadsHitRateL1a>(m_calibType, deviceManager);
   } else if (m_calibType == "sTGCPadsHitRateSca") {
     calib = std::make_unique<sTGCPadsHitRateSca>(m_calibType, deviceManager);
+  } else if (m_calibType == "sTGCPadTdsBcidOffset") {
+    calib = std::make_unique<sTGCPadTdsBcidOffset>(m_calibType, deviceManager);
   } else if (m_calibType=="THRCalib"){
     calib = std::make_unique<THRCalib>(m_calibType, deviceManager);
   } else if (m_calibType=="PDOCalib" ||
