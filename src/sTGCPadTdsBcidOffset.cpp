@@ -28,8 +28,8 @@ void nsw::sTGCPadTdsBcidOffset::configure() {
 }
 
 void nsw::sTGCPadTdsBcidOffset::acquire() {
-  nsw::snooze(nsw::padtrigger::PFEB_HIT_RATE_TIME);
   for (const auto& dev: getDeviceManager().getPadTriggers()) {
+    dev.togglePFEBBcidResetTrigger();
     const std::string rname{"017_pfeb_bcid_error_READONLY"};
     const auto val = dev.readSubRegister(rname, "pfeb_bcid_error");
     ERS_INFO(fmt::format("Found {} reg{:#04x} = {:#010x} when pad offset = {:#05x} and TDS offset = {:#05x}",
