@@ -105,37 +105,60 @@ def plotSector(canv, log, fname, secname, epochTime):
     data = DeskewData(fname)
     hname = f"hist_{epochTime}_{secname}"
     log[hname] = ROOT.TH2D(hname,
-                           f";Delay [4.167ns];PFEB;BCID & 0xF",
+                           f";Delay [4.167ns];;BCID & 0xF",
                            NPHASES, -0.5, NPHASES-0.5,
                            NPFEBS, -0.5, NPFEBS-0.5)
     ROOT.SetOwnership(log[hname], False)
+
+    # fill
     for (pfeb, bcids) in enumerate(data.pfebBcids):
         for (phase, bcid) in enumerate(bcids):
             log[hname].Fill(phase, pfeb, bcid)
+
+    # bin labels
+    log[hname].GetYaxis().SetLabelFont(82)
+    pfeb_names = orderedPfebs()
+    for pfeb_addr in range(NPFEBS):
+        pfeb_name = pfeb_names[pfeb_addr]
+        label = f"{pfeb_name}({pfeb_addr:02g})"
+        ybin = log[hname].GetYaxis().FindBin(pfeb_addr)
+        log[hname].GetYaxis().SetBinLabel(ybin, label)
+
+    # annotation
     texs = []
+    annot_size = 0.040
     for (pfeb, delay) in enumerate(data.targetDelays):
         tex = ROOT.TLatex(delay, pfeb, f"{data.pfebBcids[pfeb][delay]}")
         tex.SetTextSize(0.025)
         tex.SetTextFont(42)
         tex.SetTextAlign(22)
         # texs.append(tex)
-    labelSector = ROOT.TLatex(-0.5, NPFEBS + 0.5, secname)
+    labelPfeb = ROOT.TLatex(-4.0, NPFEBS, "PFEB")
+    labelPfeb.SetTextAlign(12)
+    labelPfeb.SetTextSize(annot_size)
+    texs.append(labelPfeb)
+    labelSector = ROOT.TLatex(0.0, NPFEBS + 0.5, secname)
     labelSector.SetTextAlign(12)
-    labelSector.SetTextSize(0.042)
+    labelSector.SetTextSize(annot_size)
     texs.append(labelSector)
-    labelEpoch = ROOT.TLatex(NPHASES * 0.3, NPFEBS + 0.5, epochTime)
+    labelEpoch = ROOT.TLatex(NPHASES * 0.32, NPFEBS + 0.5, epochTime)
     labelEpoch.SetTextAlign(22)
-    labelEpoch.SetTextSize(0.042)
+    labelEpoch.SetTextSize(annot_size)
     texs.append(labelEpoch)
-    labelHumanTime = ROOT.TLatex(NPHASES + 0.5, NPFEBS + 0.5,
+    labelHumanTime = ROOT.TLatex(NPHASES + 0.8, NPFEBS + 0.5,
                                  time.strftime('%Y/%m/%d %H:%M:%S', time.localtime(int(epochTime))))
     labelHumanTime.SetTextAlign(32)
-    labelHumanTime.SetTextSize(0.042)
+    labelHumanTime.SetTextSize(annot_size)
     texs.append(labelHumanTime)
     log["texs", secname] = texs
+
+    # styling
     log[hname].SetMinimum(-0.5)
     log[hname].SetMaximum(NBCIDS-0.5)
     style(log[hname])
+    log[hname].GetYaxis().SetLabelSize(0.035)
+
+    # draw
     log[hname].Draw("colzsame")
     for tex in log["texs", secname]:
         tex.Draw()
@@ -209,7 +232,17 @@ class DeskewData():
                 self.targetDelays = listify(line.split()[-1])
             if "New BCIDs".lower() in line.lower():
                 self.newBcids = listify(line.split()[-1])
-                
+
+def orderedPfebs():
+    return [
+      "L1Q1_IP", "L2Q1_IP", "L3Q1_IP", "L4Q1_IP",
+      "L1Q1_HO", "L2Q1_HO", "L3Q1_HO", "L4Q1_HO",
+      "L1Q2_IP", "L2Q2_IP", "L3Q2_IP", "L4Q2_IP",
+      "L1Q2_HO", "L2Q2_HO", "L3Q2_HO", "L4Q2_HO",
+      "L1Q3_IP", "L2Q3_IP", "L3Q3_IP", "L4Q3_IP",
+      "L1Q3_HO", "L2Q3_HO", "L3Q3_HO", "L4Q3_HO",
+    ]
+
 def rootlogon():
     ROOT.gStyle.SetOptStat(0)
     ROOT.gStyle.SetPadTickX(1)
@@ -220,7 +253,7 @@ def rootlogon():
     ROOT.gStyle.SetPadTopMargin(0.06)
     ROOT.gStyle.SetPadRightMargin(0.16)
     ROOT.gStyle.SetPadBottomMargin(0.12)
-    ROOT.gStyle.SetPadLeftMargin(0.11)
+    ROOT.gStyle.SetPadLeftMargin(0.18)
     ncontours = 16
     colors = [
         0xf7fbff,
@@ -262,7 +295,7 @@ def fatal(msg):
     sys.exit(f"Fatal error: {msg}")
 
 def options():
-    default_i = "/eos/atlas/atlascerngroupdisk/det-nsw/P1/trigger/logs/deskewLogs/"
+    default_i = "/eos/atlas/atlascerngroupdisk/det-nsw/P1/trigger/logs/deskewLogs2023/"
     default_o = "/eos/atlas/atlascerngroupdisk/det-nsw/P1/trigger/analysis/deskew/"
     parser = argparse.ArgumentParser(usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-i", help="Input directory of txt files", default=default_i)
