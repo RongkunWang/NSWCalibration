@@ -28,6 +28,7 @@
 #include "NSWCalibration/sTGCPadTriggerInputDelays.h"
 #include "NSWCalibration/sTGCPadsControlPhase.h"
 #include "NSWCalibration/sTGCPadsL1DDCFibers.h"
+#include "NSWCalibration/sTGCPadsRocTds40Mhz.h"
 #include "NSWCalibration/sTGCPadsHitRateL1a.h"
 #include "NSWCalibration/sTGCPadsHitRateSca.h"
 #include "NSWCalibration/sTGCPadTdsBcidOffset.h"
@@ -241,6 +242,8 @@ void nsw::NSWCalibRc::handler() {
     calib = std::make_unique<sTGCPadsControlPhase>(m_calibType, deviceManager);
   } else if (m_calibType=="sTGCPadsL1DDCFibers") {
     calib = std::make_unique<sTGCPadsL1DDCFibers>(m_calibType, deviceManager);
+  } else if (m_calibType=="sTGCPadsRocTds40Mhz") {
+    calib = std::make_unique<sTGCPadsRocTds40Mhz>(m_calibType, deviceManager);
   } else if (m_calibType == "sTGCPadsHitRateL1a") {
     calib = std::make_unique<sTGCPadsHitRateL1a>(m_calibType, deviceManager);
   } else if (m_calibType == "sTGCPadsHitRateSca") {

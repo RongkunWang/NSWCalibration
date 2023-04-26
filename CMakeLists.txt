@@ -73,6 +73,7 @@ tdaq_add_library(nswcalib
     src/sTGCPadTriggerInputDelays.cpp
     src/sTGCPadsControlPhase.cpp
     src/sTGCPadsL1DDCFibers.cpp
+    src/sTGCPadsRocTds40Mhz.cpp
     src/sTGCPadsHitRateL1a.cpp
     src/sTGCPadsHitRateSca.cpp
     src/sTGCPadTdsBcidOffset.cpp
