@@ -58,7 +58,7 @@ void nsw::sTGCPadsRocTds40Mhz::setROCPhase(const nsw::hw::FEB& feb) const {
     return;
   }
   ERS_INFO(fmt::format("Config {}", feb.getScaAddress()));
-  if (feb.getRoc().readScaOnline()) {
+  if (feb.getRoc().ping() == nsw::hw::ScaStatus::REACHABLE) {
     feb.getRoc().writeValue(m_reg, m_phase);
   } else {
     ERS_INFO(fmt::format("Skipping unreachable {}", feb.getScaAddress()));
