@@ -11,7 +11,6 @@
  */
 
 #include "NSWCalibration/CalibAlg.h"
-#include "NSWConfiguration/Constants.h"
 
 #include <ers/Issue.h>
 
@@ -30,22 +29,78 @@ namespace nsw {
   class sTGCPadsRocTds40Mhz: public CalibAlg {
 
   public:
+    /**
+     * \brief Constructor with basic setup
+     */
     sTGCPadsRocTds40Mhz(std::string calibType, const hw::DeviceManager& deviceManager);
+
+    /**
+     * \brief Empty setup
+     */
     void setup(const std::string& /* db */) override {};
+
+    /**
+     * \brief Configure the ROC/TDS phase and pad trigger input delay, and open TTree
+     */
     void configure() override;
+
+    /**
+     * \brief Acquire the TDS BCIDs observed in the pad trigger, and fill TTree
+     */
+    void acquire() override;
+
+    /**
+     * \brief Close TTree
+     */
     void unconfigure() override;
 
   private:
+    /**
+     * \brief Check the number of pad triggers and PFEBs in the configuration database
+     */
     void checkObjects() const;
-    void setupTree();
+
+    /**
+     * \brief Open a ROOT TTree and set the branches
+     */
+    void openTree();
+
+    /**
+     * \brief Close the TTree and write to disk
+     */
     void closeTree();
+
+    /**
+     * \brief Fill the TTree with acquired pad trigger and TDS info
+     */
     void fillTree();
+
+    /**
+     * \brief Set pad trigger input delays
+     */
     void setPadTriggerDelays() const;
+
+    /**
+     * \brief Launch threads for setting ROC/TDS phase
+     */
     void setROCPhases() const;
+
+    /**
+     * \brief Set ROC/TDS phase
+     */
     void setROCPhase(const nsw::hw::FEB& feb) const;
+
+    /**
+     * \brief Get TDS BCIDs observed in the pad trigger
+     */
     std::vector<std::uint32_t> getPadTriggerBcids() const;
+
+    /**
+     * \brief Get error bits for TDS communication observed in the pad trigger
+     */
     std::vector<std::uint32_t> getPadTriggerBcidErrors() const;
-    const std::string m_reg{"ePllTdc.ePllPhase40MHz_0"};
+
+    static constexpr std::string_view m_reg{"ePllTdc.ePllPhase40MHz_0"};
     static constexpr std::uint32_t m_phaseStep{2};
     static constexpr std::uint32_t m_numReads{10};
 

@@ -15,13 +15,16 @@ nsw::sTGCPadsRocTds40Mhz::sTGCPadsRocTds40Mhz(std::string calibType,
 
 void nsw::sTGCPadsRocTds40Mhz::configure() {
   if (counter() == 0) {
-    setupTree();
+    openTree();
   }
   m_phase    = (counter() / nsw::padtrigger::NUM_INPUT_DELAYS) * m_phaseStep;
   m_pt_delay = (counter() % nsw::padtrigger::NUM_INPUT_DELAYS);
   setROCPhases();
   setPadTriggerDelays();
   nsw::snooze(std::chrono::milliseconds{100});
+}
+
+void nsw::sTGCPadsRocTds40Mhz::acquire() {
   m_error = getPadTriggerBcidErrors();
   m_bcid = getPadTriggerBcids();
   fillTree();
@@ -59,7 +62,7 @@ void nsw::sTGCPadsRocTds40Mhz::setROCPhase(const nsw::hw::FEB& feb) const {
   }
   ERS_INFO(fmt::format("Config {}", feb.getScaAddress()));
   if (feb.getRoc().ping() == nsw::hw::ScaStatus::REACHABLE) {
-    feb.getRoc().writeValue(m_reg, m_phase);
+    feb.getRoc().writeValue(std::string{m_reg}, m_phase);
   } else {
     ERS_INFO(fmt::format("Skipping unreachable {}", feb.getScaAddress()));
   }
@@ -104,7 +107,7 @@ void nsw::sTGCPadsRocTds40Mhz::checkObjects() const {
   }
 }
 
-void nsw::sTGCPadsRocTds40Mhz::setupTree() {
+void nsw::sTGCPadsRocTds40Mhz::openTree() {
   m_runnumber = runNumber();
   m_app_name  = applicationName();
   m_now = nsw::calib::utils::strf_time();
