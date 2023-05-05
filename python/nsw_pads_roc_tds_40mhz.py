@@ -249,7 +249,10 @@ class Datas:
             ])
         print(f"Found {len(self.datas)} datas")
         for pfeb in self.pfebs():
-            if len(set([data.bcid for data in self.datas if data.pfeb == pfeb])) == 1:
+            bcids = [data.bcid for data in self.datas if data.pfeb == pfeb]
+            bcids_uniq = list(set(bcids))
+            bcids_frac = [bcids.count(bcid)/len(bcids) for bcid in bcids_uniq]
+            if len(bcids_uniq) == 1 or max(bcids_frac) > 0.6:
                 print(f"Disconnected pfeb: {pfeb}")
                 for data in self.datas:
                     if data.pfeb == pfeb:
