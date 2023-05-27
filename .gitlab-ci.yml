@@ -17,7 +17,7 @@ stages:
   - deploy
 
 include:
-  - project: 'atlas-muon-nsw-daq/nsw-build-scripts'
+  - project: 'atlas-muon-nsw-daq/infrastructure/nsw-build-scripts'
     ref: master
     file:
       - '.gitlab/ci/docs.yml'
