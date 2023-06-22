@@ -81,14 +81,14 @@ namespace nsw {
     void setPadTriggerDelays() const;
 
     /**
-     * \brief Launch threads for setting ROC/TDS phase
+     * \brief Launch threads for setting ROC/TDS phase and TDS BCID offset
      */
-    void setROCPhases() const;
+    void setFebsParameters() const;
 
     /**
-     * \brief Set ROC/TDS phase
+     * \brief Set ROC/TDS phase and TDS BCID offset
      */
-    void setROCPhase(const nsw::hw::FEB& feb) const;
+    void setFebParameters(const nsw::hw::FEB& feb) const;
 
     /**
      * \brief Get TDS BCIDs observed in the pad trigger
@@ -100,14 +100,18 @@ namespace nsw {
      */
     std::vector<std::uint32_t> getPadTriggerBcidErrors() const;
 
-    static constexpr std::string_view m_reg{"ePllTdc.ePllPhase40MHz_0"};
+    static constexpr std::string_view m_rocTds40{"ePllTdc.ePllPhase40MHz_0"};
     static constexpr std::uint32_t m_phaseStep{2};
+    static constexpr std::uint32_t m_totalPhases{nsw::roc::NUM_PHASES_EPLL_TDS_40MHZ / m_phaseStep};
     static constexpr std::uint32_t m_numReads{10};
+    static constexpr std::uint32_t m_numTdsBcidOffsets{2};
+    static constexpr std::string_view m_tdsBcidOffset{"BCID_Offset"};
 
     /// output ROOT file
     std::uint32_t m_step{0};
     std::uint32_t m_reads{0};
     std::uint32_t m_phase{0};
+    std::uint32_t m_offset{0};
     std::uint32_t m_pt_delay{0};
     std::uint32_t m_runnumber{0};
     std::string m_app_name{""};

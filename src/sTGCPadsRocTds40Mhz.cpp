@@ -6,20 +6,21 @@
 #include <ers/ers.h>
 
 nsw::sTGCPadsRocTds40Mhz::sTGCPadsRocTds40Mhz(std::string calibType,
-                                    const hw::DeviceManager& deviceManager) :
+                                              const hw::DeviceManager& deviceManager) :
   CalibAlg(std::move(calibType), deviceManager)
 {
   checkObjects();
-  setTotal(nsw::roc::NUM_PHASES_EPLL_TDS_40MHZ / m_phaseStep * nsw::padtrigger::NUM_INPUT_DELAYS);
+  setTotal(m_totalPhases * nsw::padtrigger::NUM_INPUT_DELAYS * m_numTdsBcidOffsets);
 }
 
 void nsw::sTGCPadsRocTds40Mhz::configure() {
   if (counter() == 0) {
     openTree();
   }
-  m_phase    = (counter() / nsw::padtrigger::NUM_INPUT_DELAYS) * m_phaseStep;
-  m_pt_delay = (counter() % nsw::padtrigger::NUM_INPUT_DELAYS);
-  setROCPhases();
+  m_pt_delay = ((counter() % nsw::padtrigger::NUM_INPUT_DELAYS));
+  m_phase    = ((counter() / nsw::padtrigger::NUM_INPUT_DELAYS) % (m_totalPhases)) * m_phaseStep;
+  m_offset   = ((counter() / nsw::padtrigger::NUM_INPUT_DELAYS) / (m_totalPhases));
+  setFebsParameters();
   setPadTriggerDelays();
   nsw::snooze(std::chrono::milliseconds{100});
 }
@@ -43,12 +44,13 @@ void nsw::sTGCPadsRocTds40Mhz::setPadTriggerDelays() const {
   }
 }
 
-void nsw::sTGCPadsRocTds40Mhz::setROCPhases() const {
-  ERS_INFO(fmt::format("Config PFEB ROCs {} with {}", m_reg, m_phase));
+void nsw::sTGCPadsRocTds40Mhz::setFebsParameters() const {
+  ERS_INFO(fmt::format("Config PFEB ROCs {} with {} and TDSs {} with {}",
+                       m_rocTds40, m_phase, m_tdsBcidOffset, m_offset));
   auto threads = std::vector< std::future<void> >();
   for (const auto& feb: getDeviceManager().getFebs()) {
     threads.push_back(
-      std::async(std::launch::async, &nsw::sTGCPadsRocTds40Mhz::setROCPhase, this, feb)
+      std::async(std::launch::async, &nsw::sTGCPadsRocTds40Mhz::setFebParameters, this, feb)
     );
   }
   for (auto& thr: threads) {
@@ -56,13 +58,16 @@ void nsw::sTGCPadsRocTds40Mhz::setROCPhases() const {
   }
 }
 
-void nsw::sTGCPadsRocTds40Mhz::setROCPhase(const nsw::hw::FEB& feb) const {
+void nsw::sTGCPadsRocTds40Mhz::setFebParameters(const nsw::hw::FEB& feb) const {
   if (feb.getGeoInfo().resourceType() != "PFEB") {
     return;
   }
   ERS_INFO(fmt::format("Config {}", feb.getScaAddress()));
   if (feb.getRoc().ping() == nsw::hw::ScaStatus::REACHABLE) {
-    feb.getRoc().writeValue(std::string{m_reg}, m_phase);
+    feb.getRoc().writeValue(std::string{m_rocTds40}, m_phase);
+    for (const auto& tds: feb.getTdss()) {
+      tds.writeValue(std::string{m_tdsBcidOffset}, m_offset);
+    }
   } else {
     ERS_INFO(fmt::format("Skipping unreachable {}", feb.getScaAddress()));
   }
@@ -127,6 +132,7 @@ void nsw::sTGCPadsRocTds40Mhz::openTree() {
   m_rtree->Branch("nreads",      &m_reads);
   m_rtree->Branch("phase_step",  &m_step);
   m_rtree->Branch("phase",       &m_phase);
+  m_rtree->Branch("bcid_offset", &m_offset);
   m_rtree->Branch("pad_delay",   &m_pt_delay);
   m_rtree->Branch("pfeb_bcid",   &m_bcid);
   m_rtree->Branch("pfeb_error",  &m_error);
