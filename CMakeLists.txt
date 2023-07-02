@@ -31,6 +31,7 @@ tdaq_add_scripts(bin/nsw_pads_hit_rate.py               python/nsw_pads_hit_rate
 tdaq_add_scripts(bin/nsw_trigger_mapping.py             python/nsw_trigger_mapping.py)
 tdaq_add_scripts(bin/nsw_add_pad_trigger_in_json.py     python/nsw_add_pad_trigger_in_json.py)
 tdaq_add_scripts(bin/nsw_pads_deskew.py                 python/nsw_pads_deskew.py)
+tdaq_add_scripts(bin/nsw_padtrigger_trig_bcid_rate.py   python/nsw_padtrigger_trig_bcid_rate.py)
 tdaq_add_scripts(bin/nsw_set_vmm_offset_by_layer_radius.py python/nsw_set_vmm_offset_by_layer_radius.py)
 
 find_package(ROOT REQUIRED COMPONENTS Core Tree RIO)
