@@ -1,3 +1,6 @@
+"""
+NB: This assumes --since/--until args are provided in the CERN timezone.
+"""
 import argparse
 import array
 import os
@@ -67,9 +70,7 @@ def beautyAndPbeast(since, until):
             name = f"{side}{sector+1:02}"
             for bcid in BCIDS:
                 data[name, bcid] = query(beauty, since, until, side, sector, bcid)
-    data = realign(data)
     data = nativize(data)
-    data = padding(data)
     return data
 
 def query(beauty, since, until, side, sector, bcid):
@@ -85,45 +86,9 @@ def query(beauty, since, until, side, sector, bcid):
     series = series[0]
     return series
 
-def realign(data):
-    key_most = max(data.keys(), key=lambda key: len(data[key]))
-    print(f"Most points ({len(data[key_most])}) in {key_most}, will align to this")
-    for key in data:
-        data[key] = data[key].alignto(data[key_most])
-    return data
-
 def nativize(data):
     for key in data:
         data[key] = [(x.to_pydatetime(), int(y) if y > 0 else 0) for (x,  y) in zip(data[key].x, data[key].y)]
-    return data
-
-def padding(data):
-    for key in data:
-        print(f"Padding {key} ...")
-        measurements = data[key]
-        bad = True
-        while bad:
-            for (it, meas) in enumerate(measurements[:-1]):
-                meas_next = measurements[it+1]
-                dt0, dt1 = meas[0], meas_next[0]
-                r0, r1 = meas[1], meas_next[1]
-                if (dt1 - dt0) > timedelta(seconds=2*INTERVAL):
-                    value_extrap = 0 if (dt1 - dt0) > timedelta(seconds=10*INTERVAL) else min(r0, r1)
-                    # print(f"Padding {key} from {dt0} ({r0}) to {dt1} ({r1}) with value of {value_extrap}")
-                    measurements_before = measurements[:it+1]
-                    measurements_after  = measurements[it+1:]
-                    measurements_extrap = []
-                    increment = timedelta(seconds=INTERVAL)
-                    margin = timedelta(seconds=1)
-                    dt = dt0
-                    while dt < dt1 + margin:
-                        measurements_extrap.append( [dt, value_extrap] )
-                        dt += increment
-                    measurements = measurements_before + measurements_extrap + measurements_after
-                    break
-            else:
-                bad = False
-        data[key] = measurements
     return data
 
 def plot(since, until, data, fname):
@@ -154,10 +119,7 @@ def drawLastPage(fname):
     canv.Print(fname + ")", "pdf")
 
 def plotOneSector(since, until, data, sector, fname):
-    xbins = min([len(data[sector, bcid]) for bcid in BCIDS])
-    check = max([len(data[sector, bcid]) for bcid in BCIDS])
-    if abs(xbins - check) / xbins > 0.01:
-        print("Found too much difference with these time series")
+    xbins = int((until - since).total_seconds() / INTERVAL)
     ybins = len(BCIDS)
     xlo, xhi = -0.5, xbins - 0.5
     ylo, yhi = -ybins/2, ybins/2
@@ -168,9 +130,15 @@ def plotOneSector(since, until, data, sector, fname):
 
     # fill hist
     for xbin in range(xbins):
+        xtime = since + timedelta(seconds=INTERVAL*xbin)
         for ybin in range(ybins):
-            content = data[sector, BCIDS[ybin]][xbin][1]
-            hist.SetBinContent(xbin+1, ybin+1, content)
+            bcid = BCIDS[ybin]
+            for (dt, content) in data[sector, bcid]:
+                dt_naive = dt.replace(tzinfo=None)
+                if dt_naive < xtime:
+                    continue
+                hist.SetBinContent(xbin+1, ybin+1, content)
+                break
 
     # bin labels
     hist.GetYaxis().SetLabelColor(ROOT.kWhite)
