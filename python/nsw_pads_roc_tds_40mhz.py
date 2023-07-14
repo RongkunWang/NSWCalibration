@@ -3,17 +3,20 @@
 """
 import argparse
 import array
+import itertools
 import os
 import statistics
 import sys
 import time
 import ROOT
 ROOT.gROOT.SetBatch()
+ROOT.gErrorIgnoreLevel = ROOT.kWarning
 
 NOW = time.strftime("%Y_%m_%d_%Hh%Mm%Ss")
 EOS = "/eos/atlas/atlascerngroupdisk/det-nsw/191/trigger/"
 NPFEBS  = 24
 NPHASES = 128
+NOFFSETS = 2
 BCID_MAX = 16
 PAIRS = [ (feb, feb+1) for feb in range(0, NPFEBS, 2) ]
 QUADS = ["Q1", "Q2", "Q3"]
@@ -22,6 +25,31 @@ Q2s = range(1*8, 2*8)
 Q3s = range(2*8, 3*8)
 EVENS = [pfeb for pfeb in range(NPFEBS) if pfeb % 2 == 0]
 ODDS  = [pfeb for pfeb in range(NPFEBS) if pfeb % 2 == 1]
+
+OFFSETS = range(NOFFSETS)
+OFFSETPAIRS = []
+for OFFSET0 in OFFSETS:
+    for OFFSET1 in OFFSETS:
+        if any([OFFSET0 - OFFSET1 == OF0 - OF1 for (OF0, OF1) in OFFSETPAIRS]):
+            continue
+        OFFSETPAIRS.append( (OFFSET0, OFFSET1) )
+
+QUADSIDEPFEBS = {"Q1E": [pfeb for pfeb in range(NPFEBS) if pfeb in Q1s and pfeb in EVENS],
+                 "Q1O": [pfeb for pfeb in range(NPFEBS) if pfeb in Q1s and pfeb in ODDS],
+                 "Q2E": [pfeb for pfeb in range(NPFEBS) if pfeb in Q2s and pfeb in EVENS],
+                 "Q2O": [pfeb for pfeb in range(NPFEBS) if pfeb in Q2s and pfeb in ODDS],
+                 "Q3E": [pfeb for pfeb in range(NPFEBS) if pfeb in Q3s and pfeb in EVENS],
+                 "Q3O": [pfeb for pfeb in range(NPFEBS) if pfeb in Q3s and pfeb in ODDS],
+                 }
+QUADSIDES = list(QUADSIDEPFEBS.keys())
+print(QUADSIDES)
+QUADSIDEPAIRS = []
+for QS0 in QUADSIDES:
+    for QS1 in QUADSIDES:
+        if QUADSIDES.index(QS1) <= QUADSIDES.index(QS0):
+            continue
+        QUADSIDEPAIRS.append( (QS0, QS1) )
+
 
 def main():
 
@@ -55,7 +83,7 @@ def main():
 def options():
     parser = argparse.ArgumentParser(usage=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-i", help="Input ROOT file",    default="")
-    parser.add_argument("-o", help="Output ROOT file",   default="")
+    parser.add_argument("-o", help="Output pdf",         default="")
     parser.add_argument("-s", help="Sector under test",  default="")
     parser.add_argument("-l", help="Lab name, e.g. 191", default="")
     return parser.parse_args()
@@ -83,118 +111,185 @@ def plot(ttree, ofile):
     ttree.GetEntry(0)
     step_size = ttree.phase_step
     print("Creating histograms...")
-    xtitle = "ROC/TDS 40MHz phase"
-    ytitle = "PFEB"
-    ztitle = "BCID error"
     hist = {}
-    hist["error"] = ROOT.TH2D(f"{name}_error", f";{xtitle};{ytitle};{ztitle}",
-                              int(NPHASES/step_size), -0.5, NPHASES-0.5,
-                              NPFEBS, -0.5, NPFEBS-0.5)
-    xtitle = "ROC/TDS 40MHz phase (even PFEB)"
-    ytitle = "ROC/TDS 40MHz phase (odd PFEB)"
-    ztitle = "< BCID difference >"
-    for key in ["all"] + PAIRS:
-        suffix = "all" if key=="all" else f"{key[0]:02}_{key[1]:02}"
-        hist[key] = ROOT.TH2D(f"{name}_{suffix}", f";{xtitle};{ytitle};{ztitle}",
-                                int(NPHASES/step_size), -0.5, NPHASES-0.5,
-                                int(NPHASES/step_size), -0.5, NPHASES-0.5)
-    for quad in ["QX"] + QUADS:
-        hist[quad] = ROOT.TH2D(f"{name}_{quad}", f";{xtitle};{ytitle};{ztitle}",
-                               int(NPHASES/step_size), -0.5, NPHASES-0.5,
-                               int(NPHASES/step_size), -0.5, NPHASES-0.5)
+    for (quadside0, quadside1) in QUADSIDEPAIRS:
+        for (offset0, offset1) in OFFSETPAIRS:
+            xtitle = f"Phase ({readableQuadside(quadside0)}, TDS offset = {offset0})"
+            ytitle = f"Phase ({readableQuadside(quadside1)}, TDS offset = {offset1})"
+            ztitle = "< BCID difference >"
+            hist[quadside0, quadside1, offset0, offset1] = ROOT.TH2D(f"{name}_{quadside0}_{quadside1}_{offset0}_{offset1}",
+                                                                     f";{xtitle};{ytitle};{ztitle}",
+                                                                     int(NPHASES/step_size), 0 - step_size/2, NPHASES - step_size/2,
+                                                                     int(NPHASES/step_size), 0 - step_size/2, NPHASES - step_size/2)
 
     #
     # parse the TTree into a data structure
     #
     datas = Datas(ttree)
-    pad_delays = datas.padDelays()
-    roc_phases = datas.rocPhases()
+    pad_delays  = datas.padDelays()
+    roc_phases  = datas.rocPhases()
+    tds_offsets = datas.tdsOffsets()
     pfebs = datas.pfebs()
     print(f"Found {len(pfebs)} decent PFEBs")
 
     #
-    # fill avg BCID diff histograms
+    # fill BCID diff histograms per quad/side
     #
     scaling = 1.0/len(pad_delays)
-    for pad_delay in pad_delays:
-        print(f"Analyzing pad delay {pad_delay}...")
-        datas_paddelay = datas.subset(datas.datas, range(NPFEBS), roc_phases, [pad_delay])
-        for roc_phase_even in roc_phases:
-            datas_even    = datas.subset(datas_paddelay, EVENS, [roc_phase_even], [pad_delay])
-            datas_even_Q1 = datas.subset(datas_even,     Q1s,   [roc_phase_even], [pad_delay])
-            datas_even_Q2 = datas.subset(datas_even,     Q2s,   [roc_phase_even], [pad_delay])
-            datas_even_Q3 = datas.subset(datas_even,     Q3s,   [roc_phase_even], [pad_delay])
-            for roc_phase_odd in roc_phases:
-                datas_odd    = datas.subset(datas_paddelay, ODDS, [roc_phase_odd], [pad_delay])
-                datas_odd_Q1 = datas.subset(datas_odd,      Q1s,  [roc_phase_odd], [pad_delay])
-                datas_odd_Q2 = datas.subset(datas_odd,      Q2s,  [roc_phase_odd], [pad_delay])
-                datas_odd_Q3 = datas.subset(datas_odd,      Q3s,  [roc_phase_odd], [pad_delay])
-                diff_Q1 = avgDiff([data.bcid for data in datas_even_Q1],
-                                  [data.bcid for data in datas_odd_Q1])
-                diff_Q2 = avgDiff([data.bcid for data in datas_even_Q2],
-                                  [data.bcid for data in datas_odd_Q2])
-                diff_Q3 = avgDiff([data.bcid for data in datas_even_Q3],
-                                  [data.bcid for data in datas_odd_Q3])
-                hist["Q1"].Fill(roc_phase_even, roc_phase_odd, diff_Q1 * scaling)
-                hist["Q2"].Fill(roc_phase_even, roc_phase_odd, diff_Q2 * scaling)
-                hist["Q3"].Fill(roc_phase_even, roc_phase_odd, diff_Q3 * scaling)
-                hist["QX"].Fill(roc_phase_even, roc_phase_odd, statistics.mean([diff_Q1, diff_Q2, diff_Q3]) * scaling)
+    for (quadside0, quadside1) in QUADSIDEPAIRS:
+        for (offset0, offset1) in OFFSETPAIRS:
+            print(f"Analyzing {quadside0} (offset {offset0}) vs {quadside1} (offset {offset1}) ...")
+            sys.stdout.flush()
+            pfebs0 = QUADSIDEPFEBS[quadside0]
+            pfebs1 = QUADSIDEPFEBS[quadside1]
+            datas0_qs = datas.subset(datas.datas, pfebs0, roc_phases, pad_delays, [offset0])
+            datas1_qs = datas.subset(datas.datas, pfebs1, roc_phases, pad_delays, [offset1])
+            for pad_delay in pad_delays:
+                datas0_paddelay = datas.subset(datas0_qs, pfebs0, roc_phases, [pad_delay], [offset0])
+                datas1_paddelay = datas.subset(datas1_qs, pfebs1, roc_phases, [pad_delay], [offset1])
+                for roc_phase_0 in roc_phases:
+                    datas0 = datas.subset(datas0_paddelay, pfebs0, [roc_phase_0], [pad_delay], [offset0])
+                    for roc_phase_1 in roc_phases:
+                        datas1 = datas.subset(datas1_paddelay, pfebs1, [roc_phase_1], [pad_delay], [offset1])
+                        diff = avgDiff([data.bcid for data in datas0],
+                                       [data.bcid for data in datas1])
+                        hist[quadside0, quadside1, offset0, offset1].Fill(roc_phase_0, roc_phase_1, diff * scaling)
 
     #
-    # fill BCID diff histograms
+    # converting histograms to dictionaries
+    #   for a more native python vibe
     #
-    scaling = 1.0 / (len(pfebs) / 2.0)
-    print("Making BCID diff histograms...")
-    for key in PAIRS:
-        (feb_0, feb_1) = key
-        print(f"PFEB{feb_0:02} vs PFEB{feb_1:02}")
-        datas_0 = datas.subset(datas.datas, [feb_0], roc_phases, pad_delays)
-        datas_1 = datas.subset(datas.datas, [feb_1], roc_phases, pad_delays)
-        if len(datas_0) == 0 or len(datas_1) == 0:
-            print(" -> Skipping because empty")
-            continue
-        for phase_0 in roc_phases:
-            datas_0_phase = datas.subset(datas_0, [feb_0], [phase_0], pad_delays)
-            for phase_1 in roc_phases:
-                datas_1_phase = datas.subset(datas_1, [feb_1], [phase_1], pad_delays)
-                diff = avgDiff([data.bcid for data in datas_0_phase],
-                               [data.bcid for data in datas_1_phase])
-                hist["all"].Fill(phase_0, phase_1, diff * scaling)
-                hist[ key ].Fill(phase_0, phase_1, diff)
+    hist2dict = {}
+    for (qs0, qs1) in QUADSIDEPAIRS:
+        for (of0, of1) in OFFSETPAIRS:
+            key = (qs0, qs1, of0, of1)
+            for xbin in range(1, hist[key].GetNbinsX()+1):
+                for ybin in range(1, hist[key].GetNbinsY()+1):
+                    content = hist[key].GetBinContent(xbin, ybin)
+                    xphase = hist[key].GetXaxis().GetBinCenter(xbin)
+                    yphase = hist[key].GetYaxis().GetBinCenter(ybin)
+                    hist2dict[qs0, qs1, of0, of1, xphase, yphase] = content
 
     #
-    # fill error histogram
+    # analysis of BCID diff histograms per quad/side
     #
-    print(f"Entries: {ents}")
-    for ent in range(ents):
-        _ = ttree.GetEntry(ent)
-        phase      = int(ttree.phase)
-        pfeb_index = list(ttree.pfeb_index)
-        pfeb_error = list(ttree.pfeb_error)
-        for (index, error) in zip(pfeb_index, pfeb_error):
-            hist["error"].Fill(phase, index, error)
+    possibilities = []
+    not_good = 0.05
+    print(f"Threshold for not_good: {not_good}")
+    for (ofQ1E, phQ1E) in itertools.product(tds_offsets, roc_phases):
+        print(f"ofQ1E, phQ1E = {ofQ1E}, {phQ1E}")
+        sys.stdout.flush()
+        for (ofQ1O, phQ1O) in itertools.product(tds_offsets, roc_phases):
+            if (ofQ1E, ofQ1O) not in OFFSETPAIRS: continue
+            diff_Q1E_Q1O = hist2dict["Q1E", "Q1O", ofQ1E, ofQ1O, phQ1E, phQ1O]
+            if diff_Q1E_Q1O > not_good: continue
+            for (ofQ2E, phQ2E) in itertools.product(tds_offsets, roc_phases):
+                if (ofQ1E, ofQ2E) not in OFFSETPAIRS: continue
+                if (ofQ1O, ofQ2E) not in OFFSETPAIRS: continue
+                diff_Q1E_Q2E = hist2dict["Q1E", "Q2E", ofQ1E, ofQ2E, phQ1E, phQ2E]
+                diff_Q1O_Q2E = hist2dict["Q1O", "Q2E", ofQ1O, ofQ2E, phQ1O, phQ2E]
+                if diff_Q1E_Q2E > not_good: continue
+                if diff_Q1O_Q2E > not_good: continue
+                for (ofQ2O, phQ2O) in itertools.product(tds_offsets, roc_phases):
+                    if (ofQ1E, ofQ2O) not in OFFSETPAIRS: continue
+                    if (ofQ1O, ofQ2O) not in OFFSETPAIRS: continue
+                    if (ofQ2E, ofQ2O) not in OFFSETPAIRS: continue
+                    diff_Q1E_Q2O = hist2dict["Q1E", "Q2O", ofQ1E, ofQ2O, phQ1E, phQ2O]
+                    diff_Q1O_Q2O = hist2dict["Q1O", "Q2O", ofQ1O, ofQ2O, phQ1O, phQ2O]
+                    diff_Q2E_Q2O = hist2dict["Q2E", "Q2O", ofQ2E, ofQ2O, phQ2E, phQ2O]
+                    if diff_Q1E_Q2O > not_good: continue
+                    if diff_Q1O_Q2O > not_good: continue
+                    if diff_Q2E_Q2O > not_good: continue
+                    for (ofQ3E, phQ3E) in itertools.product(tds_offsets, roc_phases):
+                        if (ofQ1E, ofQ3E) not in OFFSETPAIRS: continue
+                        if (ofQ1O, ofQ3E) not in OFFSETPAIRS: continue
+                        if (ofQ2E, ofQ3E) not in OFFSETPAIRS: continue
+                        if (ofQ2O, ofQ3E) not in OFFSETPAIRS: continue
+                        diff_Q1E_Q3E = hist2dict["Q1E", "Q3E", ofQ1E, ofQ3E, phQ1E, phQ3E]
+                        diff_Q1O_Q3E = hist2dict["Q1O", "Q3E", ofQ1O, ofQ3E, phQ1O, phQ3E]
+                        diff_Q2E_Q3E = hist2dict["Q2E", "Q3E", ofQ2E, ofQ3E, phQ2E, phQ3E]
+                        diff_Q2O_Q3E = hist2dict["Q2O", "Q3E", ofQ2O, ofQ3E, phQ2O, phQ3E]
+                        if diff_Q1E_Q3E > not_good: continue
+                        if diff_Q1O_Q3E > not_good: continue
+                        if diff_Q2E_Q3E > not_good: continue
+                        if diff_Q2O_Q3E > not_good: continue
+                        for (ofQ3O, phQ3O) in itertools.product(tds_offsets, roc_phases):
+                            if (ofQ1E, ofQ3O) not in OFFSETPAIRS: continue
+                            if (ofQ1O, ofQ3O) not in OFFSETPAIRS: continue
+                            if (ofQ2E, ofQ3O) not in OFFSETPAIRS: continue
+                            if (ofQ2O, ofQ3O) not in OFFSETPAIRS: continue
+                            if (ofQ3E, ofQ3O) not in OFFSETPAIRS: continue
+                            diff_Q1E_Q3O = hist2dict["Q1E", "Q3O", ofQ1E, ofQ3O, phQ1E, phQ3O]
+                            diff_Q1O_Q3O = hist2dict["Q1O", "Q3O", ofQ1O, ofQ3O, phQ1O, phQ3O]
+                            diff_Q2E_Q3O = hist2dict["Q2E", "Q3O", ofQ2E, ofQ3O, phQ2E, phQ3O]
+                            diff_Q2O_Q3O = hist2dict["Q2O", "Q3O", ofQ2O, ofQ3O, phQ2O, phQ3O]
+                            diff_Q3E_Q3O = hist2dict["Q3E", "Q3O", ofQ3E, ofQ3O, phQ3E, phQ3O]
+                            if diff_Q1E_Q3O > not_good: continue
+                            if diff_Q1O_Q3O > not_good: continue
+                            if diff_Q2E_Q3O > not_good: continue
+                            if diff_Q2O_Q3O > not_good: continue
+                            if diff_Q3E_Q3O > not_good: continue
+                            possibilities.append(SetOfPhases([ofQ1E, ofQ1O, ofQ2E, ofQ2O, ofQ3E, ofQ3O],
+                                                             [phQ1E, phQ1O, phQ2E, phQ2O, phQ3E, phQ3O],
+                                                             [diff_Q1E_Q1O,
+                                                              diff_Q1E_Q2E, diff_Q1O_Q2E,
+                                                              diff_Q1E_Q2O, diff_Q1O_Q2O, diff_Q2E_Q2O,
+                                                              diff_Q1E_Q3E, diff_Q1O_Q3E, diff_Q2E_Q3E, diff_Q2O_Q3E,
+                                                              diff_Q1E_Q3O, diff_Q1O_Q3O, diff_Q2E_Q3O, diff_Q2O_Q3O, diff_Q3E_Q3O]))
+
+
+    print(f"Found {len(possibilities)} possibilities. Sorting...")
+    possibilities = sorted(possibilities, key=lambda poss: (poss.maxdiff, poss.meandiff))
+    print(f"Top choices:")
+    for it, poss in enumerate(possibilities):
+        if poss.maxdiff > 0 and it > 50:
+            break
+        ofQ1E, ofQ1O, ofQ2E, ofQ2O, ofQ3E, ofQ3O = poss.offsets
+        phQ1E, phQ1O, phQ2E, phQ2O, phQ3E, phQ3O = poss.phases
+        print_offsets = f"Offsets Q1E: {ofQ1E}, Q1O: {ofQ1O}, Q2E: {ofQ2E}, Q2O: {ofQ2O}, Q3E: {ofQ3E}, Q3O: {ofQ3O}"
+        print_phases  = f"Phases Q1E: {phQ1E}, Q1O: {phQ1O}, Q2E: {phQ2E}, Q2O: {phQ2O}, Q3E: {phQ3E}, Q3O: {phQ3O}"
+        print(f"{print_offsets} and {print_phases} -> max {poss.maxdiff} mean {poss.meandiff:.5f}")
 
     #
     # beauty and save
     #
-    for key in ["QX"] + QUADS + ["all"] + PAIRS + ["error"]:
+    keys = []
+    for (qs0, qs1) in QUADSIDEPAIRS:
+        for (of0, of1) in OFFSETPAIRS:
+            keys.append( (qs0, qs1, of0, of1) )
+
+    for key in keys:
+        #
+        # title
+        #
+        titles = [ROOT.TLatex(0.01, 0.975, f"ROC/TDS 40MHz"),
+                  ROOT.TLatex(0.02, 0.955, f"phase calibration"),
+                  ]
+        for title in titles:
+            title.SetTextFont(42)
+            title.SetNDC()
+            title.SetTextColor(ROOT.kBlack)
+            title.SetTextSize(0.022)
 
         #
-        # metadata
+        # runparams
         #
-        if key in ["all", "error"]:
-            tag = "All PFEB pairs"
-        elif key == "QX":
-            tag = "All quads"
-        elif key in QUADS:
-            tag = key
-        else:
-            tag = f"PFEB {key[0]:02} vs {key[1]:02}"
-        metadata = ROOT.TLatex(0.18, 0.95, f"{sector} in {lab}, Run {run}           {tag}")
-        metadata.SetTextFont(42)
-        metadata.SetNDC()
-        metadata.SetTextColor(ROOT.kBlack)
-        metadata.SetTextSize(0.030)
+        runparams = ROOT.TLatex(0.21, 0.95, f"{sector} in {lab}, Run {run}")
+        runparams.SetTextFont(42)
+        runparams.SetNDC()
+        runparams.SetTextColor(ROOT.kBlack)
+        runparams.SetTextSize(0.038)
+
+        #
+        # quadinfo
+        #
+        qs0, qs1, of0, of1 = key
+        tag = f"{readableQuadside(qs0)} ({of0}) vs {readableQuadside(qs1)} ({of1})"
+        quadinfo = ROOT.TLatex(0.60, 0.95, tag)
+        quadinfo.SetTextFont(42)
+        quadinfo.SetNDC()
+        quadinfo.SetTextColor(ROOT.kBlack)
+        quadinfo.SetTextSize(0.022)
 
         #
         # draw and save
@@ -206,13 +301,22 @@ def plot(ttree, ofile):
                             hist[key].GetName(),
                             800, 800)
         hist[key].Draw("colzsame")
-        metadata.Draw()
-        if key == "QX":
-            canv.Print(ofile + "(", "pdf")
-        elif key == "error":
-            canv.Print(ofile + ")", "pdf")
-        else:
-            canv.Print(ofile,       "pdf")
+        runparams.Draw()
+        quadinfo.Draw()
+        for title in titles:
+            title.Draw()
+        suffix = "(" if key == keys[0] else ")" if key == keys[-1] else ""
+        canv.Print(ofile + suffix, "pdf")
+
+def readableQuadside(qs):
+    if not len(qs) == 3:
+        fatal(f"Idk how to interpret {qs}")
+    quad = qs[:2]
+    side = qs[2]
+    if side not in ["E", "O"]:
+        fatal(f"Idk how to interpret {qs} -> {side}")
+    readable = "even" if side == "E" else "odd"
+    return f"{quad} {readable}"
 
 def rollsOver(vals):
     return any([val < BCID_MAX/4 for val in vals]) and any([val > 3*BCID_MAX/4 for val in vals])
@@ -234,6 +338,16 @@ def bcidDiff(val_0, val_1):
 def avgDiff(bcids0, bcids1):
     return bcidDiff(bcidAvg(bcids0), bcidAvg(bcids1))
 
+class SetOfPhases:
+    def __init__(self, offsets, phases, diffs):
+        # if len(phases) != len(QUADSIDES):
+        #     fatal(f"Got wrong number of phases")
+        self.offsets  = offsets
+        self.phases   = phases
+        self.diffs    = diffs
+        self.maxdiff  = max(diffs)
+        self.meandiff = statistics.mean(diffs)
+
 class Datas:
     def __init__(self, ttree):
         self.datas = []
@@ -242,23 +356,35 @@ class Datas:
             _ = ttree.GetEntry(ent)
             phase      = int(ttree.phase)
             pad_delay  = int(ttree.pad_delay)
+            tds_offset = int(ttree.bcid_offset)
             pfeb_index = list(ttree.pfeb_index)
             pfeb_bcid  = list(ttree.pfeb_bcid)
+            # if tds_offset != 0:
+            #     continue
             self.datas.extend([
-                Data(index, phase, pad_delay, bcid) for (index, bcid) in zip(pfeb_index, pfeb_bcid)
+                Data(index, phase, pad_delay, tds_offset, bcid) for (index, bcid) in zip(pfeb_index, pfeb_bcid)
             ])
         print(f"Found {len(self.datas)} datas")
+
+        # check for weird data
         for pfeb in self.pfebs():
             bcids = [data.bcid for data in self.datas if data.pfeb == pfeb]
-            bcids_uniq = list(set(bcids))
+            bcids_uniq = sorted(list(set(bcids)))
             bcids_frac = [bcids.count(bcid)/len(bcids) for bcid in bcids_uniq]
-            if len(bcids_uniq) == 1 or max(bcids_frac) > 0.6:
+            thr_hi = 0.12
+            thr_lo = 0.08
+            njumps = [(bcids_frac[it] > thr_hi and bcids_frac[(it+1) % len(bcids_frac)] < thr_lo) or
+                      (bcids_frac[it] < thr_lo and bcids_frac[(it+1) % len(bcids_frac)] > thr_hi)
+                      for it in range(len(bcids_frac))].count(True)
+            if len(bcids_uniq) == 1 or max(bcids_frac) > 0.6 or njumps > 2:
                 print(f"Disconnected pfeb: {pfeb}")
                 for data in self.datas:
                     if data.pfeb == pfeb:
                         data.bcid = None
             else:
                 self.connected.append(pfeb)
+
+        # filter weird data
         self.datas = [data for data in self.datas if data.bcid is not None]
 
     def pfebs(self):
@@ -269,6 +395,9 @@ class Datas:
 
     def padDelays(self):
         return list(sorted(list(set([data.pad_delay for data in self.datas]))))
+
+    def tdsOffsets(self):
+        return list(sorted(list(set([data.tds_offset for data in self.datas]))))
 
     def evenOddAvgDiff(self, pad_delay, roc_phase_even, roc_phase_odd, pfebs):
         bcids_even = [data.bcid for data in self.datas if all([data.bcid is not None,
@@ -281,28 +410,28 @@ class Datas:
                                                                data.pad_delay == pad_delay,
                                                                data.roc_phase == roc_phase_odd,
                                                                data.pfeb in pfebs])]
-        # print(f"{bcids_even} -> {bcidAvg(bcids_even)}")
-        # print(f"{bcids_odd} -> {bcidAvg(bcids_odd)}")
         return bcidDiff(bcidAvg(bcids_even), bcidAvg(bcids_odd))
 
-    def subset(self, datas, pfebs, roc_phases, pad_delays):
+    def subset(self, datas, pfebs, roc_phases, pad_delays, tds_offsets):
         return [data for data in datas if all([data.bcid is not None,
                                                data.pfeb in pfebs,
                                                data.roc_phase in roc_phases,
                                                data.pad_delay in pad_delays,
+                                               data.tds_offset in tds_offsets,
                                            ])]
 
 class Data:
-    def __init__(self, pfeb, roc_phase, pad_delay, bcid):
-        self.pfeb      = pfeb
-        self.roc_phase = roc_phase
-        self.pad_delay = pad_delay
-        self.bcid      = bcid
-        self.odd       = self.pfeb % 2 == 1
-        self.even      = self.pfeb % 2 == 0
-        self.q1        = self.pfeb in Q1s
-        self.q2        = self.pfeb in Q2s
-        self.q3        = self.pfeb in Q3s
+    def __init__(self, pfeb, roc_phase, pad_delay, tds_offset, bcid):
+        self.pfeb       = pfeb
+        self.roc_phase  = roc_phase
+        self.pad_delay  = pad_delay
+        self.tds_offset = tds_offset
+        self.bcid       = bcid
+        self.odd        = self.pfeb % 2 == 1
+        self.even       = self.pfeb % 2 == 0
+        self.q1         = self.pfeb in Q1s
+        self.q2         = self.pfeb in Q2s
+        self.q3         = self.pfeb in Q3s
 
 def labSectorRun():
     ops = options()
