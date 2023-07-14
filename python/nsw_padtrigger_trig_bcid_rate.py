@@ -1,4 +1,8 @@
 """
+Run me at P1 like:
+
+> python nsw_padtrigger_trig_bcid_rate.py --since "2023-Jul-02 06:20:00" --until "2023-Jul-02 10:13:00"
+
 NB: This assumes --since/--until args are provided in the CERN timezone.
 """
 import argparse
