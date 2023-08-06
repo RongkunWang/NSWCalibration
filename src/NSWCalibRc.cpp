@@ -318,7 +318,7 @@ void nsw::NSWCalibRc::wait4swrod() {
 std::string nsw::NSWCalibRc::calibTypeFromIS() {
   // Grab the calibration type string from IS
   // Currently supported options are written in the `handler` function.
-  const auto calibType = [this]() -> std::string {
+  const auto func = [this]() -> std::string {
     const auto paramIsName = fmt::format("{}.Calib.calibType", m_is_db_name);
     if (is_dictionary->contains(paramIsName)) {
       ISInfoDynAny calibTypeFromIS;
@@ -341,7 +341,8 @@ std::string nsw::NSWCalibRc::calibTypeFromIS() {
       ers::warning(issue);
       return calibType;
     }
-  }();
+  };
+  const auto calibType = func();
 
   ISInfoDynAny runParams;
   is_dictionary->getValue("RunParams.RunParams", runParams);
