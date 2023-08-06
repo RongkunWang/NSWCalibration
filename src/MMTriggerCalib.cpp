@@ -6,7 +6,7 @@
 #include "NSWConfiguration/ConfigReader.h"
 #include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/Utility.h"
-#include "NSWConfiguration/Constants.h"
+#include "NSWConfiguration/TPConstants.h"
 
 #include <unistd.h>
 #include <iostream>

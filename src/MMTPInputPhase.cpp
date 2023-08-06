@@ -3,6 +3,7 @@
 
 #include "NSWConfiguration/ConfigReader.h"
 #include "NSWConfiguration/ConfigSender.h"
+#include "NSWConfiguration/TPConstants.h"
 
 #include <unistd.h>
 #include <stdexcept>
