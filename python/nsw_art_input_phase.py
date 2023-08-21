@@ -225,7 +225,6 @@ def measure_efficiency(dataman, outrfile):
         style(hist)
         canv = ROOT.TCanvas(name, name, 800, 800)
         canv.Draw()
-        hist.Draw("colzsame")
         for ph in phases:
             if ph==0:
                 texts.append(ROOT.TLatex(0, ymax+4, "ART phase"))
@@ -241,6 +240,7 @@ def measure_efficiency(dataman, outrfile):
             text.Draw()
         for line in lines:
             line.Draw()
+        hist.Draw("colzsame")
 
         # save
         if ops.f:
