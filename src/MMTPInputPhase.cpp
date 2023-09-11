@@ -100,7 +100,7 @@ int nsw::MMTPInputPhase::configure_tp(const nsw::TPConfig & tp, uint32_t phase, 
     auto cs = std::make_unique<nsw::ConfigSender>();
     if (!simulation()) {
       cs->sendSCAXRegister(tp, nsw::mmtp::REG_INPUT_PHASE,       phase);
-      cs->sendSCAXRegister(tp, nsw::mmtp::REG_INPUT_PHASEOFFSET, offset);
+      cs->sendSCAXRegister(tp, nsw::mmtp::REG_INPUT_PHASEADDCOFFSET, offset);
     }
     return 0;
 }
