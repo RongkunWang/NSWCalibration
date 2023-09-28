@@ -223,6 +223,7 @@ void nsw::NSWCalibRc::handler() {
   } else if (m_calibType=="MMTPInputPhase") {
     calib = std::make_unique<MMTPInputPhase>(m_calibType, deviceManager);
   } else if (m_calibType=="sTGCPadConnectivity" ||
+             m_calibType=="sTGCPadConnectivitySca" ||
              m_calibType=="sTGCPadLatency") {
     calib = std::make_unique<sTGCTriggerCalib>(m_calibType, deviceManager);
   } else if (m_calibType=="sTGCPadVMMTDSChannels") {
