@@ -35,6 +35,7 @@ namespace nsw {
     void unconfigure() override;
 
   public:
+    void uploadCalibFirmware() const;
     int sfeb_watchdog() const;
     std::vector<uint32_t> sfeb_register15(const nsw::FEBConfig & feb) const;
 

@@ -26,6 +26,9 @@ void nsw::sTGCPadTriggerToSFEB::setup(const std::string& db) {
     throw std::runtime_error(msg.str());
   }
 
+  // upload the calib-specific firmware
+  uploadCalibFirmware();
+
   // make NSWConfig objects from input db
   // can be SFEB, SFEB8, or SFEB6 :(
   for (auto feb: nsw::ConfigReader::makeObjects<nsw::FEBConfig> (db, "SFEB"))
@@ -75,6 +78,28 @@ void nsw::sTGCPadTriggerToSFEB::configure() {
 void nsw::sTGCPadTriggerToSFEB::unconfigure() {
   ERS_INFO("sTGCPadTriggerToSFEB::unconfigure " << counter());
   usleep(1e6);
+}
+
+void nsw::sTGCPadTriggerToSFEB::uploadCalibFirmware() const {
+  const auto fileExists = [](const std::string_view& fname){
+    std::ifstream fi(std::string(fname).c_str());
+    return fi.good();
+  };
+  static constexpr std::string_view
+    bitfile{"/detwork/nsw/fw/stg/PT/Pad_sFEB_test_20201001.bit"};
+  for (const auto& dev: getDeviceManager().getPadTriggers()) {
+    if (not fileExists(bitfile)) {
+      ERS_INFO(fmt::format("Bitfile doesnt exist: {}", bitfile));
+      continue;
+    }
+    try {
+      ERS_INFO(fmt::format("Writing {}", bitfile));
+      dev.writeJTAGBitfileConfiguration(std::string{bitfile});
+      dev.writeFPGAConfiguration();
+    } catch (const std::exception& ex) {
+      ERS_INFO(ex.what());
+    }
+  }
 }
 
 int nsw::sTGCPadTriggerToSFEB::sfeb_watchdog() const {
