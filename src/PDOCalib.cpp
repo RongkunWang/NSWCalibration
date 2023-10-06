@@ -218,15 +218,45 @@ void nsw::PDOCalib::toggle_channels(const nsw::hw::FEB& feb,
 
   // Do the modification of the VMM configuration
   auto enable_vmm_channels = [&](nsw::VMMConfig& vmm,
-                                 const std::vector<std::uint32_t>& offsets) -> void {
+                                 const std::vector<std::uint32_t>& offsets,
+                                 const bool readNeighbors) -> void {
     for (const auto& ofs : offsets) {
       const auto ch = static_cast<std::uint32_t>(first_chan) + ofs;
+
+      // Enable pulser
       vmm.setChannelRegisterOneChannel("channel_st", 1, ch);
-      vmm.setChannelRegisterOneChannel("channel_sm", 0, ch);
+
+      // Enable neighbors if requested
+      if (readNeighbors) {
+        // Un-mask pulsed channel (need this to read neighbors)
+        vmm.setChannelRegisterOneChannel("channel_sm", 0, ch);
+
+        // Un-mask the neighbor channels
+        if (ch == 0) {
+          vmm.setChannelRegisterOneChannel("channel_sm", 0, ch+1);
+        } else if (ch == m_pedestalPoint) {
+          vmm.setChannelRegisterOneChannel("channel_sm", 0, ch-1);
+        } else {
+          vmm.setChannelRegisterOneChannel("channel_sm", 0, ch-1);
+          vmm.setChannelRegisterOneChannel("channel_sm", 0, ch+1);
+        }
+      // Otherwise enable only the channel itself
+      } else {
+        vmm.setChannelRegisterOneChannel("channel_sm", 0, ch);
+      }
+    }
+
+    // Enable neighbor logic if requested
+    if (readNeighbors) {
+      vmm.setGlobalRegister("sng", 1);
+    } else {
+      vmm.setGlobalRegister("sng", 0);
     }
   };
 
   for (const auto& vmmHwi : vmms) {
+
+    // Disable all channels before individual channels are enabled
     auto vmm = vmmHwi.getConfig();
     vmm.setChannelRegisterAllChannels("channel_st", 0);
     vmm.setChannelRegisterAllChannels("channel_sm", 1);
@@ -241,16 +271,19 @@ void nsw::PDOCalib::toggle_channels(const nsw::hw::FEB& feb,
         // vmm.setGlobalRegister("st", 3);   // peak time 25 ns
       }
 
+      // Make bool, set to true if i_par == 0 (this is a pedestal point)
+      const bool isPedestal{i_par == m_pedestalPoint};
+
       if (m_numChPerGroup == 1) {
-        enable_vmm_channels(vmm, {0});
+        enable_vmm_channels(vmm, {0}, isPedestal);
       } else if (m_numChPerGroup == 2) {
-        enable_vmm_channels(vmm, {0, 32});
+        enable_vmm_channels(vmm, {0, 32}, isPedestal);
       } else if (m_numChPerGroup == 4) {
-        enable_vmm_channels(vmm, {0, 16, 32, 48});
+        enable_vmm_channels(vmm, {0, 16, 32, 48}, isPedestal);
       } else if (m_numChPerGroup == 8) {
-        enable_vmm_channels(vmm, {0, 8, 16, 24, 32, 40, 48, 56});
+        enable_vmm_channels(vmm, {0, 8, 16, 24, 32, 40, 48, 56}, isPedestal);
       } else if (m_numChPerGroup) {
-        enable_vmm_channels(vmm, {0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60});
+        enable_vmm_channels(vmm, {0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60}, isPedestal);
       } else {
         vmm.setChannelRegisterAllChannels("channel_st", 1);
         vmm.setChannelRegisterAllChannels("channel_sm", 0);
@@ -292,6 +325,7 @@ void nsw::PDOCalib::setCalibParamsFromIS(const ISInfoDictionary& is_dictionary,
     m_trecord = runParams.trecord;
     m_numChPerGroup = runParams.channels;
     m_calibRegs = std::move(runParams.values);
+    m_pedestalPoint = runParams.pedestalPoint;
 
   } catch (const nsw::PDOParameterIssue& is) {
     std::vector<std::size_t> reg_values{};
@@ -317,6 +351,7 @@ void nsw::PDOCalib::setCalibParamsFromIS(const ISInfoDictionary& is_dictionary,
     m_trecord = DEFAULT_TRECORD;
     m_numChPerGroup = DEFAULT_NUM_CH_PER_GROUP;
     m_calibRegs = std::move(reg_values);
+    m_pedestalPoint = DEFAULT_PED_POINT;
 
     nsw::PDOCalibIssue issue(ERS_HERE, msg);
     ers::warning(is);
@@ -337,9 +372,20 @@ nsw::PDOCalib::RunParameters nsw::PDOCalib::parseCalibParams(const std::string& 
   const auto gr{tokens.front()};
   // The remainder of the input correspond to DAC/delay values and time
   const auto regs{std::ranges::subrange(tokens.cbegin()+1, tokens.cend())};
-  ERS_DEBUG(2,fmt::format("Found calibration parameters {}: Chanel groups=[{}], registers=[{}]", calibParams, gr, regs));
+  ERS_INFO(fmt::format("Found calibration parameters {}: Chanel groups=[{}], registers=[{}]", calibParams, gr, regs));
+  // Pulser setting to use for deriving pedestals is the second arg in the string
+  const auto pedestalPoint{regs.front()};
+  ERS_INFO(fmt::format("Found pedestal point {}", pedestalPoint));
 
   nsw::PDOCalib::RunParameters run_params{};
+
+  try {
+    run_params.pedestalPoint = std::stoull(pedestalPoint);
+  } catch (const std::exception& ex) {
+    run_params.pedestalPoint = DEFAULT_PED_POINT;
+    ERS_LOG(fmt::format("Unable to parse pedestal point parameter {}, using default {}: {}", pedestalPoint, DEFAULT_PED_POINT, ex.what()));
+  }
+
   try {
     run_params.channels = std::stoull(gr);
   } catch (const std::exception& ex) {

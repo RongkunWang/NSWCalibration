@@ -28,6 +28,7 @@ namespace nsw {
     {
       std::chrono::milliseconds trecord{};
       std::vector<std::size_t> values{};
+      std::size_t pedestalPoint{};
       std::size_t channels{};
     };
 
@@ -169,6 +170,7 @@ namespace nsw {
     std::size_t m_currentCalibReg{};             //!< Current calibration register in the calibration loop
     std::size_t m_numChPerGroup{};               //!< Number of channels to pulse for each iteration
     std::size_t m_numChGroups{};                //!< Number of first-channels to iterate(also -1 is the the index)
+    std::size_t m_pedestalPoint{};               //!< Pulser setting to use for deriving pedestals (read neighbor channels)
 
     // Timekeeping
     std::chrono::time_point<std::chrono::system_clock> m_chanIterStart{};  //!< Start time for current channel iteration
@@ -180,6 +182,7 @@ namespace nsw {
     public:
     static constexpr auto DEFAULT_TRECORD{std::chrono::milliseconds(8000)};
     static constexpr std::size_t DEFAULT_NUM_CH_PER_GROUP{8};
+    static constexpr std::size_t DEFAULT_PED_POINT{0};
   };
 
 }  // namespace nsw
