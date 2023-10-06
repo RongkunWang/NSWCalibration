@@ -10,9 +10,11 @@
 #include "NSWCalibration/Utility.h"
 
 #include "NSWConfiguration/ConfigReader.h"
-#include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/ADDCConfig.h"
 #include "NSWConfiguration/Utility.h"
+#include "NSWConfiguration/hw/OpcManager.h"
+#include "NSWConfiguration/hw/ADDC.h"
+#include "NSWConfiguration/hw/ART.h"
 
 #define R__HAS_STD_SPAN
 #include "TFile.h"
@@ -215,10 +217,9 @@ std::vector<int> addc_read_register(const nsw::ADDCConfig& addc, int art, bool s
   // https://espace.cern.ch/ATLAS-NSW-ELX/_layouts/15/WopiFrame.aspx?
   // sourcedoc=/ATLAS-NSW-ELX/Shared%20Documents/ART/art2_registers_v.xlsx&action=default
   //
-  auto cs = std::make_unique<nsw::ConfigSender>();
-  uint8_t art_data[] = {0x0, 0x0};
-  auto opc_ip    = addc.getOpcServerIp();
-  auto sca_addr  = addc.getAddress() + "." + addc.getART(art).getNameCore();
+  auto opcManager = nsw::OpcManager{};
+  nsw::hw::ADDC addcHW(opcManager, addc);
+  auto & artHW = addcHW.getARTs()[art];
   size_t reg_local  = 0;
   size_t word32     = 0;
   size_t index      = 0;
@@ -240,13 +241,15 @@ std::vector<int> addc_read_register(const nsw::ADDCConfig& addc, int art, bool s
     //
     // register address
     //
-    art_data[0] = static_cast<uint8_t>(reg);
 
     //
     // read the register
     //
     if (!simulation) {
-      readback = cs->readI2cAtAddress(opc_ip, sca_addr, art_data, nsw::art::ADDRESS_SIZE, nsw::art::REG_COUNTERS_SIMULT);
+      readback = artHW.readRegister(artHW.getNameCore(),
+          reg,
+          nsw::art::ADDRESS_SIZE,
+          nsw::art::REG_COUNTERS_SIMULT);
     } else {
       readback.clear();
       for (size_t it = 0; it < nsw::art::REG_COUNTERS_SIMULT; it++)

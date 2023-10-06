@@ -200,9 +200,8 @@ To run PDO/TDO calibration using this class user does following:
 
    Few pro tips in resolving problems with run
 
-#### MMTPFeedback
-
 #### MMTPInputPhase
+Important note: please make sure that the BCR is running every 3564 BC during Run stage (could be achieved by Pattern Generator or Internal)
 
 #### MMTriggerCalib
 

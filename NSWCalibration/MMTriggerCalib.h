@@ -11,9 +11,7 @@
 
 #include "NSWCalibration/CalibAlg.h"
 
-#include "NSWConfiguration/ADDCConfig.h"
-#include "NSWConfiguration/FEBConfig.h"
-#include "NSWConfiguration/TPConfig.h"
+#include "NSWConfiguration/hw/MMTP.h"
 
 #define R__HAS_STD_SPAN
 #include "TFile.h"
@@ -28,6 +26,9 @@ ERS_DECLARE_ISSUE(nsw,
                   )
 
 namespace nsw {
+  namespace hw {
+    class ADDC;
+  }
 
   class MMTriggerCalib: public CalibAlg {
 
@@ -49,8 +50,8 @@ namespace nsw {
     int pattern_number(const std::string& name) const;
     int configure_febs_from_ptree(const boost::property_tree::ptree& tr, bool unmask);
     int configure_addcs_from_ptree(const boost::property_tree::ptree& tr);
-    int configure_vmms(nsw::FEBConfig feb, const boost::property_tree::ptree& febpatt, bool unmask) const;
-    int configure_art_input_phase(nsw::ADDCConfig addc, uint phase) const;
+    int configure_vmms(nsw::hw::FEB feb, const boost::property_tree::ptree& febpatt, bool unmask) const ;
+    int configure_art_input_phase(const nsw::hw::ADDC& addc, uint phase) const;
     int configure_tps(const boost::property_tree::ptree& tr);
     int addc_tp_watchdog();
     void recordPattern();
@@ -67,15 +68,12 @@ namespace nsw {
     //
     // https://espace.cern.ch/ATLAS-NSW-ELX/Shared%20Documents/ART/art2_registers_v.xlsx
     //
-    std::vector<uint32_t> read_art_counters(const nsw::ADDCConfig& addc, int art) const;
+    std::vector<uint32_t> read_art_counters(const nsw::hw::ART& art) const;
     int wait_until_done();
     int announce(const std::string& name, const boost::property_tree::ptree& tr, bool unmask) const;
 
   private:
     std::string                    m_trackPatternFile;
-    std::vector<nsw::FEBConfig>    m_febs   = {};
-    std::vector<nsw::ADDCConfig>   m_addcs  = {};
-    std::vector<nsw::TPConfig>     m_tps    = {};
     std::vector<int>               m_phases = {};
 
     bool m_connectivity = false;
