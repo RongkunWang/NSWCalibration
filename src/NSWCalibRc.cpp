@@ -96,6 +96,7 @@ void nsw::NSWCalibRc::configure(const daq::rc::TransitionCmd&) {
 
     m_NSWConfig = std::make_unique<NSWConfig>(m_simulation);
     m_NSWConfig->readConf(m_nswApp);
+    ERS_LOG("about to readConfigurationResource");
     m_NSWConfig->readConfigurationResource();
 
     ERS_LOG("End");
@@ -220,7 +221,13 @@ void nsw::NSWCalibRc::handler() {
     calib = std::make_unique<MMTriggerCalib>(m_calibType, deviceManager);
   } else if (m_calibType=="MMTrackPulserTest") {
     calib = std::make_unique<MMTriggerCalib>(m_calibType, deviceManager);
-  } else if (m_calibType=="MMTPInputPhase") {
+  } else if (m_calibType=="MMTPInputPhase" ||
+             m_calibType=="MMTPInputPhase_PhaseOnly" ||
+             m_calibType=="MMTPInputPhase_Validation" 
+             ) {
+    // MMTPInputPhase Phase x AddcOffset 8x8
+    // MMTPInputPhase_PhaseOnly  scan 8 phase, ADDC offset = 0, L1DDC offset = 0.
+    // MMTPInputPhase_Validation scan 8 phase, leave the other two phases as in json
     calib = std::make_unique<MMTPInputPhase>(m_calibType, deviceManager);
   } else if (m_calibType=="sTGCPadConnectivity" ||
              m_calibType=="sTGCPadConnectivitySca" ||

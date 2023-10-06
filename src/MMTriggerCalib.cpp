@@ -4,7 +4,6 @@
 #include "NSWCalibration/Utility.h"
 
 #include "NSWConfiguration/ConfigReader.h"
-#include "NSWConfiguration/ConfigSender.h"
 #include "NSWConfiguration/Utility.h"
 #include "NSWConfiguration/TPConstants.h"
 
@@ -18,13 +17,16 @@
 #include <chrono>
 
 #include <boost/property_tree/json_parser.hpp>  // for write_json
-
-#include "ers/ers.h"
+#include "NSWConfiguration/hw/FEB.h"
+#include "NSWConfiguration/hw/ADDC.h"
+#include <ers/ers.h>
 
 #include <is/infodynany.h>
 #include <is/infodictionary.h>
 
-#include "TROOT.h"
+#include <TROOT.h>
+
+#include "NSWConfiguration/hw/FEB.h"
 
 using boost::property_tree::ptree;
 using namespace std::chrono_literals;
@@ -93,13 +95,9 @@ void nsw::MMTriggerCalib::setup(const std::string& db) {
   m_patterns = patterns();
   setTotal(m_patterns.size());
 
-  m_febs   = nsw::ConfigReader::makeObjects<nsw::FEBConfig> (db, "MMFE8");
-  m_addcs  = nsw::ConfigReader::makeObjects<nsw::ADDCConfig>(db, "ADDC");
-  m_tps    = nsw::ConfigReader::makeObjects<nsw::TPConfig>  (db, "TP");
-
-  ERS_INFO("Found " << m_febs.size()     << " MMFE8s");
-  ERS_INFO("Found " << m_addcs.size()    << " ADDCs");
-  ERS_INFO("Found " << m_tps.size()      << " TPs");
+  ERS_INFO("Found " << getDeviceManager().getFebs().size()     << " MMFE8s");
+  ERS_INFO("Found " << getDeviceManager().getAddcs().size()    << " ADDCs");
+  ERS_INFO("Found " << getDeviceManager().getMMTps().size()      << " TPs");
   ERS_INFO("Found " << m_phases.size()   << " ART input phases");
   ERS_INFO("Found " << m_patterns.size() << " patterns");
 
@@ -208,11 +206,11 @@ int nsw::MMTriggerCalib::configure_febs_from_ptree(const ptree& tr, bool unmask)
     if (febpatt_n.find("febpattern_") == std::string::npos)
       continue;
     announce(febpatt_n, febtr, unmask);
-    for (auto febkv : febtr) {
-      for (auto & feb : m_febs) {
+    for (const auto & febkv : febtr) {
+      for (const auto & feb : getDeviceManager().getFebs()) {
         // if new matching "geo_name" doesn't exist, look at old matching, continue if no match.
         // if new matching "geo_name" exist, look at either old matching or new matching, continue if both not match
-        std::string addr = feb.getAddress();
+        const auto addr = feb.getScaAddress();
         if (febkv.second.count("geo_name") == 0) {
           if (febkv.first != addr) continue;
         } else {
@@ -247,9 +245,9 @@ int nsw::MMTriggerCalib::configure_addcs_from_ptree(const ptree& tr) {
     std::cout << std::hex << phase << std::dec << std::flush;
     if (m_phases.size() > 0 && phase == m_phases.back())
       std::cout << std::endl;
-    for (auto & addc : m_addcs)
-      if (name_old == "" || name_geo == "" || addc.getAddress() == name_old || 
-          addc.getAddress().find(name_geo) != std::string::npos)
+    for (const auto & addc : getDeviceManager().getAddcs())
+      if (name_old == "" || name_geo == "" || addc.getScaAddress() == name_old || 
+          addc.getScaAddress().find(name_geo) != std::string::npos)
         m_threads->push_back(std::async(std::launch::async,
                                         &nsw::MMTriggerCalib::configure_art_input_phase, this,
                                         addc, phase));
@@ -259,18 +257,14 @@ int nsw::MMTriggerCalib::configure_addcs_from_ptree(const ptree& tr) {
 }
 
 int nsw::MMTriggerCalib::configure_tps(const ptree& tr) {
-  auto latency = tr.get<int>("tp_latency");
-  for (auto & tp : m_tps) {
-    if (latency != -1)
-      // TODO: need to account for boundary as well!!
-      tp.setL1ARequestOffset(latency);
-    auto cs = std::make_unique<nsw::ConfigSender>();
-    while (m_tpscax_busy)
+  for (const auto & tp : getDeviceManager().getMMTps()) {
+    while (m_tpscax_busy) {
       usleep(1e5);
+    }
     m_tpscax_busy = true;
     if (!m_dry_run) {
-      ERS_INFO("MMTP overflow word: " << cs->readSCAXRegisterWord(tp, nsw::mmtp::REG_PIPELINE_OVERFLOW));
-      cs->sendTPConfig(tp);
+      ERS_INFO("MMTP overflow word: " << tp.readRegister(nsw::mmtp::REG_PIPELINE_OVERFLOW));
+      tp.writeConfiguration(false);
     }
     m_tpscax_busy = false;
   }
@@ -279,12 +273,12 @@ int nsw::MMTriggerCalib::configure_tps(const ptree& tr) {
 
 int nsw::MMTriggerCalib::announce(const std::string& name, const ptree& tr, bool unmask) const {
   std::cout << " Configure MMFE8s (" << (unmask ? "unmask" : "mask") << ") with " << name << std::endl << std::flush;
-  for (auto febkv : tr) {
+  for (const auto& febkv : tr) {
     std::cout << "  " << febkv.first;
-    for (auto vmmkv : febkv.second) {
+    for (const auto& vmmkv : febkv.second) {
       if (vmmkv.first == "geo_name") continue;
       std::cout << " " << vmmkv.first;
-      for (auto chkv : vmmkv.second)
+      for (const auto& chkv : vmmkv.second)
         std::cout << "/" << chkv.second.get<unsigned>("");
     }
     std::cout << std::endl << std::flush;
@@ -292,7 +286,7 @@ int nsw::MMTriggerCalib::announce(const std::string& name, const ptree& tr, bool
   return 0;
 }
 
-int nsw::MMTriggerCalib::configure_vmms(nsw::FEBConfig feb, const ptree& febpatt, bool unmask) const {
+int nsw::MMTriggerCalib::configure_vmms(nsw::hw::FEB feb, const ptree& febpatt, bool unmask) const {
   //
   // Example febpatt ptree:
   // {
@@ -301,55 +295,41 @@ int nsw::MMTriggerCalib::configure_vmms(nsw::FEBConfig feb, const ptree& febpatt
   //   "2": ["0"]
   // }
   //
-  auto cs = std::make_unique<nsw::ConfigSender>();
+
   int vmmid, chan;
-  std::set<int> vmmids = {};
-  for (auto vmmkv : febpatt) {
+  for (const auto& vmmkv : febpatt) {
     if (vmmkv.first == "geo_name") continue;
-    for (auto chkv : vmmkv.second) {
+    for (const auto& chkv : vmmkv.second) {
       vmmid = std::stoi(vmmkv.first);
       chan  = chkv.second.get<int>("");
-      feb.getVmm(vmmid).setChannelRegisterOneChannel("channel_st", unmask ? 1 : 0, chan);
-      feb.getVmm(vmmid).setChannelRegisterOneChannel("channel_sm", unmask ? 0 : 1, chan);
-      vmmids.emplace(vmmid);
+      feb.getVmm(vmmid).getConfig().setChannelRegisterOneChannel("channel_st", unmask ? 1 : 0, chan);
+      feb.getVmm(vmmid).getConfig().setChannelRegisterOneChannel("channel_sm", unmask ? 0 : 1, chan);
+
+      if (!m_dry_run) {
+        try {
+          feb.getVmm(vmmid).writeConfiguration(m_reset_vmm);
+        } catch (std::exception & ex) {
+          const auto msg = fmt::format("Allowed VMM config to fail: {}", ex.what());
+          nsw::ConfigIssue issue(ERS_HERE, msg.c_str());
+          ers::warning(issue);
+        }
+      }
     }
   }
-  if (m_reset_vmm) {
-    for (auto vmmid : vmmids) {
-      auto & vmm = feb.getVmm(vmmid);
-      auto orig = vmm.getGlobalRegister("reset");
-      vmm.setGlobalRegister("reset", 3);
-      if (!m_dry_run)
-        cs->sendVmmConfigSingle(feb, vmmid);
-      vmm.setGlobalRegister("reset", orig);
-    }
-  }
-  if (vmmids.size() == 8) {
-    if (!m_dry_run)
-      cs->sendVmmConfig(feb);
-  } else {
-    for (auto vmmid : vmmids)
-      if (!m_dry_run)
-        cs->sendVmmConfigSingle(feb, vmmid);
-  }
+
   return 0;
 }
 
-int nsw::MMTriggerCalib::configure_art_input_phase(nsw::ADDCConfig addc, uint phase) const {
-  auto cs = std::make_unique<nsw::ConfigSender>();
+int nsw::MMTriggerCalib::configure_art_input_phase(const nsw::hw::ADDC& addc, uint phase) const {
   if (m_staircase) {
-    ERS_LOG("Writing ADDC config: " << addc.getAddress());
+    ERS_LOG("Writing ADDC config: " << addc.getScaAddress());
     for (size_t it = nsw::NUM_ART_PER_ADDC; it > 0; it--) {
       size_t iart = it - 1;
       try {
         if (!m_dry_run)
-          cs->sendAddcConfig(addc, iart);
+          addc.writeConfiguration(iart);
       } catch (std::exception & ex) {
-        if (addc.getART(iart).MustConfigure()) {
-          throw;
-        } else {
-          ERS_INFO("Allowed to fail: " << ex.what());
-        }
+        ERS_INFO("Allowed ART config to fail: " << ex.what());
       }
     }
     return 0;
@@ -359,18 +339,12 @@ int nsw::MMTriggerCalib::configure_art_input_phase(nsw::ADDCConfig addc, uint ph
     throw std::runtime_error("Gave bad phase to configure_art_input_phase: " + std::to_string(phase));
 
   constexpr size_t art_size = 2;
-  uint8_t art_data[] = {0x0, 0x0};
-  auto opc_ip   = addc.getOpcServerIp();
-  auto sca_addr = addc.getAddress();
   uint8_t this_phase = phase + (phase << 4);
-  for (auto art : addc.getARTs()) {
-    auto name = sca_addr + "." + art.getName() + "Ps" + "." + art.getName() + "Ps";
-    ERS_LOG("Writing ART phase " << name << ": 0x" << std::hex << phase);
-    for (auto reg : nsw::art::REG_INPUT_PHASES) {
-      art_data[0] = static_cast<uint8_t>(reg);
-      art_data[1] = this_phase;
+  for (const auto& art : addc.getARTs()) {
+    ERS_LOG("Writing ART phase " << addc.getScaAddress() + "." + art.getConfig().getName() << ": 0x" << std::hex << phase);
+    for (const auto& reg : nsw::art::REG_INPUT_PHASES) {
       if (!m_dry_run)
-        cs->sendI2cRaw(opc_ip, name, art_data, art_size);
+        art.writeARTPsRegister(reg, this_phase);
     }
   }
   return 0;
@@ -401,7 +375,7 @@ ptree nsw::MMTriggerCalib::patterns() const {
     // staircase loop: reconfigure ADDCs in the order expected by TP.
     //                 checks for fiber- and bundle-swapping.
     //
-    for (auto & addc: nsw::mmtp::ORDERED_ADDCS) {
+    for (const auto & addc: nsw::mmtp::ORDERED_ADDCS) {
       ptree feb_patt;
       ptree top_patt;
       top_patt.put("addc_old", std::string(addc.first));
@@ -415,6 +389,7 @@ ptree nsw::MMTriggerCalib::patterns() const {
     }
   } else if (m_latency) {
     //
+    // deprecated!!
     // latency loop: incrementing latency
     //               no FEB or ADDC patterns
     //
@@ -437,8 +412,6 @@ ptree nsw::MMTriggerCalib::patterns() const {
       // pos(radius): 0, 2, 4, 6
       // PCB:         1, 2, 3, 4
       // do two radius at a time(pos, pos+1)
-      constexpr bool even = true;
-      constexpr bool odd = !even;
       const int pcb   = pos / 2 + 1;
       const auto pcbstr       = std::to_string(pcb);
       const auto pcbstr_plus4 = std::to_string(pcb+4);
@@ -449,70 +422,72 @@ ptree nsw::MMTriggerCalib::patterns() const {
           continue;
         ptree feb_patt;
         for (auto && [name, geoName] : std::map<std::string, std::string>{
-             { "MMFE8_L1P" + pcbstr       + "_HO" + (even ? "R" : "L"), 
+             // even
+             { "MMFE8_L1P" + pcbstr       + "_HOR",
                fmt::format("L7/R{}", pos)},
-             { "MMFE8_L2P" + pcbstr       + "_HO" + (even ? "L" : "R"), 
+             { "MMFE8_L2P" + pcbstr       + "_HOL",
                fmt::format("L6/R{}", pos)},
-             { "MMFE8_L3P" + pcbstr       + "_HO" + (even ? "R" : "L"), 
+             { "MMFE8_L3P" + pcbstr       + "_HOR",
                fmt::format("L5/R{}", pos)},
-             { "MMFE8_L4P" + pcbstr       + "_HO" + (even ? "L" : "R"), 
+             { "MMFE8_L4P" + pcbstr       + "_HOL",
                fmt::format("L4/R{}", pos)},
-             { "MMFE8_L4P" + pcbstr       + "_IP" + (even ? "R" : "L"), 
+             { "MMFE8_L4P" + pcbstr       + "_IPR",
                fmt::format("L3/R{}", pos)},
-             { "MMFE8_L3P" + pcbstr       + "_IP" + (even ? "L" : "R"), 
+             { "MMFE8_L3P" + pcbstr       + "_IPL",
                fmt::format("L2/R{}", pos)},
-             { "MMFE8_L2P" + pcbstr       + "_IP" + (even ? "R" : "L"), 
+             { "MMFE8_L2P" + pcbstr       + "_IPR",
                fmt::format("L1/R{}", pos)},
-             { "MMFE8_L1P" + pcbstr       + "_IP" + (even ? "L" : "R"), 
+             { "MMFE8_L1P" + pcbstr       + "_IPL",
                fmt::format("L0/R{}", pos)},
-             { "MMFE8_L1P" + pcbstr_plus4 + "_HO" + (even ? "R" : "L"), 
+             { "MMFE8_L1P" + pcbstr_plus4 + "_HOR",
                fmt::format("L7/R{}", pos+8)},
-             { "MMFE8_L2P" + pcbstr_plus4 + "_HO" + (even ? "L" : "R"), 
+             { "MMFE8_L2P" + pcbstr_plus4 + "_HOL",
                fmt::format("L6/R{}", pos+8)},
-             { "MMFE8_L3P" + pcbstr_plus4 + "_HO" + (even ? "R" : "L"), 
+             { "MMFE8_L3P" + pcbstr_plus4 + "_HOR",
                fmt::format("L5/R{}", pos+8)},
-             { "MMFE8_L4P" + pcbstr_plus4 + "_HO" + (even ? "L" : "R"), 
+             { "MMFE8_L4P" + pcbstr_plus4 + "_HOL",
                fmt::format("L4/R{}", pos+8)},
-             { "MMFE8_L4P" + pcbstr_plus4 + "_IP" + (even ? "R" : "L"), 
+             { "MMFE8_L4P" + pcbstr_plus4 + "_IPR",
                fmt::format("L3/R{}", pos+8)},
-             { "MMFE8_L3P" + pcbstr_plus4 + "_IP" + (even ? "L" : "R"), 
+             { "MMFE8_L3P" + pcbstr_plus4 + "_IPL",
                fmt::format("L2/R{}", pos+8)},
-             { "MMFE8_L2P" + pcbstr_plus4 + "_IP" + (even ? "R" : "L"), 
+             { "MMFE8_L2P" + pcbstr_plus4 + "_IPR",
                fmt::format("L1/R{}", pos+8)},
-             { "MMFE8_L1P" + pcbstr_plus4 + "_IP" + (even ? "L" : "R"), 
+             { "MMFE8_L1P" + pcbstr_plus4 + "_IPL",
                fmt::format("L0/R{}", pos+8)},
 
-             { "MMFE8_L1P" + pcbstr       + "_HO" + (odd ? "R" : "L"), 
+             // odd
+             { "MMFE8_L1P" + pcbstr       + "_HOL",
                fmt::format("L7/R{}", pos+1)},
-             { "MMFE8_L2P" + pcbstr       + "_HO" + (odd ? "L" : "R"), 
+             { "MMFE8_L2P" + pcbstr       + "_HOR",
                fmt::format("L6/R{}", pos+1)},
-             { "MMFE8_L3P" + pcbstr       + "_HO" + (odd ? "R" : "L"), 
+             { "MMFE8_L3P" + pcbstr       + "_HOL",
                fmt::format("L5/R{}", pos+1)},
-             { "MMFE8_L4P" + pcbstr       + "_HO" + (odd ? "L" : "R"), 
+             { "MMFE8_L4P" + pcbstr       + "_HOR",
                fmt::format("L4/R{}", pos+1)},
-             { "MMFE8_L4P" + pcbstr       + "_IP" + (odd ? "R" : "L"), 
+             { "MMFE8_L4P" + pcbstr       + "_IPL",
                fmt::format("L3/R{}", pos+1)},
-             { "MMFE8_L3P" + pcbstr       + "_IP" + (odd ? "L" : "R"), 
+             { "MMFE8_L3P" + pcbstr       + "_IPR",
                fmt::format("L2/R{}", pos+1)},
-             { "MMFE8_L2P" + pcbstr       + "_IP" + (odd ? "R" : "L"), 
+             { "MMFE8_L2P" + pcbstr       + "_IPL",
                fmt::format("L1/R{}", pos+1)},
-             { "MMFE8_L1P" + pcbstr       + "_IP" + (odd ? "L" : "R"), 
+             { "MMFE8_L1P" + pcbstr       + "_IPR",
                fmt::format("L0/R{}", pos+1)},
-             { "MMFE8_L1P" + pcbstr_plus4 + "_HO" + (odd ? "R" : "L"), 
+             { "MMFE8_L1P" + pcbstr_plus4 + "_HOL",
                fmt::format("L7/R{}", pos+1+8)},
-             { "MMFE8_L2P" + pcbstr_plus4 + "_HO" + (odd ? "L" : "R"), 
+             { "MMFE8_L2P" + pcbstr_plus4 + "_HOR",
                fmt::format("L6/R{}", pos+1+8)},
-             { "MMFE8_L3P" + pcbstr_plus4 + "_HO" + (odd ? "R" : "L"), 
+             { "MMFE8_L3P" + pcbstr_plus4 + "_HOL",
                fmt::format("L5/R{}", pos+1+8)},
-             { "MMFE8_L4P" + pcbstr_plus4 + "_HO" + (odd ? "L" : "R"), 
+             { "MMFE8_L4P" + pcbstr_plus4 + "_HOR",
                fmt::format("L4/R{}", pos+1+8)},
-             { "MMFE8_L4P" + pcbstr_plus4 + "_IP" + (odd ? "R" : "L"), 
+             { "MMFE8_L4P" + pcbstr_plus4 + "_IPL",
                fmt::format("L3/R{}", pos+1+8)},
-             { "MMFE8_L3P" + pcbstr_plus4 + "_IP" + (odd ? "L" : "R"), 
+             { "MMFE8_L3P" + pcbstr_plus4 + "_IPR",
                fmt::format("L2/R{}", pos+1+8)},
-             { "MMFE8_L2P" + pcbstr_plus4 + "_IP" + (odd ? "R" : "L"), 
+             { "MMFE8_L2P" + pcbstr_plus4 + "_IPL",
                fmt::format("L1/R{}", pos+1+8)},
-             { "MMFE8_L1P" + pcbstr_plus4 + "_IP" + (odd ? "L" : "R"), 
+             { "MMFE8_L1P" + pcbstr_plus4 + "_IPR",
                fmt::format("L0/R{}", pos+1+8)},
               }) {
           ptree febtree;
@@ -533,7 +508,7 @@ ptree nsw::MMTriggerCalib::patterns() const {
           feb_patt.add_child(name, febtree);
         }
 
-        for (auto art_phase : m_phases) {
+        for (const auto& art_phase : m_phases) {
           ptree top_patt;
           top_patt.put("tp_latency", -1);
           top_patt.put("art_input_phase", art_phase);
@@ -558,22 +533,16 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
   //
 
 
-  if (m_addcs.size() == 0)
+  if (getDeviceManager().getAddcs().size() == 0)
     return 0;
-  if (m_tps.size() == 0)
+  if (getDeviceManager().getMMTps().size() == 0)
     return 0;
 
-  nsw::ConfigSender cs;
 
   // sleep time
   constexpr size_t slp = 1;
 
   // collect all TPs from the ARTs
-  std::set< std::pair<std::string, std::string> > tps;
-  for (auto & addc : m_addcs)
-    for (auto art : addc.getARTs())
-      tps.emplace(std::make_pair(art.getOpcServerIp_TP(), art.getOpcNodeId_TP()));
-  auto regAddrVec = nsw::intToByteVector(nsw::mmtp::REG_FIBER_ALIGNMENT, nsw::NUM_BYTES_IN_WORD32, true);
   std::vector<uint8_t> data_bcids = {
     nsw::mmtp::DUMMY_VAL,
     nsw::mmtp::DUMMY_VAL,
@@ -609,32 +578,33 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
       art_name    ->clear();
       art_fiber   ->clear();
       art_aligned ->clear();
-      for (auto tp : tps) {
+      for (const auto& tp : getDeviceManager().getMMTps()) {
         while (m_tpscax_busy)
           usleep(1e5);
         m_tpscax_busy = true;
-        auto outdata = m_dry_run ? std::vector<uint8_t>(nsw::NUM_BYTES_IN_WORD32) :
-          cs.readI2cAtAddress(tp.first, tp.second, regAddrVec.data(), regAddrVec.size(), nsw::NUM_BYTES_IN_WORD32);
+        auto outdata = m_dry_run ? std::uint32_t(0) :
+          tp.readRegister(nsw::mmtp::REG_FIBER_ALIGNMENT);
         data_bcids_total.clear();
-        for (auto reg : nsw::mmtp::REG_FIBER_BCIDS) {
-          auto bxdata = nsw::intToByteVector(reg, nsw::NUM_BYTES_IN_WORD32, nsw::scax::SCAX_LITTLE_ENDIAN);
-          if (!m_dry_run)
-            data_bcids = cs.readI2cAtAddress(tp.first, tp.second, bxdata.data(), bxdata.size(), nsw::NUM_BYTES_IN_WORD32);
-          for (auto byte : data_bcids)
+        for (const auto& reg : nsw::mmtp::REG_FIBER_BCIDS) {
+          if (!m_dry_run) {
+            auto data_bcids_uint32 = tp.readRegister(reg);
+            data_bcids = nsw::intToByteVector(data_bcids_uint32,
+                nsw::NUM_BYTES_IN_WORD32,
+                nsw::scax::SCAX_LITTLE_ENDIAN);
+          }
+          for (const auto& byte : data_bcids)
             data_bcids_total.push_back(byte);
         }
         m_tpscax_busy = false;
-        for (auto & addc : m_addcs) {
-          for (auto art : addc.getARTs()) {
-            if (art.IsMyTP(tp.first, tp.second)) {
-              auto aligned = art.IsAlignedWithTP(outdata);
-              auto tpbcid  = art.BcidFromTp(data_bcids_total);
-              addc_address->push_back(addc.getAddress());
-              art_name    ->push_back(art.getName());
-              art_fiber   ->push_back(art.TP_GBTxAlignmentBit());
-              art_aligned ->push_back(static_cast<int>(aligned));
-              art_bcid    ->push_back(static_cast<int>(tpbcid));
-            }
+        for (const auto & addc : getDeviceManager().getAddcs()) {
+          for (const auto& art : addc.getARTs()) {
+            auto aligned = art.getConfig().IsAlignedWithTP(outdata);
+            auto tpbcid  = art.getConfig().BcidFromTp(data_bcids_total);
+            addc_address->push_back(addc.getScaAddress());
+            art_name    ->push_back(art.getConfig().getName());
+            art_fiber   ->push_back(art.getConfig().TP_GBTxAlignmentBit());
+            art_aligned ->push_back(static_cast<int>(aligned));
+            art_bcid    ->push_back(static_cast<int>(tpbcid));
           }
         }
       }
@@ -703,30 +673,30 @@ int nsw::MMTriggerCalib::read_arts_counters() {
 
     // launch reader threads
     // https://its.cern.ch/jira/browse/OPCUA-2188
-    for (auto & addc : m_addcs)
-      for (auto art: addc.getARTs()) {
-        if(addc.getART(art.index()).SkipConfigure()) {
+    for (const auto & addc : getDeviceManager().getAddcs())
+      for (const auto& art: addc.getARTs()) {
+        if(art.SkipConfigure()) {
           continue;
         }
         threads->push_back(std::async(std::launch::async,
                                       &nsw::MMTriggerCalib::read_art_counters,
-                                      this, addc, art.index()));
+                                      this, art));
       }
 
     // get results
     // 1 TTree entry per ART
     size_t it = 0;
-    for (auto & addc : m_addcs) {
-      for (auto art: addc.getARTs()) {
-        if(addc.getART(art.index()).SkipConfigure()) {
+    for (const auto & addc : getDeviceManager().getAddcs()) {
+      for (const auto& art: addc.getARTs()) {
+        if(art.SkipConfigure()) {
           continue;
         }
         auto result = threads->at(it).get();
-        m_addc_address = addc.getAddress();
+        m_addc_address = addc.getScaAddress();
         m_art_name     = art.getName();
         m_art_index    = it;
         m_art_hits->clear();
-        for (auto val : result)
+        for (const auto& val : result)
           m_art_hits->push_back(val);
         m_art_rtree->Fill();
         it++;
@@ -760,13 +730,9 @@ int nsw::MMTriggerCalib::read_arts_counters() {
 }
 
 // TODO: this function should move to NSWConfiguration
-std::vector<uint32_t> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConfig& addc, int art) const {
+std::vector<uint32_t> nsw::MMTriggerCalib::read_art_counters(const nsw::hw::ART& art) const {
 
   // setup
-  auto cs = std::make_unique<nsw::ConfigSender>();
-  uint8_t art_data[] = {0x0, 0x0};
-  auto opc_ip    = addc.getOpcServerIp();
-  auto sca_addr  = addc.getAddress() + "." + addc.getART(art).getNameCore();
   size_t reg_local  = 0;
   size_t index      = 0;
   uint32_t word32   = 0;
@@ -781,24 +747,19 @@ std::vector<uint32_t> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConf
     if ((reg_local % nsw::art::REG_COUNTERS_SIMULT) > 0)
       continue;
 
-    // register address
-    art_data[0] = static_cast<uint8_t>(reg);
-
     // read the register
     if (!simulation()) {
       try {
-        readback = cs->readI2cAtAddress(opc_ip, sca_addr, art_data,
-                                        nsw::art::ADDRESS_SIZE,
-                                        nsw::art::REG_COUNTERS_SIMULT);
+        readback = art.readRegister(art.getNameCore(),
+            reg,
+            nsw::art::ADDRESS_SIZE,
+            nsw::art::REG_COUNTERS_SIMULT
+            );
       } catch (std::exception & ex) {
-        if (addc.getART(art).MustConfigure()) {
-          throw;
-        } else {
-          ERS_INFO("Allowed to fail: " << ex.what());
-          readback.clear();
-          for (size_t it = 0; it < nsw::art::REG_COUNTERS_SIMULT; it++)
-            readback.push_back(0);
-        }
+        ERS_INFO("Allowed to fail: " << ex.what());
+        readback.clear();
+        for (std::size_t it = 0; it < nsw::art::REG_COUNTERS_SIMULT; ++it)
+          readback.push_back(0);
       }
     } else {
       readback.clear();
@@ -809,7 +770,7 @@ std::vector<uint32_t> nsw::MMTriggerCalib::read_art_counters(const nsw::ADDCConf
     // check the size
     if (readback.size() != static_cast<size_t>(nsw::art::REG_COUNTERS_SIMULT)) {
       std::stringstream msg;
-      msg << "Problem reading ART reg: " << sca_addr;
+      msg << "Problem reading ART " << art.getScaAddress() + "." + art.getNameCore() << " reg " << reg;
       nsw::NSWMMTriggerCalibIssue issue(ERS_HERE, msg.str());
       ers::warning(issue);
       throw std::runtime_error(msg.str());

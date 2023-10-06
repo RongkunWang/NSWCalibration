@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "NSWCalibration/CalibAlg.h"
-#include "NSWConfiguration/TPConfig.h"
+#include "NSWConfiguration/hw/MMTP.h"
 
 #include "ers/Issue.h"
 
@@ -30,7 +30,8 @@ namespace nsw {
 
   public:
     MMTPInputPhase(std::string calibType, const hw::DeviceManager& deviceManager) :
-      CalibAlg(std::move(calibType), deviceManager) {};
+      CalibAlg(std::move(calibType), deviceManager)
+    {};
 
     void setup(const std::string& db) override;
     void configure() override;
@@ -39,8 +40,8 @@ namespace nsw {
     nsw::commands::Commands getAltiSequences() const override;
 
   public:
-    int configure_tp(const nsw::TPConfig & tp, uint32_t phase, uint32_t offset) const;
-    int read_tp     (const nsw::TPConfig & tp, uint32_t phase, uint32_t offset);
+    int configure_tp(const nsw::hw::MMTP & tp, uint32_t phase, uint32_t AddcOffset) const;
+    int read_tp     (const nsw::hw::MMTP & tp, uint32_t phase, uint32_t AddcOffset);
 
   private:
     /// output text file of TP SCAX reads
@@ -63,9 +64,9 @@ namespace nsw {
     static constexpr int m_nphases = 8;
 
     /// number of input phase-offsets available (register 0x0C)
-    static constexpr int m_noffsets = 8;
+    // overridable by PhaseOnly type of calibration
+    int m_noffsets = 8;
 
-    std::vector<nsw::TPConfig> m_tps;
 
     void setupRootFile();
   };

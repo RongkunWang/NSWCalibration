@@ -78,8 +78,6 @@ tdaq_add_library(nswcalib
     src/sTGCPadsHitRateSca.cpp
     src/sTGCPadTdsBcidOffset.cpp
     src/NSWCalibRc.cpp
-    src/MMTPFeedback.cpp
-    src/MMTPStatusRegisters.cpp
     src/RocPhaseCalibrationBase.cpp
     src/RocPhase40MhzCore.cpp
     src/RocPhase160MhzCore.cpp
@@ -129,13 +127,7 @@ tdaq_add_executable(nsw_art_hit_counters app/art_hit_counters.cpp
   LINK_LIBRARIES nswcalib tdaq-common::ers Boost::program_options
 )
 
-tdaq_add_executable(nsw_mmtp_diagnostics app/mmtp_diagnostics.cpp
-  LINK_LIBRARIES nswcalib tdaq-common::ers Boost::program_options
-)
 
-tdaq_add_executable(nsw_mmtp_feedback app/mmtp_feedback.cpp
-  LINK_LIBRARIES nswcalib tdaq-common::ers Boost::program_options
-)
 
 tdaq_add_schema(schema/NSWCalib.schema.xml)
 
