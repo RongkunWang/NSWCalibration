@@ -52,6 +52,7 @@ namespace nsw::commands {
     const std::string StartPG              = "StartPatternGenerator";
     const std::string StopPG               = "StopPatternGenerator";
     const std::string SetPGRepeat          = "SetPatternGeneratorRepeat";
+    const std::string RunPGOneShot         = "RunPatternGeneratorOneShot";
     const std::string SendAsyncShortCmd    = "SendAsyncShortCommand";
     const std::vector<std::string> ArgsBCR = {"0x01"};
     const std::vector<std::string> ArgsECR = {"0x02"};
@@ -65,6 +66,7 @@ namespace nsw::commands {
   const auto actionStartPGIfNotBusy = Command{internal::StartPGIfNotBusy};
   const auto actionStopPG           = Command{internal::StopPG};
   const auto actionSetPGRepeat      = Command{internal::SetPGRepeat, internal::ArgsTrue};
+  const auto actionRunPGOneShot     = Command{internal::RunPGOneShot};
   const auto actionUnsetPGRepeat    = Command{internal::SetPGRepeat, internal::ArgsFalse};
   const auto actionBCR              = Command{internal::SendAsyncShortCmd, internal::ArgsBCR};
   const auto actionECR              = Command{internal::SendAsyncShortCmd, internal::ArgsECR};
