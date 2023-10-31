@@ -166,7 +166,7 @@ void nsw::MMTriggerCalib::unconfigure() {
 nsw::commands::Commands nsw::MMTriggerCalib::getAltiSequences() const {
   if (!(m_latency || m_staircase)) {
     return {{}, // before configure
-            {nsw::commands::actionStartPG}, // during (before acquire)
+            {nsw::commands::actionRunPGOneShot}, // during (before acquire)
             {} // after (before unconfigure)
     };
   }
