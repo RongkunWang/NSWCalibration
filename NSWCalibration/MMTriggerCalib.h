@@ -42,6 +42,7 @@ namespace nsw {
     [[nodiscard]]
     nsw::commands::Commands getAltiSequences() const override;
     void setCalibParamsFromIS(const ISInfoDictionary& is_dictionary, const std::string& is_db_name) override;
+    void setCalibKeyToIS(const ISInfoDictionary&) override;
 
   public:
     boost::property_tree::ptree patterns() const;
