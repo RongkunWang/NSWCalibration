@@ -812,6 +812,6 @@ void nsw::MMTriggerCalib::setCalibParamsFromIS(const ISInfoDictionary& is_dictio
 
 void nsw::MMTriggerCalib::setCalibKeyToIS(const ISInfoDictionary& is_dictionary) {
   // write IS first before configure(), to allow concurrent IS_Publish to happen during send_pulsing_config
-  is_dictionary.checkin("Monitoring.NSWCalibration.triggerCalibrationKey", ISInfoInt(m_counter); 
+  is_dictionary.checkin("Monitoring.NSWCalibration.triggerCalibrationKey", ISInfoInt(m_counter)); 
   //just using calib counter, nothing fancy needed we just want to make sure to identify different iterations 
 }
