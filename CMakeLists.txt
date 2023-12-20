@@ -97,6 +97,7 @@ tdaq_add_library(nswcalib
     PRIVATE
       stdc++fs
 )
+target_compile_definitions(nswcalib INTERFACE TBB_SUPPRESS_DEPRECATED_MESSAGES=1)
 
 ## TODO these lines, and the associated files, are to be removed if no
 ## one complains about missing them
