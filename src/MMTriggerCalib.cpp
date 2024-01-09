@@ -4,7 +4,6 @@
 #include "NSWCalibration/Utility.h"
 
 #include "NSWConfiguration/ConfigReader.h"
-#include "NSWConfiguration/Utility.h"
 #include "NSWConfiguration/TPConstants.h"
 
 #include <unistd.h>
@@ -263,7 +262,7 @@ int nsw::MMTriggerCalib::configure_tps(const ptree& tr) {
     }
     m_tpscax_busy = true;
     if (!m_dry_run) {
-      ERS_INFO("MMTP overflow word: " << tp.readRegister(nsw::mmtp::REG_PIPELINE_OVERFLOW));
+      ERS_INFO("MMTP overflow word: " << tp.readPipeline());
       tp.writeConfiguration(false);
     }
     m_tpscax_busy = false;
@@ -583,18 +582,12 @@ int nsw::MMTriggerCalib::addc_tp_watchdog() {
           usleep(1e5);
         m_tpscax_busy = true;
         auto outdata = m_dry_run ? std::uint32_t(0) :
-          tp.readRegister(nsw::mmtp::REG_FIBER_ALIGNMENT);
-        data_bcids_total.clear();
-        for (const auto& reg : nsw::mmtp::REG_FIBER_BCIDS) {
-          if (!m_dry_run) {
-            auto data_bcids_uint32 = tp.readRegister(reg);
-            data_bcids = nsw::intToByteVector(data_bcids_uint32,
-                nsw::NUM_BYTES_IN_WORD32,
-                nsw::scax::SCAX_LITTLE_ENDIAN);
-          }
-          for (const auto& byte : data_bcids)
-            data_bcids_total.push_back(byte);
+          tp.readFiberAlignment();
+
+        if (!m_dry_run) {
+          data_bcids_total = tp.readFiberBCID();
         }
+
         m_tpscax_busy = false;
         for (const auto & addc : getDeviceManager().getAddcs()) {
           for (const auto& art : addc.getARTs()) {

@@ -1,7 +1,7 @@
 #include "NSWCalibration/MMTPInputPhase.h"
 #include "NSWCalibration/Utility.h"
 
-#include "NSWConfiguration/ConfigReader.h"
+#include "NSWConfiguration/TPConstants.h"
 
 #include <unistd.h>
 #include <stdexcept>
@@ -98,15 +98,15 @@ int nsw::MMTPInputPhase::configure_tp(const nsw::hw::MMTP & tp, const std::uint3
            << " and ADDC offset=" << AddcOffset);
     if (!simulation()) {
       // always set the phase
-      tp.writeRegister(nsw::mmtp::REG_INPUT_PHASE, phase);
+      tp.setInputPhase(phase);
 
       // set offset during non-validation
       if(m_calibType != "MMTPInputPhase_Validation") {
         // in PhaseOnly, ADDC phase will be 0, otherwise, it'll be 0..7
-        tp.writeRegister(nsw::mmtp::REG_INPUT_PHASEADDCOFFSET, AddcOffset);
+        tp.setAddcOffset(AddcOffset);
         // in Phase Only, make sure to set the L1DDC offset to 0 (this calibration is not designed for scanning over L1DDC offset)
         if(m_calibType == "MMTPInputPhase_PhaseOnly") {
-          tp.writeRegister(nsw::mmtp::REG_INPUT_PHASEL1DDCOFFSET, 0);
+          tp.setL1ddcOffset(0);
         }
       }
       // 64 million BC clock with error it will become 1.
@@ -134,20 +134,12 @@ int nsw::MMTPInputPhase::read_tp(const nsw::hw::MMTP & tp, const std::uint32_t p
 
   // for acquiring data
   std::uint32_t data_align{};
-  std::vector<uint8_t> data_bcids_total = {};
 
   // read the 32-bit word of fiber alignment
   if (!simulation())
-    data_align = tp.readRegister(nsw::mmtp::REG_FIBER_ALIGNMENT);
+    data_align = tp.readPipeline();
 
-  // read the 4 32-bit words of fiber BCIDs (4 LSB per fiber)
-  for (auto reg : nsw::mmtp::REG_FIBER_BCIDS) {
-    if (!simulation()) {
-      auto data_bcids = tp.readRegister(reg);
-      for (auto byte : nsw::intToByteVector(data_bcids, nsw::NUM_BYTES_IN_WORD32, nsw::scax::SCAX_LITTLE_ENDIAN))
-        data_bcids_total.push_back(byte);
-    }
-  }
+  std::vector<uint8_t> data_bcids_total = tp.readFiberBCID();
 
   // write the header
   m_myfile << nsw::calib::utils::strf_time() << " " << phase << " " << AddcOffset << " ";
